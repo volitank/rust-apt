@@ -1,21 +1,11 @@
-extern crate cc;
-
-const SRC: &str = "apt-pkg-c/lib.cpp";
-
 fn main() {
-    println!("cargo:rerun-if-changed={}", SRC);
+	cxx_build::bridge("src/raw.rs")
+		.file("apt-pkg-c/apt-pkg.cc")
+		.flag_if_supported("-std=c++14")
+		.compile("rust-apt");
 
-    let mut build = cc::Build::new();
-    build.file(SRC);
-    build.cpp(true);
-    build.flag("-std=gnu++11");
-
-    #[cfg(feature = "ye-olde-apt")]
-    {
-        build.define("YE_OLDE_APT", "1");
-    }
-
-    build.compile("libapt-pkg-c.a");
-
-    println!("cargo:rustc-link-lib=apt-pkg");
+	println!("cargo:rustc-link-lib=apt-pkg");
+	println!("cargo:rerun-if-changed=src/raw.rs");
+	println!("cargo:rerun-if-changed=apt-pkg-c/apt-pkg.cc");
+	println!("cargo:rerun-if-changed=apt-pkg-c/apt-pkg.h");
 }

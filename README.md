@@ -1,56 +1,92 @@
-This crate provides bindings to `libapt-pkg`.
+# RUST-APT
 
-[![Build status](https://api.travis-ci.org/FauxFaux/apt-pkg-native-rs.png)](https://travis-ci.org/FauxFaux/apt-pkg-native-rs)
-[![](http://meritbadge.herokuapp.com/apt-pkg-native)](https://crates.io/crates/apt-pkg-native)
+rust-apt provides bindings to `libapt-pkg`.
 
+Currently there isn't much functionality, only basic package querying.
 
-### Documentation and Examples
+The goal is to eventually have all of the functionality that `python-apt` has.
 
-See the `examples/` folder for some partial implementations of some commands.
+This is a fork of https://github.com/FauxFaux/apt-pkg-native-rs, which was originally designed
+to function more like `libapt-pkg` itself. `rust-apt` will is designed to be more intuitive
 
-https://docs.rs/apt-pkg-native
+A big thanks is in order for FauxFaux. His original crate is a huge contribution to this project.
+It likely would not have gotten done with out him.
 
-### License Note
+*This Crate is Under Active Development*
+This API is far from what could be considered stable.
+If you plan on using it in a real project make sure to pin the exact version.
+Breaking changes will be frequent and potentially unnannouned as the API comes together.
 
-While the code in this crate is available under a permissive MIT license,
-  it is useless without [`libapt-pkg`](https://tracker.debian.org/pkg/apt),
-  which is GPL2+.
+Additionally, if you do anything 'wrong', `libapt-pkg` will just segfault.
 
-### Building
+# Documentation and Examples
 
-`libapt-pkg-dev` must be installed. The [`cc`](https://crates.io/crates/cc)
-  crate is used to try and find a native compiler.
+This API doesn't have much documentation, but it's also not very complicated at the moment.
+Here is a simple example of how you might use it.
 
-The `ye-olde-apt` feature provides support for `apt <1.2` (Ubuntu 14.04 (Trusty),
-Debian 7 (Jessie) (2015)). This works by just deleting methods which are not
-available in that version. See
-[#2](https://github.com/FauxFaux/apt-pkg-native-rs/issues/2#issuecomment-351180818).
+### Getting a sorted package BTreeMap
+`cache.sorted()` takes a struct that sorts the packages.
+You will recieve a `BTreeMap<PkgName, Package>` sorted by package name.
 
+These are sorted before the package objects are created, aking this extremely fast.
+Currently only upgradable and virtual are supported.
 
-### Thread safety
+`virtual_pkgs = false` will make sure not to include them.
+`upgradable = true` will *ONLY* include packages that are upgradable.
 
-It is intended that the crate should be usable from multiple threads.
-However, this is generally implemented using singletons, which may be really
-annoying for your use-case.
+```rust
+use rust_apt::cache::{Cache, PackageSort};
 
-The current way the singleton is managed is awful, and it's not been fixed
-while I've been learning about the problems. A major version bump, and a
-proper singleton, may resolve some of the issues. This needs to be done eventually.
+let cache = Cache::new();
 
-`apt` does not have a concurrency model: you may not use threads.
+let sort = PackageSort{upgradable: true, virtual_pkgs: false};
 
-Since `apt` 1.4 or 1.5 (in Debian Stretch (2017), but not in Xenial 16.04),
-some operations are thread safe: it should be possible to initialise the cache
-twice in parallel. As these versions of `apt` are not widespread, the API of
-this crate does not attempt to expose this.
-
-### Switching distro with `docker`
-
-`examples/on-sid` has a docker file which builds a minimum Debian image with
-typical package lists downloaded. You can run a tool in it, from this directory,
-by:
-
+for pkg in cache.sorted(sort).values() {
+	println!("This Package is Upgradable! {}", pkg.name);
+	if let Some(candidate) = pkg.candidate() {
+		println!("{}", candidate);
+	}
+}
 ```
-(cd examples/on-sid && make)
-docker run -v $(pwd):/mnt sid-sources-list /mnt/target/release/examples/sources
+
+### Getting all packages
+The `cache.packages()` method is an iterator of all packages, unordered and includes virtual.
+
+Currently this is the slowest method of getting a package list.
+It is planned to add a pre sorter to this much like the `cache.sorted()` but not sorting by package name.
+This would then become the fastest method of getting a package list.
+
+Here is how you could do something similar to the above example.
+
+```rust
+use rust_apt::cache::Cache;
+
+let cache = Cache::new();
+
+for pkg in cache.packages() {
+  if pkg.is_upgradable() && pkg.has_versions {
+    println!("{}", pkg.name)
+  }
+}
 ```
+
+# License Note
+
+This crate is licensed under the GPLv3 or later.
+
+The original project was under the MIT License.
+This license has been included in the source code to comply.
+
+Basically all that remains from the original project are some of the C++ bindings. If
+Your intentions are to use any of the code and maintain an MIT license you need to make
+sure that you pull directly from the original project. Any code taken from here will need
+to comply with the GPLv3 or later.
+
+# Building
+
+`libapt-pkg-dev` must be installed.
+
+# Thread safety
+
+It is not advised to use this crate in multiple threads. You're free to try it
+but Development will not be focused on making this crate thread safe.

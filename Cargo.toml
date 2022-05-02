@@ -1,32 +1,23 @@
 [package]
-authors = ["Chris West (Faux) <git@goeswhere.com>"]
+authors = [
+    "Blake Lee (Volitank) <blake@volian.org>",
+    "Chris West (Faux) <git@goeswhere.com>"
+]
 categories = [
     "api-bindings",
     "os",
 ]
 description = "Bindings for libapt-pkg"
-license = "MIT"
-name = "apt-pkg-native"
+license = "GPL-3.0-or-later"
+name = "rust-apt"
 readme = "README.md"
-repository = "https://github.com/FauxFaux/apt-pkg-native-rs"
-version = "0.3.2"
+repository = "https://gitlab.com/volian/rust-apt"
+version = "0.1.0"
 
-edition = "2018"
-
-[badges.travis-ci]
-repository = "FauxFaux/apt-pkg-native-rs"
-
-[build-dependencies]
-cc = "1.0"
+edition = "2021"
 
 [dependencies]
-lazy_static = "1"
-libc = "0.2"
+cxx = "1.0"
 
-[dev-dependencies]
-boolinator = "2"
-itertools = "0.9"
-
-[features]
-default = []
-ye-olde-apt = []
+[build-dependencies]
+cxx-build = "1.0"
