@@ -11,7 +11,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Package<'a> {
 	// Commented attributes are to be implemented
-	pub pkg_ptr: *mut apt::PPkgIterator,
+	pub pkg_ptr: *mut apt::PkgIterator,
 	//	_cache: PhantomData<&'a Cache>,
 	_lifetime: &'a PhantomData<Cache>,
 	_cache: *mut apt::PCache,
@@ -30,7 +30,7 @@ pub struct Package<'a> {
 	//pub _versions: Vec<Version>,
 }
 impl<'a> Package<'a> {
-	pub fn new(_cache: *mut apt::PCache, pkg_ptr: *mut apt::PPkgIterator) -> Package<'a> {
+	pub fn new(_cache: *mut apt::PCache, pkg_ptr: *mut apt::PkgIterator) -> Package<'a> {
 		unsafe {
 			Package {
 				// Get a new pointer for the package
@@ -74,7 +74,7 @@ impl<'a> Package<'a> {
 	}
 
 	/// Returns a version list starting with the newest and ending with the oldest.
-	pub fn versions(&self, pkg_ptr: *mut apt::PPkgIterator) -> Vec<Version> {
+	pub fn versions(&self, pkg_ptr: *mut apt::PkgIterator) -> Vec<Version> {
 		let mut version_map = Vec::new();
 		unsafe {
 			let version_iterator = apt::pkg_version_list(pkg_ptr);
@@ -117,7 +117,7 @@ impl<'a> fmt::Display for Package<'a> {
 #[derive(Debug)]
 pub struct PackageFile {
 	parser: *mut apt::PkgRecords,
-	file: *mut apt::PPkgFileIterator,
+	file: *mut apt::PkgFileIterator,
 }
 
 // impl fmt::Display for PackageFile {
@@ -129,7 +129,7 @@ pub struct PackageFile {
 
 #[derive(Debug)]
 pub struct Version {
-	pub ptr: *mut apt::PVerIterator,
+	pub ptr: *mut apt::VerIterator,
 	pub cache: *mut apt::PCache,
 	//	pub parent_pkg: &'a Package<'a>,
 	//pub name: String,
@@ -160,7 +160,7 @@ pub struct Version {
 }
 
 impl Version {
-	fn new(cache: *mut apt::PCache, ver_ptr: *mut apt::PVerIterator) -> Self {
+	fn new(cache: *mut apt::PCache, ver_ptr: *mut apt::VerIterator) -> Self {
 		let mut package_files = Vec::new();
 		unsafe {
 			let ver_file = apt::ver_file(ver_ptr);
@@ -289,7 +289,7 @@ impl Records {
 #[derive(Debug)]
 pub struct Cache {
 	pub _cache: *mut apt::PCache,
-	pointers: Vec<*mut apt::PPkgIterator>,
+	pointers: Vec<*mut apt::PkgIterator>,
 	pub _records: Records,
 }
 
@@ -320,7 +320,7 @@ impl Cache {
 		}
 	}
 
-	pub fn validate(&self, ver: *mut apt::PVerIterator) -> bool {
+	pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {
 		unsafe { apt::validate(ver, self._cache) }
 	}
 
@@ -355,7 +355,7 @@ impl Cache {
 	/// Internal method for getting a package by name
 	/// Find a package by name and additionally architecture.
 	/// The returned iterator will either be at the end, or at a matching package.
-	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PPkgIterator {
+	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PkgIterator {
 		unsafe {
 			let name = ffi::CString::new(name).unwrap();
 			if !arch.is_empty() {
@@ -405,7 +405,7 @@ impl Cache {
 			.map(|pkg_ptr| Package::new(self._cache, *pkg_ptr))
 	}
 
-	fn get_pointers(pkg_iterator: *mut apt::PPkgIterator) -> Vec<*mut apt::PPkgIterator> {
+	fn get_pointers(pkg_iterator: *mut apt::PkgIterator) -> Vec<*mut apt::PkgIterator> {
 		let mut package_map = Vec::new();
 		unsafe {
 			let mut first = true;
@@ -421,6 +421,7 @@ impl Cache {
 				}
 				package_map.push(apt::pkg_clone(pkg_iterator));
 			}
+			apt::pkg_release(pkg_iterator);
 		}
 		package_map
 	}

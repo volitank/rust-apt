@@ -41,7 +41,7 @@ struct PCache {
 	pkgRecords *records;
 };
 
-struct PPkgIterator {
+struct PkgIterator {
 	// Owned by us.
 	pkgCache::PkgIterator iterator;
 
@@ -49,12 +49,12 @@ struct PPkgIterator {
 //	PCache *pcache;
 };
 
-struct PVerIterator {
+struct VerIterator {
 	// Owned by us.
 	pkgCache::VerIterator iterator;
 
 	// Borrowed from PCache.
-	pkgCache::PkgIterator *pkg;
+	//pkgCache::PkgIterator *pkg;
 
 	// Borrow of "static" PCache.
 //	PCache *cache;
@@ -71,7 +71,7 @@ struct PVerIterator {
 //	PCache *cache;
 // };
 
-struct PVerFileIterator {
+struct VerFileIterator {
 	// Owned by us.
 	pkgCache::VerFileIterator iterator;
 
@@ -79,12 +79,12 @@ struct PVerFileIterator {
 //	PCache *cache;
 };
 
-struct PPkgFileIterator {
+struct PkgFileIterator {
 	// Owned by us.
 	pkgCache::PkgFileIterator iterator;
 };
 
-struct PVerFileParser {
+struct VerFileParser {
 	pkgRecords::Parser &parser;
 };
 
@@ -151,7 +151,7 @@ PCache *pkg_cache_create() {
 	return ret;
 }
 
-bool pkg_is_upgradable(PCache *cache, PPkgIterator *wrapper) {
+bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
 	pkgCache::PkgIterator &pkg = wrapper->iterator;
 	if (pkg.CurrentVer() == 0) { return false; }
 	return (*cache->cache_file)[pkg].Upgradable();
@@ -169,116 +169,109 @@ int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *
 	return cache->cache->VS->DoCmpVersion(left, left+strlen(left), right, right+strlen(right));
 }
 
-PPkgIterator *pkg_begin(PCache *pcache) {
-	PPkgIterator *wrapper = new PPkgIterator();
+PkgIterator *pkg_begin(PCache *pcache) {
+	PkgIterator *wrapper = new PkgIterator();
 	wrapper->iterator = pcache->cache->PkgBegin();
-//	wrapper->cache = cache;
 	return wrapper;
 	}
 
-PPkgIterator *pkg_cache_find_name(PCache *pcache, const char *name) {
-	PPkgIterator *wrapper = new PPkgIterator();
+PkgIterator *pkg_cache_find_name(PCache *pcache, const char *name) {
+	PkgIterator *wrapper = new PkgIterator();
 	wrapper->iterator = pcache->cache->FindPkg(name);
 	return wrapper;
 }
 
-PPkgIterator*pkg_cache_find_name_arch(PCache *pcache, const char *name, const char *arch) {
-	PPkgIterator *wrapper = new PPkgIterator();
+PkgIterator*pkg_cache_find_name_arch(PCache *pcache, const char *name, const char *arch) {
+	PkgIterator *wrapper = new PkgIterator();
 	wrapper->iterator = pcache->cache->FindPkg(name, arch);
 	return wrapper;
 }
 
-PPkgIterator *pkg_clone(PPkgIterator *iterator) {
-	PPkgIterator *wrapper = new PPkgIterator();
+PkgIterator *pkg_clone(PkgIterator *iterator) {
+	PkgIterator *wrapper = new PkgIterator();
 	wrapper->iterator = iterator->iterator;
 	return wrapper;
 }
 
-void pkg_release(PPkgIterator *wrapper) {
+void pkg_release(PkgIterator *wrapper) {
 	delete wrapper;
 }
 
-void pkg_next(PPkgIterator *wrapper) {
+void pkg_next(PkgIterator *wrapper) {
 	++wrapper->iterator;
 }
 
-void ver_next(PVerIterator *wrapper) {
+void ver_next(VerIterator *wrapper) {
 	++wrapper->iterator;
 }
 
-bool pkg_end(PPkgIterator *wrapper) {
+bool pkg_end(PkgIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
-bool ver_end(PVerIterator *wrapper) {
+bool ver_end(VerIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
-bool pkg_has_versions(PPkgIterator *wrapper) {
+bool pkg_has_versions(PkgIterator *wrapper) {
 	return wrapper->iterator.VersionList().end() == false;
 }
 
-bool pkg_has_provides(PPkgIterator *wrapper) {
+bool pkg_has_provides(PkgIterator *wrapper) {
 	return wrapper->iterator.ProvidesList().end() == false;
 }
 
-const char *pkg_name(PPkgIterator *wrapper) {
+const char *pkg_name(PkgIterator *wrapper) {
 	return wrapper->iterator.Name();
 }
 
-rust::string get_fullname(PPkgIterator *wrapper, bool pretty) {
+rust::string get_fullname(PkgIterator *wrapper, bool pretty) {
 	return wrapper->iterator.FullName(pretty);
 }
 
-const char *pkg_arch(PPkgIterator *wrapper) {
+const char *pkg_arch(PkgIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
 
-PVerIterator *pkg_current_version(PPkgIterator *wrapper) {
-	PVerIterator *new_wrapper = new PVerIterator();
+VerIterator *pkg_current_version(PkgIterator *wrapper) {
+	VerIterator *new_wrapper = new VerIterator();
 	new_wrapper->iterator = wrapper->iterator.CurrentVer();
-	new_wrapper->pkg = &wrapper->iterator;
-//	new_wrapper->cache = wrapper->pcache;
 	return new_wrapper;
 }
 
-PVerIterator *pkg_candidate_version(PCache *cache, PPkgIterator *wrapper) {
-	PVerIterator *new_wrapper = new PVerIterator();
+VerIterator *pkg_candidate_version(PCache *cache, PkgIterator *wrapper) {
+	VerIterator *new_wrapper = new VerIterator();
 	new_wrapper->iterator = cache->cache_file->GetPolicy()->GetCandidateVer(wrapper->iterator);
-	new_wrapper->pkg = &wrapper->iterator;
-//	new_wrapper->cache = wrapper->pcache;
 	return new_wrapper;
 }
 
-PVerIterator *pkg_version_list(PPkgIterator *wrapper) {
-	PVerIterator *new_wrapper = new PVerIterator();
+VerIterator *pkg_version_list(PkgIterator *wrapper) {
+	VerIterator *new_wrapper = new VerIterator();
 	new_wrapper->iterator = wrapper->iterator.VersionList();
-	new_wrapper->pkg = &wrapper->iterator;
-//	new_wrapper->cache = wrapper->pcache;
 	return new_wrapper;
 }
 
-void ver_release(PVerIterator *wrapper) {
+void ver_release(VerIterator *wrapper) {
 	delete wrapper;
 }
 
-const char *ver_str(PVerIterator *wrapper) {
+const char *ver_str(VerIterator *wrapper) {
 	return wrapper->iterator.VerStr();
 }
 
-const char *ver_section(PVerIterator *wrapper) {
+const char *ver_section(VerIterator *wrapper) {
    return wrapper->iterator.Section();
 }
 
-const char *ver_priority_str(PVerIterator *wrapper) {
+const char *ver_priority_str(VerIterator *wrapper) {
 	return wrapper->iterator.PriorityType();
 }
 
-const char *ver_source_package(PVerIterator *wrapper) {
+const char *ver_source_package(VerIterator *wrapper) {
 	return wrapper->iterator.SourcePkgName();
 }
 
-const char *ver_source_version(PVerIterator *wrapper) {
+const char *ver_source_version(VerIterator *wrapper) {
 	return wrapper->iterator.SourceVerStr();
 }
 
@@ -286,35 +279,35 @@ const char *ver_source_version(PVerIterator *wrapper) {
 // 	if ((I).Cache() != &depcache->GetCache()) return(false);
 // 	return(true); }
 
-template<typename Iterator>
-static bool _validate(Iterator iter, pkgDepCache *depcache) {
-	if (iter.Cache() != &depcache->GetCache())
-	{return false;} else {return true;}
-}
+// template<typename Iterator>
+// static bool _validate(Iterator iter, pkgDepCache *depcache) {
+// 	if (iter.Cache() != &depcache->GetCache())
+// 	{return false;} else {return true;}
+// }
 
-bool validate(PVerIterator *wrapper, PCache *pcache) {
-	// if (wrapper->iterator.Cache() != &pcache->depcache->GetCache())
-	// {return false;} else {return true;}
-	return _validate(wrapper->iterator, pcache->depcache);
-}
+// bool validate(VerIterator *wrapper, PCache *pcache) {
+// 	// if (wrapper->iterator.Cache() != &pcache->depcache->GetCache())
+// 	// {return false;} else {return true;}
+// 	return _validate(wrapper->iterator, pcache->depcache);
+// }
 
-// bool validate(PVerIterator *wrapper, PCache *pcache) {
+// bool validate(VerIterator *wrapper, PCache *pcache) {
 // 	if (wrapper->iterator.Cache() != &pcache->depcache->GetCache())
 // 	{return false;} else {return true;}
 // }
 
-int32_t ver_priority(PCache *pcache, PVerIterator *wrapper) {
+int32_t ver_priority(PCache *pcache, VerIterator *wrapper) {
 	// The priority is a "short", which is roughly a (signed) int16_t;
 	// going bigger just in case
 	pkgCache::VerIterator &ver = wrapper->iterator;
 	return pcache->cache_file->GetPolicy()->GetPriority(ver);
 }
 
-const char *ver_arch(PVerIterator *wrapper) {
+const char *ver_arch(VerIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
 
-// PDepIterator *ver_iter_dep_iter(PVerIterator *wrapper) {
+// PDepIterator *ver_iter_dep_iter(VerIterator *wrapper) {
 // 	PDepIterator *new_wrapper = new PDepIterator();
 // 	new_wrapper->iterator = wrapper->iterator.DependsList();
 // //	new_wrapper->cache = wrapper->cache;
@@ -333,8 +326,8 @@ const char *ver_arch(PVerIterator *wrapper) {
 // 	return wrapper->iterator.end();
 // }
 
-// PPkgIterator *dep_iter_target_pkg(PDepIterator *wrapper) {
-// 	PPkgIterator *new_wrapper = new PPkgIterator();
+// PkgIterator *dep_iter_target_pkg(PDepIterator *wrapper) {
+// 	PkgIterator *new_wrapper = new PkgIterator();
 // 	new_wrapper->iterator = wrapper->iterator.TargetPkg();
 // //	new_wrapper->cache = wrapper->cache;
 // 	return new_wrapper;
@@ -352,35 +345,35 @@ const char *ver_arch(PVerIterator *wrapper) {
 // 	return wrapper->iterator.DepType();
 // }
 
-PVerFileIterator *ver_file(PVerIterator *wrapper) {
-	PVerFileIterator *new_wrapper = new PVerFileIterator();
+VerFileIterator *ver_file(VerIterator *wrapper) {
+	VerFileIterator *new_wrapper = new VerFileIterator();
 	new_wrapper->iterator = wrapper->iterator.FileList();
 	return new_wrapper;
 }
 
-void ver_file_release(PVerFileIterator *wrapper) {
+void ver_file_release(VerFileIterator *wrapper) {
 	delete wrapper;
 }
 
-void ver_file_next(PVerFileIterator *wrapper) {
+void ver_file_next(VerFileIterator *wrapper) {
 	++wrapper->iterator;
 }
 
-bool ver_file_end(PVerFileIterator *wrapper) {
+bool ver_file_end(VerFileIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
-pkgRecords::Parser *ver_file_lookup(PCache *pcache, PVerFileIterator *wrapper) {
+pkgRecords::Parser *ver_file_lookup(PCache *pcache, VerFileIterator *wrapper) {
 	return &pcache->records->Lookup(wrapper->iterator);
 }
 
-PPkgFileIterator *ver_pkg_file(PVerFileIterator *wrapper) {
-	PPkgFileIterator *new_wrapper = new PPkgFileIterator();
+PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
+	PkgFileIterator *new_wrapper = new PkgFileIterator();
 	new_wrapper->iterator = wrapper->iterator.File();
 	return new_wrapper;
 }
 
-pkgIndexFile *get_index_file(PCache *pcache, PPkgFileIterator *pkg_file) {
+pkgIndexFile *get_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 	//pkgCache *cache = pkg_file->iterator.Cache();
 	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
 	pkgIndexFile *Index;
@@ -388,7 +381,7 @@ pkgIndexFile *get_index_file(PCache *pcache, PPkgFileIterator *pkg_file) {
 	return Index;
 }
 
-const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PPkgFileIterator *file) {
+const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PkgFileIterator *file) {
 	pkgCache::PkgFileIterator pkg_file = file->iterator;
 	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
 	pkgIndexFile *Index;
@@ -408,21 +401,21 @@ const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PPkgFileIterator
 // }
 
 
-// const char *ver_file_parser_short_desc(PVerFileParser *parser) {
+// const char *ver_file_parser_short_desc(VerFileParser *parser) {
 // 	std::string desc = parser->parser->ShortDesc();
 // 	return to_c_string(desc);
 // }
 
-// const char *ver_file_parser_long_desc(PVerFileParser *parser) {
+// const char *ver_file_parser_long_desc(VerFileParser *parser) {
 // 	std::string desc = parser->parser->LongDesc();
 // 	return to_c_string(desc);
 // }
 
 
 
-// PCache.cache_file, Pcache.records(cachefile), ppkgIterator.iterator
+// PCache.cache_file, Pcache.records(cachefile), pkgIterator.iterator
 //const char *GetLongDescription(pkgCacheFile &CacheFile, pkgRecords &records, pkgCache::PkgIterator P) {
-rust::string long_desc(PCache *cache, PPkgIterator *wrapper) {
+rust::string long_desc(PCache *cache, PkgIterator *wrapper) {
 	pkgCache::PkgIterator P;
 	//pkgCacheFile CacheFile;
 	//pkgRecords & records;
@@ -454,64 +447,64 @@ rust::string long_desc(PCache *cache, PPkgIterator *wrapper) {
 	return EmptyDescription;
 }
 
-// const char *ver_file_parser_maintainer(PVerFileParser *parser) {
+// const char *ver_file_parser_maintainer(VerFileParser *parser) {
 // 	std::string maint = parser->parser->Maintainer();
 // 	return to_c_string(maint);
 // }
 
-// const char *ver_file_parser_homepage(PVerFileParser *parser) {
+// const char *ver_file_parser_homepage(VerFileParser *parser) {
 // 	std::string hp = parser->parser->Homepage();
 // 	return to_c_string(hp);
 // }
 
-void pkg_file_iter_release(PPkgFileIterator *wrapper) {
+void pkg_file_iter_release(PkgFileIterator *wrapper) {
 	delete wrapper;
 }
 
-void pkg_file_iter_next(PPkgFileIterator *wrapper) {
+void pkg_file_iter_next(PkgFileIterator *wrapper) {
 	++wrapper->iterator;
 }
 
-bool pkg_file_iter_end(PPkgFileIterator *wrapper) {
+bool pkg_file_iter_end(PkgFileIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
-const char *pkg_file_iter_file_name(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_file_name(PkgFileIterator *wrapper) {
 	return wrapper->iterator.FileName();
 }
 
-const char *pkg_file_iter_archive(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_archive(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Archive();
 }
 
-const char *pkg_file_iter_version(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_version(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Version();
 }
 
-const char *pkg_file_iter_origin(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_origin(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Origin();
 }
 
-const char *pkg_file_iter_codename(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_codename(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Codename();
 }
 
-const char *pkg_file_iter_label(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_label(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Label();
 }
 
-const char *pkg_file_iter_site(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_site(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Site();
 }
 
-const char *pkg_file_iter_component(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_component(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Component();
 }
 
-const char *pkg_file_iter_architecture(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_architecture(PkgFileIterator *wrapper) {
 	return wrapper->iterator.Architecture();
 }
 
-const char *pkg_file_iter_index_type(PPkgFileIterator *wrapper) {
+const char *pkg_file_iter_index_type(PkgFileIterator *wrapper) {
 	return wrapper->iterator.IndexType();
 }
