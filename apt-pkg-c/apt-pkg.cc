@@ -193,6 +193,12 @@ PkgIterator *pkg_clone(PkgIterator *iterator) {
 	return wrapper;
 }
 
+VerIterator *ver_clone(VerIterator *iterator) {
+	VerIterator *wrapper = new VerIterator();
+	wrapper->iterator = iterator->iterator;
+	return wrapper;
+}
+
 void pkg_release(PkgIterator *wrapper) {
 	delete wrapper;
 }
@@ -252,6 +258,9 @@ VerIterator *pkg_version_list(PkgIterator *wrapper) {
 }
 
 void ver_release(VerIterator *wrapper) {
+	// Don't free if the iterator doesn't exist
+	// Fixed by cloning the version iterator for now.
+	// if (wrapper->iterator == 0) { return; }
 	delete wrapper;
 }
 

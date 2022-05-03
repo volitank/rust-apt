@@ -55,6 +55,7 @@ pub mod apt {
 		// Package iterator accessors
 		// ==========================
 		pub unsafe fn pkg_clone(iterator: *mut PkgIterator) -> *mut PkgIterator;
+		pub unsafe fn ver_clone(iterator: *mut VerIterator) -> *mut VerIterator;
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_is_upgradable(cache: *mut PCache, iterator: *mut PkgIterator) -> bool;

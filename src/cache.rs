@@ -74,14 +74,14 @@ impl<'a> Package<'a> {
 	}
 
 	/// Returns a version list starting with the newest and ending with the oldest.
-	pub fn versions(&self, pkg_ptr: *mut apt::PkgIterator) -> Vec<Version> {
+	pub fn versions(&self) -> Vec<Version> {
 		let mut version_map = Vec::new();
 		unsafe {
-			let version_iterator = apt::pkg_version_list(pkg_ptr);
+			let version_iterator = apt::pkg_version_list(self.pkg_ptr);
 			let mut first = true;
 			loop {
 				if !first {
-					apt::ver_next(version_iterator)
+					apt::ver_next(version_iterator);
 				}
 				first = false;
 				if apt::ver_end(version_iterator) {
@@ -182,7 +182,7 @@ impl Version {
 				});
 			}
 			Self {
-				ptr: ver_ptr,
+				ptr: apt::ver_clone(ver_ptr),
 				cache: cache,
 				// Make this a pointer to the parent package
 				// phantom data probably
@@ -376,7 +376,6 @@ impl Cache {
 				if !first {
 					apt::pkg_next(pkg_iterator);
 				}
-
 				first = false;
 				if apt::pkg_end(pkg_iterator) {
 					break;

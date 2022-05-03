@@ -41,6 +41,7 @@ PkgIterator *pkg_cache_find_name(PCache *cache, const char *name);
 
 PkgIterator *pkg_cache_find_name_arch(PCache *cache, const char *name, const char *arch);
 PkgIterator *pkg_clone(PkgIterator *iterator);
+VerIterator *ver_clone(VerIterator *iterator);
 void pkg_release(PkgIterator *iterator);
 
 // apt iterator step and check
