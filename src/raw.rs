@@ -22,8 +22,10 @@ pub mod apt {
 
 		pub fn init_config_system();
 		pub fn pkg_cache_create() -> *mut PCache;
-		pub unsafe fn depcache_init(pcache: *mut PCache);
 		pub unsafe fn pkg_cache_release(cache: *mut PCache);
+		pub unsafe fn pkg_records_create(pcache: *mut PCache) -> *mut PkgRecords;
+		pub unsafe fn pkg_records_release(records: *mut PkgRecords);
+		pub unsafe fn depcache_init(pcache: *mut PCache);
 
 		pub unsafe fn pkg_cache_compare_versions(
 			cache: *mut PCache,
@@ -87,9 +89,9 @@ pub mod apt {
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
 		pub unsafe fn ver_uri(
 			pcache: *mut PCache,
-			parser: *mut PkgRecords,
+			records: *mut PkgRecords,
 			pkgfile: *mut PkgFileIterator,
-		) -> *const c_char;
+		) -> String;
 
 		// Dependency iterators
 		// ====================
@@ -114,18 +116,20 @@ pub mod apt {
 		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
 		pub unsafe fn ver_file_end(iterator: *mut VerFileIterator) -> bool;
 
-		pub unsafe fn ver_file_lookup(
-			cache: *mut PCache,
-			iterator: *mut VerFileIterator,
-		) -> *mut PkgRecords;
+		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);
+		pub unsafe fn pkg_record_release(parser: *mut PkgRecords);
 		// pub fn ver_file_parser_short_desc(parser: VerFileParser) -> *mut c_char;
 		// pub fn ver_file_parser_long_desc(parser: VerFileParser) -> *mut c_char;
-		pub unsafe fn long_desc(cache: *mut PCache, iterator: *mut PkgIterator) -> String;
+		pub unsafe fn long_desc(
+			cache: *mut PCache,
+			records: *mut PkgRecords,
+			iterator: *mut PkgIterator,
+		) -> String;
 		// pub fn ver_file_parser_maintainer(parser: VerFileParser) -> *mut c_char;
 		// pub fn ver_file_parser_homepage(parser: VerFileParser) -> *mut c_char;
 
 		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
-		pub unsafe fn pkg_file_iter_release(iterator: *mut PkgFileIterator);
+		pub unsafe fn pkg_file_release(iterator: *mut PkgFileIterator);
 
 		pub unsafe fn pkg_file_iter_next(iterator: *mut PkgFileIterator);
 		pub unsafe fn pkg_file_iter_end(iterator: *mut PkgFileIterator) -> bool;

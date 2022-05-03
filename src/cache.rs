@@ -30,11 +30,20 @@ pub struct Package<'a> {
 	//pub _versions: Vec<Version>,
 }
 impl<'a> Package<'a> {
-	pub fn new(_cache: *mut apt::PCache, pkg_ptr: *mut apt::PkgIterator) -> Package<'a> {
+	pub fn new(
+		_cache: *mut apt::PCache,
+		pkg_ptr: *mut apt::PkgIterator,
+		clone: bool,
+	) -> Package<'a> {
 		unsafe {
 			Package {
 				// Get a new pointer for the package
-				pkg_ptr: apt::pkg_clone(pkg_ptr),
+				pkg_ptr: if clone {
+					apt::pkg_clone(pkg_ptr)
+				} else {
+					pkg_ptr
+				},
+				//pkg_ptr: pkg_ptr,
 				_lifetime: &PhantomData,
 				_cache: _cache,
 				name: apt::get_fullname(pkg_ptr, true),
@@ -55,7 +64,7 @@ impl<'a> Package<'a> {
 			if apt::ver_end(ver) {
 				return None;
 			}
-			Some(Version::new(self._cache, ver))
+			Some(Version::new(self._cache, ver, false))
 		}
 	}
 
@@ -65,7 +74,7 @@ impl<'a> Package<'a> {
 			if apt::ver_end(ver) {
 				return None;
 			}
-			Some(Version::new(self._cache, ver))
+			Some(Version::new(self._cache, ver, false))
 		}
 	}
 
@@ -87,8 +96,9 @@ impl<'a> Package<'a> {
 				if apt::ver_end(version_iterator) {
 					break;
 				}
-				version_map.push(Version::new(self._cache, version_iterator));
+				version_map.push(Version::new(self._cache, version_iterator, true));
 			}
+			apt::ver_release(version_iterator);
 		}
 		version_map
 	}
@@ -116,16 +126,23 @@ impl<'a> fmt::Display for Package<'a> {
 
 #[derive(Debug)]
 pub struct PackageFile {
-	parser: *mut apt::PkgRecords,
 	file: *mut apt::PkgFileIterator,
 }
 
-// impl fmt::Display for PackageFile {
-// 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-// 		write!(f, "parser: {:?}, package file: {:?}", self.parser, self.file)?;
-// 		Ok(())
-// 	}
-// }
+impl Drop for PackageFile {
+	fn drop(&mut self) {
+		unsafe {
+			apt::pkg_file_release(self.file);
+		}
+	}
+}
+
+impl fmt::Display for PackageFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "package file: {:?}", self.file)?;
+		Ok(())
+	}
+}
 
 #[derive(Debug)]
 pub struct Version {
@@ -160,7 +177,7 @@ pub struct Version {
 }
 
 impl Version {
-	fn new(cache: *mut apt::PCache, ver_ptr: *mut apt::VerIterator) -> Self {
+	fn new(cache: *mut apt::PCache, ver_ptr: *mut apt::VerIterator, clone: bool) -> Self {
 		let mut package_files = Vec::new();
 		unsafe {
 			let ver_file = apt::ver_file(ver_ptr);
@@ -177,12 +194,18 @@ impl Version {
 				}
 				package_files.push(PackageFile {
 					// Possibly don't need to do the lookups here. Maybe only when it's needed?
-					parser: apt::ver_file_lookup(cache, ver_file),
 					file: apt::ver_pkg_file(ver_file),
 				});
 			}
+			apt::ver_file_release(ver_file);
+
 			Self {
-				ptr: apt::ver_clone(ver_ptr),
+				ptr: if clone {
+					apt::ver_clone(ver_ptr)
+				} else {
+					ver_ptr
+				},
+				//ptr: new_ptr,
 				cache: cache,
 				// Make this a pointer to the parent package
 				// phantom data probably
@@ -202,30 +225,26 @@ impl Version {
 	// 	if apt::ver_end(apt::pkg_current_version(self.pkg_ptr)) { return None }
 	// }
 
-	pub fn get_uris(&self) -> Vec<String> {
-		let mut uris = Vec::new();
-		for package_file in &self.file_list {
-			unsafe {
-				uris.push(
-					raw::own_string(apt::ver_uri(
-						self.cache,
-						package_file.parser,
-						package_file.file,
-					))
-					.unwrap(),
-				);
-			}
-		}
-		uris
-	}
+	// pub fn get_uris(&self) -> Vec<String> {
+	// 	let mut uris = Vec::new();
+	// 	for package_file in &self.file_list {
+	// 		unsafe {
+	// 			uris.push(
+	// 				apt::ver_uri(
+	// 					self.cache,
+	// 					package_file.file,
+	// 				)
+	// 			);
+	// 		}
+	// 	}
+	// 	uris
+	// }
 }
 
 // We must release the pointer on drop
 impl Drop for Version {
 	fn drop(&mut self) {
 		unsafe {
-			// free(): double free detected in tcache 2
-			// idk bro.
 			apt::ver_release(self.ptr);
 		}
 	}
@@ -265,17 +284,22 @@ pub struct PackageSort {
 
 #[derive(Debug)]
 pub struct Records {
+	ptr: *mut apt::PkgRecords,
 	pub _helper: RefCell<String>,
 }
 
 impl Records {
-	pub fn new() -> Self {
+	pub fn new(pcache: *mut apt::PCache) -> Self {
 		Records {
+			ptr: unsafe { apt::pkg_records_create(pcache) },
 			_helper: RefCell::new("Not been helped!".to_string()),
 		}
 	}
 
-	pub fn lookup(&self) {
+	pub fn lookup(&self, ver_file: *mut apt::VerFileIterator) {
+		unsafe {
+			apt::ver_file_lookup(self.ptr, ver_file);
+		}
 		println!("We're helping!");
 		self._helper.replace("We've been helped!".to_string());
 		self.helped();
@@ -283,6 +307,14 @@ impl Records {
 
 	pub fn helped(&self) {
 		println!("{}", self._helper.borrow())
+	}
+}
+
+impl Drop for Records {
+	fn drop(&mut self) {
+		unsafe {
+			apt::pkg_records_release(self.ptr);
+		}
 	}
 }
 
@@ -297,6 +329,9 @@ impl Drop for Cache {
 	fn drop(&mut self) {
 		unsafe {
 			apt::pkg_cache_release(self._cache);
+			for ptr in (*self.pointers).into_iter() {
+				apt::pkg_release(*ptr);
+			}
 		}
 	}
 }
@@ -309,7 +344,7 @@ impl Cache {
 			Self {
 				_cache: cache_ptr,
 				pointers: Cache::get_pointers(apt::pkg_begin(cache_ptr)),
-				_records: Records::new(),
+				_records: Records::new(cache_ptr),
 			}
 		}
 	}
@@ -346,10 +381,11 @@ impl Cache {
 		let pkg_ptr = self.find_by_name(_name, _arch);
 		unsafe {
 			if apt::pkg_end(pkg_ptr) {
+				apt::pkg_release(pkg_ptr);
 				return None;
 			}
 		}
-		Some(Package::new(self._cache, pkg_ptr))
+		Some(Package::new(self._cache, pkg_ptr, false))
 	}
 
 	/// Internal method for getting a package by name
@@ -390,9 +426,10 @@ impl Cache {
 
 				package_map.insert(
 					apt::get_fullname(pkg_iterator, true),
-					Package::new(self._cache, pkg_iterator),
+					Package::new(self._cache, pkg_iterator, true),
 				);
 			}
+			apt::pkg_release(pkg_iterator);
 		}
 		package_map
 	}
@@ -401,7 +438,7 @@ impl Cache {
 		let pointers = &self.pointers;
 		pointers
 			.into_iter()
-			.map(|pkg_ptr| Package::new(self._cache, *pkg_ptr))
+			.map(|pkg_ptr| Package::new(self._cache, *pkg_ptr, false))
 	}
 
 	fn get_pointers(pkg_iterator: *mut apt::PkgIterator) -> Vec<*mut apt::PkgIterator> {

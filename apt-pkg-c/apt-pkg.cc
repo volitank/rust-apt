@@ -38,7 +38,16 @@ struct PCache {
 	pkgDepCache *depcache;
 
 	// Owned by us.
+	// pkgRecords *records;
+
+	// pkgRecords::Parser &parser;
+};
+
+struct PkgRecords {
 	pkgRecords *records;
+
+	pkgRecords::Parser *parser;
+
 };
 
 struct PkgIterator {
@@ -133,22 +142,26 @@ void depcache_init(PCache *pcache) {
 PCache *pkg_cache_create() {
 	pkgCacheFile *cache_file = new pkgCacheFile();
 	pkgCache *cache = cache_file->GetPkgCache();
-	pkgRecords *records = new pkgRecords(*cache);
 	pkgDepCache *depcache = cache_file->GetDepCache();
 
 	PCache *ret = new PCache();
 	cache_file->BuildSourceList();
-	//std::unique_ptr<pkgSourceList> SrcList
-
 
 	ret->cache_file = cache_file;
 	ret->cache = cache;
-	ret->records = records;
 	ret->depcache = depcache;
 // Initializing the depcache slows us down.
 // Might not want to unless we actually need it.
 //	depcache_init(ret);
 	return ret;
+}
+
+PkgRecords *pkg_records_create(PCache *pcache) {
+	PkgRecords *records = new PkgRecords();
+	records->records = new pkgRecords(*pcache->cache);
+	// Can't populate the parser until we need it.
+	records->parser = NULL;
+	return records;
 }
 
 bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
@@ -159,9 +172,14 @@ bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
 
 // pkgCache and pkgDepCache are cleaned up with cache_file.
 void pkg_cache_release(PCache *cache) {
-	delete cache->records;
 	delete cache->cache_file;
 	delete cache;
+}
+
+void pkg_records_release(PkgRecords *records) {
+	//delete records -> parser;
+	delete records -> records;
+	delete records;
 }
 
 int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right) {
@@ -372,8 +390,8 @@ bool ver_file_end(VerFileIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
-pkgRecords::Parser *ver_file_lookup(PCache *pcache, VerFileIterator *wrapper) {
-	return &pcache->records->Lookup(wrapper->iterator);
+void ver_file_lookup(PkgRecords *records, VerFileIterator *wrapper) {
+	records->parser = &records->records->Lookup(wrapper->iterator);
 }
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
@@ -390,7 +408,7 @@ pkgIndexFile *get_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 	return Index;
 }
 
-const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PkgFileIterator *file) {
+rust::string ver_uri(PCache *pcache, PkgRecords *records, PkgFileIterator *file) {
 	pkgCache::PkgFileIterator pkg_file = file->iterator;
 	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
 	pkgIndexFile *Index;
@@ -399,7 +417,7 @@ const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PkgFileIterator 
 	if (SrcList->FindIndex(pkg_file, Index) == false) { _system->FindIndex(pkg_file, Index);}
 
 	//std::cout << " " << Index->ArchiveURI(parser->FileName()) << "\n";
-	return to_c_string(Index->ArchiveURI(parser->FileName()));
+	return Index->ArchiveURI(records->parser->FileName());
 }
 // Look at ver_uri for answers.
 // Maybe *get_hash(idk, *for_real) -> hash {
@@ -424,13 +442,13 @@ const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PkgFileIterator 
 
 // PCache.cache_file, Pcache.records(cachefile), pkgIterator.iterator
 //const char *GetLongDescription(pkgCacheFile &CacheFile, pkgRecords &records, pkgCache::PkgIterator P) {
-rust::string long_desc(PCache *cache, PkgIterator *wrapper) {
+rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper) {
 	pkgCache::PkgIterator P;
 	//pkgCacheFile CacheFile;
 	//pkgRecords & records;
 	P = wrapper->iterator;
-	pkgCacheFile * CacheFile = cache->cache_file;
-	pkgRecords * records = cache->records;
+	pkgCacheFile *CacheFile = cache->cache_file;
+	pkgRecords *Records = records->records;
 
 	pkgPolicy *policy = CacheFile->GetPolicy();
 
@@ -447,7 +465,7 @@ rust::string long_desc(PCache *cache, PkgIterator *wrapper) {
 	pkgCache::DescIterator const Desc = ver.TranslatedDescription();
 	if (Desc.end() == false)
 	{
-		pkgRecords::Parser &parser = records->Lookup(Desc.FileList());
+		pkgRecords::Parser &parser = Records->Lookup(Desc.FileList());
 
 		std::string const longdesc = parser.LongDesc();
 		if (longdesc.empty() == false)
@@ -466,7 +484,11 @@ rust::string long_desc(PCache *cache, PkgIterator *wrapper) {
 // 	return to_c_string(hp);
 // }
 
-void pkg_file_iter_release(PkgFileIterator *wrapper) {
+void pkg_record_release(PkgRecords *parser) {
+	delete parser;
+}
+
+void pkg_file_release(PkgFileIterator *wrapper) {
 	delete wrapper;
 }
 

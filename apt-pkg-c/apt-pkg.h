@@ -15,8 +15,7 @@ struct VerIterator;
 struct VerFileIterator;
 struct DepIterator;
 struct VerFileParser;
-
-using PkgRecords = pkgRecords::Parser;
+struct PkgRecords;
 
 // From Rust to C++
 //
@@ -29,9 +28,10 @@ using PkgRecords = pkgRecords::Parser;
 void init_config_system();
 
 PCache *pkg_cache_create();
-void depcache_init(PCache *pcache);
-
 void pkg_cache_release(PCache *cache);
+PkgRecords *pkg_records_create(PCache *pcache);
+void pkg_records_release(PkgRecords *records);
+void depcache_init(PCache *pcache);
 
 int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right);
 
@@ -49,7 +49,7 @@ void pkg_next(PkgIterator *iterator);
 void ver_next(VerIterator *iterator);
 bool pkg_end(PkgIterator *iterator);
 bool ver_end(VerIterator *iterator);
-const char *ver_uri(PCache *pcache, pkgRecords::Parser *parser, PkgFileIterator *file);
+rust::string ver_uri(PCache *pcache, PkgRecords *records, PkgFileIterator *file);
 // pkg_iter access
 
 bool pkg_has_versions(PkgIterator *wrapper);
@@ -99,12 +99,12 @@ bool ver_file_end(VerFileIterator *iterator);
 bool validate(VerIterator *iterator, PCache *pcache);
 
 // ver_file_parser creation
-pkgRecords::Parser *ver_file_lookup(PCache *pcache, VerFileIterator *iterator);
-
+void ver_file_lookup(PkgRecords *records, VerFileIterator *iterator);
+void pkg_record_release(PkgRecords *parser);
 // ver_file_parser access
 // const char *ver_file_parser_short_desc(VerFileParser *parser);
 // const char *ver_file_parser_long_desc(VerFileParser *parser);
-rust::string long_desc(PCache *cache, PkgIterator *wrapper);
+rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper);
 // const char *ver_file_parser_maintainer(VerFileParser *parser);
 // const char *ver_file_parser_homepage(VerFileParser *parser);
 
@@ -113,7 +113,7 @@ rust::string long_desc(PCache *cache, PkgIterator *wrapper);
 
 // pkg_file_iter creation
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
-void pkg_file_iter_release(PkgFileIterator *iterator);
+void pkg_file_release(PkgFileIterator *iterator);
 
 // pkg_file_iter mutation
 void pkg_file_iter_next(PkgFileIterator *iterator);
