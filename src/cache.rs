@@ -1,25 +1,22 @@
+#[deny(clippy::not_unsafe_ptr_arg_deref)]
 use crate::raw;
 use crate::raw::apt;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::ffi;
 use std::fmt;
 use std::marker::PhantomData;
-use std::ops::{Index, IndexMut};
 use std::rc::Rc;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Package<'a> {
 	// Commented attributes are to be implemented
-	pub pkg_ptr: *mut apt::PkgIterator,
 	_lifetime: &'a PhantomData<Cache>,
 	_records: Rc<RefCell<Records>>,
+	pub pkg_ptr: *mut apt::PkgIterator,
 	pub name: String,
 	pub arch: String,
 	// id: i32,
-	//pub candidate: Option<Version>,
-	//pub installed: Option<Version>,
 	// essential: bool,
 	// current_state: i32,
 	// inst_state: i32,
@@ -27,7 +24,6 @@ pub struct Package<'a> {
 	pub has_versions: bool,
 	pub has_provides: bool,
 	// provides_list: List[Tuple[str, str, Version]],
-	//pub _versions: Vec<Version>,
 }
 impl<'a> Package<'a> {
 	pub fn new(
@@ -218,13 +214,14 @@ impl<'a> Version<'a> {
 				} else {
 					ver_ptr
 				},
+				_records: records,
 				_lifetime: &PhantomData,
 				priority: ver_priority,
-				_records: records,
 				file_list: package_files,
 				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
 				arch: raw::own_string(apt::ver_arch(ver_ptr)).unwrap(),
-				section: raw::own_string(apt::ver_section(ver_ptr)).unwrap_or(String::from("None")),
+				section: raw::own_string(apt::ver_section(ver_ptr))
+					.unwrap_or_else(|| String::from("None")),
 
 				priority_str: raw::own_string(apt::ver_priority_str(ver_ptr)).unwrap(),
 			}
@@ -342,10 +339,16 @@ impl Drop for Cache {
 	fn drop(&mut self) {
 		unsafe {
 			apt::pkg_cache_release(self._cache);
-			for ptr in (*self.pointers).into_iter() {
+			for ptr in (*self.pointers).iter() {
 				apt::pkg_release(*ptr);
 			}
 		}
+	}
+}
+
+impl Default for Cache {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 
@@ -368,16 +371,18 @@ impl Cache {
 		}
 	}
 
-	pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {
-		unsafe { apt::validate(ver, self._cache) }
-	}
+	// Disabled as it doesn't really work yet. Would likely need to
+	// Be on the objects them self and not the cache
+	// pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {
+	// 	unsafe { apt::validate(ver, self._cache) }
+	// }
 
 	pub fn get(&self, name: &str) -> Option<Package> {
 		let _name: &str;
 		let _arch: &str;
 
-		if name.contains(":") {
-			let package: Vec<&str> = name.split(":").collect();
+		if name.contains(':') {
+			let package: Vec<&str> = name.split(':').collect();
 
 			if package.len() > 2 {
 				panic!("Value is wrong");
@@ -448,7 +453,7 @@ impl Cache {
 	pub fn packages(&self) -> impl Iterator<Item = Package> + '_ {
 		let pointers = &self.pointers;
 		pointers
-			.into_iter()
+			.iter()
 			.map(|pkg_ptr| Package::new(Rc::clone(&self._records), *pkg_ptr, true))
 	}
 

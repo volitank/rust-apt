@@ -5,4 +5,4 @@
 //! For more information please see the readme in the source code.
 
 pub mod cache;
-pub mod raw;
+mod raw;
