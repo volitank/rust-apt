@@ -94,10 +94,11 @@ pub mod apt {
 		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_str(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_section(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
+		pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
+		pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
+		pub unsafe fn ver_installed(iterator: *mut VerIterator) -> bool;
 
 		/// Package Records Management
 		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);

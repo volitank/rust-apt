@@ -19,10 +19,10 @@ mod tests {
 		for pkg in cache.sorted(sort).values() {
 			println!("This Package is Upgradable! {}", pkg.name);
 			if let Some(candidate) = pkg.candidate() {
-				println!("{}", candidate);
+				println!("{candidate}");
 			}
 			if let Some(installed) = pkg.installed() {
-				println!("{}", installed);
+				println!("{installed}");
 			}
 		}
 		let mut versions = Vec::new();
@@ -30,7 +30,7 @@ mod tests {
 		// 	//drop(cache);
 		// 	println!("{}", nala.name);
 		// 	for version in nala.versions() {
-		// 		println!("{}", version);
+		// 		println!("{version}");
 		// 		versions.push(version);
 		// 	}
 		// }
@@ -38,14 +38,15 @@ mod tests {
 		if let Some(apt) = cache.get("apt") {
 			println!("{}", apt.name);
 			for version in apt.versions() {
-				println!("{}", version);
+				println!("{version}");
 				versions.push(version);
 			}
 		}
 
 		//drop(cache);
 		for version in versions {
-			println!("{}", version);
+			println!("{version}");
+			println!("Version is installed? {}", version.is_installed());
 			println!("{:?}\n", version.get_uris());
 		}
 		// if let Some(nala) = cache.get("nala") {

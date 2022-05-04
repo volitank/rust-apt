@@ -314,6 +314,10 @@ const char *ver_source_version(VerIterator *wrapper) {
 	return wrapper->iterator.SourceVerStr();
 }
 
+bool ver_installed(VerIterator *wrapper) {
+	return wrapper->iterator.ParentPkg().CurrentVer() == wrapper->iterator;
+}
+
 int32_t ver_priority(PCache *pcache, VerIterator *wrapper) {
 	pkgCache::VerIterator &ver = wrapper->iterator;
 	return pcache->cache_file->GetPolicy()->GetPriority(ver);

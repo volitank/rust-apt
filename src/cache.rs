@@ -228,10 +228,9 @@ impl<'a> Version<'a> {
 		}
 	}
 
-	// pub fn installed() {
-	// 	let ver = apt::pkg_current_version(self.pkg_ptr);
-	// 	if apt::ver_end(apt::pkg_current_version(self.pkg_ptr)) { return None }
-	// }
+	pub fn is_installed(&self) -> bool {
+		unsafe {apt::ver_installed(self.ptr)}
+	}
 
 	pub fn get_uris(&self) -> Vec<String> {
 		let mut uris = Vec::new();

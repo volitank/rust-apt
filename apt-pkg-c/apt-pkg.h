@@ -83,6 +83,7 @@ const char *ver_section(VerIterator *iterator);
 const char *ver_priority_str(VerIterator *wrapper);
 const char *ver_source_package(VerIterator *iterator);
 const char *ver_source_version(VerIterator *iterator);
+bool ver_installed(VerIterator *wrapper);
 int32_t ver_priority(PCache *pcache, VerIterator *wrapper);
 
 /// Package Record Management
