@@ -1,3 +1,4 @@
+#include <apt-pkg/srcrecords.h>
 #include <cstddef>
 #include <iostream>
 #include <iterator>
@@ -27,6 +28,7 @@
 #include "rust-apt/src/raw.rs"
 #include "apt-pkg.h"
 
+// Couldn't get this to work without wrappers.
 struct PCache {
 	// Owned by us.
 	pkgCacheFile *cache_file;
@@ -36,11 +38,6 @@ struct PCache {
 
 	// Borrowed from cache_file.
 	pkgDepCache *depcache;
-
-	// Owned by us.
-	// pkgRecords *records;
-
-	// pkgRecords::Parser &parser;
 };
 
 struct PkgRecords {
@@ -51,24 +48,27 @@ struct PkgRecords {
 };
 
 struct PkgIterator {
-	// Owned by us.
 	pkgCache::PkgIterator iterator;
-
-	// Borrow of "static" PCache.
-//	PCache *pcache;
 };
 
 struct VerIterator {
-	// Owned by us.
 	pkgCache::VerIterator iterator;
-
-	// Borrowed from PCache.
-	//pkgCache::PkgIterator *pkg;
-
-	// Borrow of "static" PCache.
-//	PCache *cache;
 };
 
+struct VerFileIterator {
+	pkgCache::VerFileIterator iterator;
+};
+
+struct PkgFileIterator {
+	pkgCache::PkgFileIterator iterator;
+};
+
+struct PkgIndexFile {
+	// Owned by us.
+	pkgIndexFile *index;
+};
+
+// Unsued currently
 // struct PDepIterator {
 //	// Owned by us.
 //	pkgCache::DepIterator iterator;
@@ -80,22 +80,10 @@ struct VerIterator {
 //	PCache *cache;
 // };
 
-struct VerFileIterator {
-	// Owned by us.
-	pkgCache::VerFileIterator iterator;
-
-	// Borrow of "static" PCache.
-//	PCache *cache;
-};
-
-struct PkgFileIterator {
-	// Owned by us.
-	pkgCache::PkgFileIterator iterator;
-};
-
-struct VerFileParser {
-	pkgRecords::Parser &parser;
-};
+// Unsued currently
+// struct VerFileParser {
+// 	pkgRecords::Parser &parser;
+// };
 
 // struct PDescFileIterator {
 
@@ -378,6 +366,12 @@ VerFileIterator *ver_file(VerIterator *wrapper) {
 	return new_wrapper;
 }
 
+VerFileIterator *ver_file_clone(VerFileIterator *iterator) {
+	VerFileIterator *wrapper = new VerFileIterator();
+	wrapper->iterator = iterator->iterator;
+	return wrapper;
+}
+
 void ver_file_release(VerFileIterator *wrapper) {
 	delete wrapper;
 }
@@ -390,6 +384,7 @@ bool ver_file_end(VerFileIterator *wrapper) {
 	return wrapper->iterator.end();
 }
 
+// Moves the Records into the correct place
 void ver_file_lookup(PkgRecords *records, VerFileIterator *wrapper) {
 	records->parser = &records->records->Lookup(wrapper->iterator);
 }
@@ -400,24 +395,21 @@ PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
 	return new_wrapper;
 }
 
-pkgIndexFile *get_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
-	//pkgCache *cache = pkg_file->iterator.Cache();
+PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
+	PkgIndexFile *wrapper = new PkgIndexFile();
 	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
 	pkgIndexFile *Index;
-	SrcList->FindIndex(pkg_file->iterator, Index);
-	return Index;
+	if (SrcList->FindIndex(pkg_file->iterator, Index) == false) { _system->FindIndex(pkg_file->iterator, Index);}
+	wrapper->index = Index;
+	return wrapper;
 }
 
-rust::string ver_uri(PCache *pcache, PkgRecords *records, PkgFileIterator *file) {
-	pkgCache::PkgFileIterator pkg_file = file->iterator;
-	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
-	pkgIndexFile *Index;
+void pkg_index_file_release(PkgIndexFile *wrapper) {
+	delete wrapper;
+}
 
-	// Make sure we get the /dpkg/status file. Although I'd like to find a way not to include this one.
-	if (SrcList->FindIndex(pkg_file, Index) == false) { _system->FindIndex(pkg_file, Index);}
-
-	//std::cout << " " << Index->ArchiveURI(parser->FileName()) << "\n";
-	return Index->ArchiveURI(records->parser->FileName());
+rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file) {
+	return index_file->index->ArchiveURI(records->parser->FileName());
 }
 // Look at ver_uri for answers.
 // Maybe *get_hash(idk, *for_real) -> hash {

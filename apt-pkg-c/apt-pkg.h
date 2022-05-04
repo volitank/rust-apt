@@ -16,6 +16,7 @@ struct VerFileIterator;
 struct DepIterator;
 struct VerFileParser;
 struct PkgRecords;
+struct PkgIndexFile;
 
 // From Rust to C++
 //
@@ -49,7 +50,7 @@ void pkg_next(PkgIterator *iterator);
 void ver_next(VerIterator *iterator);
 bool pkg_end(PkgIterator *iterator);
 bool ver_end(VerIterator *iterator);
-rust::string ver_uri(PCache *pcache, PkgRecords *records, PkgFileIterator *file);
+rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file);
 // pkg_iter access
 
 bool pkg_has_versions(PkgIterator *wrapper);
@@ -90,6 +91,7 @@ const char *dep_iter_dep_type(DepIterator *iterator);
 
 // ver_file_iter creation and deletion
 VerFileIterator *ver_file(VerIterator *iterator);
+VerFileIterator *ver_file_clone(VerFileIterator *iterator);
 void ver_file_release(VerFileIterator *iterator);
 
 // ver_file_iter mutation
@@ -113,7 +115,9 @@ rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper)
 
 // pkg_file_iter creation
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
+PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 void pkg_file_release(PkgFileIterator *iterator);
+void pkg_index_file_release(PkgIndexFile *wrapper);
 
 // pkg_file_iter mutation
 void pkg_file_iter_next(PkgFileIterator *iterator);

@@ -18,6 +18,7 @@ pub mod apt {
 		type DepIterator;
 		type VerFileParser;
 		type PkgRecords;
+		type PkgIndexFile;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 
 		pub fn init_config_system();
@@ -87,11 +88,7 @@ pub mod apt {
 		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
-		pub unsafe fn ver_uri(
-			pcache: *mut PCache,
-			records: *mut PkgRecords,
-			pkgfile: *mut PkgFileIterator,
-		) -> String;
+		pub unsafe fn ver_uri(records: *mut PkgRecords, index_file: *mut PkgIndexFile) -> String;
 
 		// Dependency iterators
 		// ====================
@@ -111,6 +108,7 @@ pub mod apt {
 		// pub fn dep_iter_dep_type(iterator: *mut DepIterator) -> *const c_char;
 
 		pub unsafe fn ver_file(iterator: *mut VerIterator) -> *mut VerFileIterator;
+		pub unsafe fn ver_file_clone(iterator: *mut VerFileIterator) -> *mut VerFileIterator;
 		pub unsafe fn ver_file_release(iterator: *mut VerFileIterator);
 
 		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
@@ -129,6 +127,11 @@ pub mod apt {
 		// pub fn ver_file_parser_homepage(parser: VerFileParser) -> *mut c_char;
 
 		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
+		pub unsafe fn pkg_index_file(
+			pcache: *mut PCache,
+			pkg_file: *mut PkgFileIterator,
+		) -> *mut PkgIndexFile;
+		pub unsafe fn pkg_index_file_release(iterator: *mut PkgIndexFile);
 		pub unsafe fn pkg_file_release(iterator: *mut PkgFileIterator);
 
 		pub unsafe fn pkg_file_iter_next(iterator: *mut PkgFileIterator);
