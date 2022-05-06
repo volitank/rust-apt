@@ -1,11 +1,11 @@
 [package]
 authors = [
-    "Blake Lee (Volitank) <blake@volian.org>",
-    "Chris West (Faux) <git@goeswhere.com>"
+	"Blake Lee (Volitank) <blake@volian.org>",
+	"Chris West (Faux) <git@goeswhere.com>"
 ]
 categories = [
-    "api-bindings",
-    "os",
+	"api-bindings",
+	"os",
 ]
 description = "Bindings for libapt-pkg"
 license = "GPL-3.0-or-later"
