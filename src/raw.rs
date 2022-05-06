@@ -30,11 +30,11 @@ pub mod apt {
 		pub unsafe fn pkg_cache_release(cache: *mut PCache);
 		pub unsafe fn pkg_records_release(records: *mut PkgRecords);
 
-		pub unsafe fn pkg_cache_compare_versions(
-			cache: *mut PCache,
-			left: *const c_char,
-			right: *const c_char,
-		) -> i32;
+		// pub unsafe fn pkg_cache_compare_versions(
+		// 	cache: *mut PCache,
+		// 	left: *const c_char,
+		// 	right: *const c_char,
+		// ) -> i32;
 
 		/// Iterator Creators
 		pub unsafe fn pkg_begin(cache: *mut PCache) -> *mut PkgIterator;
@@ -88,7 +88,7 @@ pub mod apt {
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;
-		pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> *const c_char;
+		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> *const c_char;
 		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> *const c_char;
 
 		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> *const c_char;
@@ -96,18 +96,18 @@ pub mod apt {
 		pub unsafe fn ver_section(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
-		pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
+		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
+		// pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_installed(iterator: *mut VerIterator) -> bool;
 
 		/// Package Records Management
 		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);
 		pub unsafe fn ver_uri(records: *mut PkgRecords, index_file: *mut PkgIndexFile) -> String;
-		pub unsafe fn long_desc(
-			cache: *mut PCache,
-			records: *mut PkgRecords,
-			iterator: *mut PkgIterator,
-		) -> String;
+		// pub unsafe fn long_desc(
+		// 	cache: *mut PCache,
+		// 	records: *mut PkgRecords,
+		// 	iterator: *mut PkgIterator,
+		// ) -> String;
 
 		// Unused Functions
 		// They may be used in the future
