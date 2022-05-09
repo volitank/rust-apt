@@ -5,7 +5,6 @@ mod tests {
 	#[test]
 	fn mem_leak_test() {
 		let cache = Cache::new();
-		println!("Cache Initialized");
 
 		let sort = PackageSort {
 			upgradable: true,
@@ -26,15 +25,6 @@ mod tests {
 			}
 		}
 		let mut versions = Vec::new();
-		// if let Some(nala) = cache.get("nala") {
-		// 	//drop(cache);
-		// 	println!("{}", nala.name);
-		// 	for version in nala.versions() {
-		// 		println!("{version}");
-		// 		versions.push(version);
-		// 	}
-		// }
-		//drop(cache);
 		if let Some(apt) = cache.get("apt") {
 			println!("{}", apt.name);
 			for version in apt.versions() {
@@ -42,19 +32,30 @@ mod tests {
 				versions.push(version);
 			}
 		}
-
-		//drop(cache);
 		for version in versions {
 			println!("{version}");
 			println!("Version is installed? {}", version.is_installed());
 			println!("{:?}\n", version.get_uris());
 		}
-		// if let Some(nala) = cache.get("nala") {
-		// 	println!("{}", nala.name);
-		// 	for version in nala.versions() {
-		// 		println!("{}", version)
-		// 	}
-		// }
-		println!("Done!");
+	}
+
+	#[test]
+	fn test_descriptions() {
+		let cache = Cache::new();
+		if let Some(apt) = cache.get("apt") {
+			if let Some((cand, inst)) = apt.candidate().zip(apt.installed()) {
+				println!("Package Name: {}", apt.name);
+				println!(
+					"Summary: {}\nDescription:\n\n{}\n",
+					cand.summary(),
+					cand.description()
+				);
+				println!(
+					"Summary: {}\nDescription:\n\n{}\n",
+					inst.summary(),
+					inst.description()
+				);
+			}
+		};
 	}
 }

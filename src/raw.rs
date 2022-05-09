@@ -18,6 +18,7 @@ pub mod apt {
 		type VerFileParser;
 		type PkgRecords;
 		type PkgIndexFile;
+		type DescIterator;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 
 		/// Main Initializers for APT
@@ -52,6 +53,7 @@ pub mod apt {
 		pub unsafe fn pkg_version_list(pkg: *mut PkgIterator) -> *mut VerIterator;
 
 		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
+		pub unsafe fn ver_desc_file(iterator: *mut VerIterator) -> *mut DescIterator;
 		pub unsafe fn pkg_index_file(
 			pcache: *mut PCache,
 			pkg_file: *mut PkgFileIterator,
@@ -82,6 +84,7 @@ pub mod apt {
 
 		pub unsafe fn pkg_index_file_release(iterator: *mut PkgIndexFile);
 		pub unsafe fn pkg_file_release(iterator: *mut PkgFileIterator);
+		pub unsafe fn ver_desc_release(iterator: *mut DescIterator);
 
 		/// Information Accessors
 		pub unsafe fn pkg_is_upgradable(cache: *mut PCache, iterator: *mut PkgIterator) -> bool;
@@ -102,7 +105,10 @@ pub mod apt {
 
 		/// Package Records Management
 		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);
+		pub unsafe fn desc_file_lookup(records: *mut PkgRecords, iterator: *mut DescIterator);
 		pub unsafe fn ver_uri(records: *mut PkgRecords, index_file: *mut PkgIndexFile) -> String;
+		pub unsafe fn long_desc(records: *mut PkgRecords) -> String;
+		pub unsafe fn short_desc(records: *mut PkgRecords) -> String;
 		// pub unsafe fn long_desc(
 		// 	cache: *mut PCache,
 		// 	records: *mut PkgRecords,

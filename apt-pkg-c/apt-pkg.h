@@ -15,6 +15,7 @@ struct DepIterator;
 struct VerFileParser;
 struct PkgRecords;
 struct PkgIndexFile;
+struct DescIterator;
 
 // From Rust to C++
 //
@@ -48,6 +49,7 @@ VerIterator *pkg_candidate_version(PCache *cache, PkgIterator *iterator);
 VerIterator *pkg_version_list(PkgIterator *iterator);
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
+DescIterator *ver_desc_file(VerIterator *wrapper);
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 
 PkgIterator *pkg_cache_find_name(PCache *cache, const char *name);
@@ -68,6 +70,7 @@ void ver_file_release(VerFileIterator *iterator);
 
 void pkg_file_release(PkgFileIterator *iterator);
 void pkg_index_file_release(PkgIndexFile *wrapper);
+void ver_desc_release(DescIterator *wrapper);
 
 /// Information Accessors
 bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper);
@@ -88,8 +91,10 @@ int32_t ver_priority(PCache *pcache, VerIterator *wrapper);
 
 /// Package Record Management
 void ver_file_lookup(PkgRecords *records, VerFileIterator *iterator);
+void desc_file_lookup(PkgRecords *records, DescIterator *wrapper);
 rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file);
-rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper);
+rust::string long_desc(PkgRecords *records);
+rust::string short_desc(PkgRecords *records);
 
 
 /// Unused Functions

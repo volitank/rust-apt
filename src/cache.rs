@@ -127,15 +127,15 @@ impl<'a> fmt::Display for Package<'a> {
 #[derive(Debug)]
 struct PackageFile {
 	ver_file: *mut apt::VerFileIterator,
+	pkg_file: *mut apt::PkgFileIterator,
 	index: *mut apt::PkgIndexFile,
-	file: *mut apt::PkgFileIterator,
 }
 
 impl Drop for PackageFile {
 	fn drop(&mut self) {
 		unsafe {
 			apt::ver_file_release(self.ver_file);
-			apt::pkg_file_release(self.file);
+			apt::pkg_file_release(self.pkg_file);
 			apt::pkg_index_file_release(self.index);
 		}
 	}
@@ -143,7 +143,7 @@ impl Drop for PackageFile {
 
 impl fmt::Display for PackageFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "package file: {:?}", self.file)?;
+		write!(f, "package file: {:?}", self.pkg_file)?;
 		Ok(())
 	}
 }
@@ -153,19 +153,18 @@ pub struct Version<'a> {
 	//_parent: RefCell<Package<'a>>,
 	_lifetime: &'a PhantomData<Cache>,
 	_records: Rc<RefCell<Records>>,
-	pub ptr: *mut apt::VerIterator,
-	//pub cache: *mut apt::PCache,
-	//	pub parent_pkg: &'a Package<'a>,
-	//pub name: String,
+	desc_ptr: *mut apt::DescIterator,
+	ptr: *mut apt::VerIterator,
+	//	pub pkgname: String,
 	pub version: String,
 	// hash: int
-	file_list: Vec<PackageFile>,
+	//	_file_list: Option<Vec<PackageFile>>,
 	// translated_description: Description
-	// installed_size: int
-	// size: int
+	//	pub installed_size: i32,
+	//	size: i32,
 	pub arch: String,
-	// downloadable: bool
-	// id: int
+	//	downloadable: bool,
+	//	id: i32,
 	pub section: String,
 	pub priority: i32,
 	pub priority_str: String,
@@ -185,9 +184,32 @@ pub struct Version<'a> {
 
 impl<'a> Version<'a> {
 	fn new(records: Rc<RefCell<Records>>, ver_ptr: *mut apt::VerIterator, clone: bool) -> Self {
+		unsafe {
+			let ver_priority = apt::ver_priority(records.borrow_mut()._pcache, ver_ptr);
+			Self {
+				ptr: if clone {
+					apt::ver_clone(ver_ptr)
+				} else {
+					ver_ptr
+				},
+				desc_ptr: apt::ver_desc_file(ver_ptr),
+				_records: records,
+				_lifetime: &PhantomData,
+				priority: ver_priority,
+				//_file_list: None,
+				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
+				arch: raw::own_string(apt::ver_arch(ver_ptr)).unwrap(),
+				section: raw::own_string(apt::ver_section(ver_ptr))
+					.unwrap_or_else(|| String::from("None")),
+				priority_str: raw::own_string(apt::ver_priority_str(ver_ptr)).unwrap(),
+			}
+		}
+	}
+
+	fn file_list(&self) -> Vec<PackageFile> {
 		let mut package_files = Vec::new();
 		unsafe {
-			let ver_file = apt::ver_file(ver_ptr);
+			let ver_file = apt::ver_file(self.ptr);
 			let mut first = true;
 
 			loop {
@@ -202,39 +224,34 @@ impl<'a> Version<'a> {
 				let pkg_file = apt::ver_pkg_file(ver_file);
 				package_files.push(PackageFile {
 					ver_file: apt::ver_file_clone(ver_file),
-					index: apt::pkg_index_file(records.borrow_mut()._pcache, pkg_file),
-					file: pkg_file,
+					pkg_file: pkg_file,
+					index: apt::pkg_index_file(self._records.borrow_mut()._pcache, pkg_file),
 				});
 			}
 			apt::ver_file_release(ver_file);
-			let ver_priority = apt::ver_priority(records.borrow_mut()._pcache, ver_ptr);
-			Self {
-				ptr: if clone {
-					apt::ver_clone(ver_ptr)
-				} else {
-					ver_ptr
-				},
-				_records: records,
-				_lifetime: &PhantomData,
-				priority: ver_priority,
-				file_list: package_files,
-				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
-				arch: raw::own_string(apt::ver_arch(ver_ptr)).unwrap(),
-				section: raw::own_string(apt::ver_section(ver_ptr))
-					.unwrap_or_else(|| String::from("None")),
-
-				priority_str: raw::own_string(apt::ver_priority_str(ver_ptr)).unwrap(),
-			}
 		}
+		package_files
 	}
 
 	pub fn is_installed(&self) -> bool {
-		unsafe {apt::ver_installed(self.ptr)}
+		unsafe { apt::ver_installed(self.ptr) }
+	}
+
+	pub fn description(&self) -> String {
+		let records = self._records.borrow_mut();
+		records.desc_lookup(self.desc_ptr);
+		records.description()
+	}
+
+	pub fn summary(&self) -> String {
+		let records = self._records.borrow_mut();
+		records.desc_lookup(self.desc_ptr);
+		records.summary()
 	}
 
 	pub fn get_uris(&self) -> Vec<String> {
 		let mut uris = Vec::new();
-		for package_file in &self.file_list {
+		for package_file in self.file_list() {
 			unsafe {
 				let records = self._records.borrow_mut();
 				records.lookup(package_file.ver_file);
@@ -253,6 +270,7 @@ impl<'a> Drop for Version<'a> {
 	fn drop(&mut self) {
 		unsafe {
 			apt::ver_release(self.ptr);
+			apt::ver_desc_release(self.desc_ptr)
 		}
 	}
 }
@@ -305,6 +323,12 @@ impl Records {
 		}
 	}
 
+	pub fn desc_lookup(&self, desc_file: *mut apt::DescIterator) {
+		unsafe {
+			apt::desc_file_lookup(self.ptr, desc_file);
+		}
+	}
+
 	pub fn lookup(&self, ver_file: *mut apt::VerFileIterator) {
 		unsafe {
 			apt::ver_file_lookup(self.ptr, ver_file);
@@ -314,6 +338,13 @@ impl Records {
 		//self.helped();
 	}
 
+	pub fn description(&self) -> String {
+		unsafe { apt::long_desc(self.ptr) }
+	}
+
+	pub fn summary(&self) -> String {
+		unsafe { apt::short_desc(self.ptr) }
+	}
 	// pub fn helped(&self) {
 	// 	//println!("{}", self._helper.borrow())
 	// }
@@ -376,7 +407,7 @@ impl Cache {
 	// 	unsafe { apt::validate(ver, self._cache) }
 	// }
 
-	pub fn get(&self, name: &str) -> Option<Package> {
+	pub fn get<'a>(&'a self, name: &str) -> Option<Package<'a>> {
 		let _name: &str;
 		let _arch: &str;
 

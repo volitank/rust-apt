@@ -59,6 +59,10 @@ struct VerFileIterator {
 	pkgCache::VerFileIterator iterator;
 };
 
+struct DescIterator {
+	pkgCache::DescIterator iterator;
+};
+
 struct PkgFileIterator {
 	pkgCache::PkgFileIterator iterator;
 };
@@ -196,6 +200,12 @@ PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
 	return new_wrapper;
 }
 
+DescIterator *ver_desc_file(VerIterator *wrapper) {
+	DescIterator *new_wrapper = new DescIterator();
+	new_wrapper->iterator = wrapper->iterator.TranslatedDescription();
+	return new_wrapper;
+}
+
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 	PkgIndexFile *wrapper = new PkgIndexFile();
 	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
@@ -259,6 +269,10 @@ void ver_file_release(VerFileIterator *wrapper) {
 }
 
 void pkg_file_release(PkgFileIterator *wrapper) {
+	delete wrapper;
+}
+
+void ver_desc_release(DescIterator *wrapper) {
 	delete wrapper;
 }
 
@@ -330,41 +344,20 @@ void ver_file_lookup(PkgRecords *records, VerFileIterator *wrapper) {
 	records->parser = &records->records->Lookup(wrapper->iterator);
 }
 
+void desc_file_lookup(PkgRecords *records, DescIterator *wrapper) {
+	records->parser = &records->records->Lookup(wrapper->iterator.FileList());
+}
+
 rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file) {
 	return index_file->index->ArchiveURI(records->parser->FileName());
 }
 
-// This definitely needs to be condensed.
-rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper) {
-	pkgCache::PkgIterator P;
-	//pkgCacheFile CacheFile;
-	//pkgRecords & records;
-	P = wrapper->iterator;
-	pkgCacheFile *CacheFile = cache->cache_file;
-	pkgRecords *Records = records->records;
+rust::string long_desc(PkgRecords *records) {
+	return records->parser->LongDesc();
+}
 
-	pkgPolicy *policy = CacheFile->GetPolicy();
-
-	pkgCache::VerIterator ver;
-	if (P->CurrentVer != 0)
-		ver = P.CurrentVer();
-	else
-		ver = policy->GetCandidateVer(P);
-
-	std::string const EmptyDescription = "(none)";
-	if(ver.end() == true)
-		return EmptyDescription;
-
-	pkgCache::DescIterator const Desc = ver.TranslatedDescription();
-	if (Desc.end() == false)
-	{
-		pkgRecords::Parser &parser = Records->Lookup(Desc.FileList());
-
-		std::string const longdesc = parser.LongDesc();
-		if (longdesc.empty() == false)
-		return SubstVar(longdesc, "\n ", "\n  ");
-	}
-	return EmptyDescription;
+rust::string short_desc(PkgRecords *records) {
+	return records->parser->ShortDesc();
 }
 
 // #define VALIDATE_ITERATOR(I) {
@@ -433,17 +426,6 @@ rust::string long_desc(PCache *cache, PkgRecords *records, PkgIterator *wrapper)
 	// auto hashes = parser->Hashes();
 	// auto hash = hashes.find("sha256");
 	// if (hash == NULL) {std::cout << "NULL";} else {std::cout << parser->Hashes().find("sha256")->HashValue();}
-// }
-
-
-// const char *ver_file_parser_short_desc(VerFileParser *parser) {
-// 	std::string desc = parser->parser->ShortDesc();
-// 	return to_c_string(desc);
-// }
-
-// const char *ver_file_parser_long_desc(VerFileParser *parser) {
-// 	std::string desc = parser->parser->LongDesc();
-// 	return to_c_string(desc);
 // }
 
 // const char *ver_file_parser_maintainer(VerFileParser *parser) {
