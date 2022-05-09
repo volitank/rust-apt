@@ -99,8 +99,9 @@ pub mod apt {
 		pub unsafe fn ver_section(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
-		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
-		// pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
+		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const
+		// c_char; pub unsafe fn ver_source_version(iterator: *mut VerIterator) ->
+		// *const c_char;
 		pub unsafe fn ver_name(iterator: *mut VerIterator) -> String;
 		pub unsafe fn ver_size(iterator: *mut VerIterator) -> i32;
 		pub unsafe fn ver_installed_size(iterator: *mut VerIterator) -> i32;
@@ -122,9 +123,9 @@ pub mod apt {
 
 		// Unused Functions
 		// They may be used in the future
-		// pub unsafe fn validate(iterator: *mut VerIterator, depcache: *mut PCache) -> bool;
-		// pub unsafe fn ver_iter_dep_iter(iterator: *mut VerIterator) -> *mut DepIterator;
-		// pub unsafe fn dep_iter_release(iterator: *mut DepIterator);
+		// pub unsafe fn validate(iterator: *mut VerIterator, depcache: *mut PCache) ->
+		// bool; pub unsafe fn ver_iter_dep_iter(iterator: *mut VerIterator) -> *mut
+		// DepIterator; pub unsafe fn dep_iter_release(iterator: *mut DepIterator);
 
 		// pub unsafe fn dep_iter_next(iterator: *mut DepIterator);
 		// pub unsafe fn dep_iter_end(iterator: *mut DepIterator) -> bool;
@@ -143,16 +144,19 @@ pub mod apt {
 		// pub unsafe fn pkg_file_iter_next(iterator: *mut PkgFileIterator);
 		// pub unsafe fn pkg_file_iter_end(iterator: *mut PkgFileIterator) -> bool;
 
-		// pub unsafe fn pkg_file_iter_file_name(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_archive(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_version(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_origin(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_codename(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_label(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_site(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_component(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_architecture(iterator: *mut PkgFileIterator) -> *const c_char;
-		// pub unsafe fn pkg_file_iter_index_type(iterator: *mut PkgFileIterator) -> *const c_char;
+		// pub unsafe fn pkg_file_iter_file_name(iterator: *mut PkgFileIterator) ->
+		// *const c_char; pub unsafe fn pkg_file_iter_archive(iterator: *mut
+		// PkgFileIterator) -> *const c_char; pub unsafe fn
+		// pkg_file_iter_version(iterator: *mut PkgFileIterator) -> *const c_char;
+		// pub unsafe fn pkg_file_iter_origin(iterator: *mut PkgFileIterator) -> *const
+		// c_char; pub unsafe fn pkg_file_iter_codename(iterator: *mut PkgFileIterator)
+		// -> *const c_char; pub unsafe fn pkg_file_iter_label(iterator: *mut
+		// PkgFileIterator) -> *const c_char; pub unsafe fn pkg_file_iter_site(iterator:
+		// *mut PkgFileIterator) -> *const c_char; pub unsafe fn
+		// pkg_file_iter_component(iterator: *mut PkgFileIterator) -> *const c_char; pub
+		// unsafe fn pkg_file_iter_architecture(iterator: *mut PkgFileIterator) ->
+		// *const c_char; pub unsafe fn pkg_file_iter_index_type(iterator: *mut
+		// PkgFileIterator) -> *const c_char;
 	}
 }
 

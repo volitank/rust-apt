@@ -1,12 +1,12 @@
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::{ffi, fmt};
+
 #[deny(clippy::not_unsafe_ptr_arg_deref)]
 use crate::raw;
 use crate::raw::apt;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::ffi;
-use std::fmt;
-use std::marker::PhantomData;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Package<'a> {
@@ -35,13 +35,9 @@ impl<'a> Package<'a> {
 		unsafe {
 			Package {
 				// Get a new pointer for the package
-				pkg_ptr: if clone {
-					apt::pkg_clone(pkg_ptr)
-				} else {
-					pkg_ptr
-				},
+				pkg_ptr: if clone { apt::pkg_clone(pkg_ptr) } else { pkg_ptr },
 				_lifetime: &PhantomData,
-				_records: _records,
+				_records,
 				name: apt::get_fullname(pkg_ptr, true),
 				arch: raw::own_string(apt::pkg_arch(pkg_ptr)).unwrap(),
 				has_versions: apt::pkg_has_versions(pkg_ptr),
@@ -78,7 +74,8 @@ impl<'a> Package<'a> {
 		unsafe { apt::pkg_is_upgradable(self._records.borrow_mut()._pcache, self.pkg_ptr) }
 	}
 
-	/// Returns a version list starting with the newest and ending with the oldest.
+	/// Returns a version list starting with the newest and ending with the
+	/// oldest.
 	pub fn versions(&self) -> Vec<Version<'a>> {
 		let mut version_map = Vec::new();
 		unsafe {
@@ -158,7 +155,7 @@ pub struct Version<'a> {
 	pub pkgname: String,
 	pub version: String,
 	// hash: int
-	//	_file_list: Option<Vec<PackageFile>>,
+	// 	_file_list: Option<Vec<PackageFile>>,
 	pub size: i32,
 	pub installed_size: i32,
 	pub arch: String,
@@ -186,11 +183,7 @@ impl<'a> Version<'a> {
 		unsafe {
 			let ver_priority = apt::ver_priority(records.borrow_mut()._pcache, ver_ptr);
 			Self {
-				ptr: if clone {
-					apt::ver_clone(ver_ptr)
-				} else {
-					ver_ptr
-				},
+				ptr: if clone { apt::ver_clone(ver_ptr) } else { ver_ptr },
 				desc_ptr: apt::ver_desc_file(ver_ptr),
 				_records: records,
 				_lifetime: &PhantomData,
@@ -228,7 +221,7 @@ impl<'a> Version<'a> {
 				let pkg_file = apt::ver_pkg_file(ver_file);
 				package_files.push(PackageFile {
 					ver_file: apt::ver_file_clone(ver_file),
-					pkg_file: pkg_file,
+					pkg_file,
 					index: apt::pkg_index_file(self._records.borrow_mut()._pcache, pkg_file),
 				});
 			}
@@ -237,9 +230,7 @@ impl<'a> Version<'a> {
 		package_files
 	}
 
-	pub fn is_installed(&self) -> bool {
-		unsafe { apt::ver_installed(self.ptr) }
-	}
+	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(self.ptr) } }
 
 	pub fn description(&self) -> String {
 		let records = self._records.borrow_mut();
@@ -283,9 +274,8 @@ impl<'a> fmt::Display for Version<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(
 			f,
-			"{}: Version {} \
-			<ID: {}, arch: {}, size: {}, installed_size: {}\
-			, section: {} Priority {} at {}, downloadable: {}>",
+			"{}: Version {} <ID: {}, arch: {}, size: {}, installed_size: {}, section: {} Priority \
+			 {} at {}, downloadable: {}>",
 			self.pkgname,
 			self.version,
 			self.id,
@@ -325,7 +315,7 @@ pub struct PackageSort {
 pub struct Records {
 	ptr: *mut apt::PkgRecords,
 	_pcache: *mut apt::PCache,
-	//pub _helper: RefCell<String>,
+	// pub _helper: RefCell<String>,
 }
 
 impl Records {
@@ -347,18 +337,14 @@ impl Records {
 		unsafe {
 			apt::ver_file_lookup(self.ptr, ver_file);
 		}
-		//println!("We're helping!");
-		//self._helper.replace("We've been helped!".to_string());
-		//self.helped();
+		// println!("We're helping!");
+		// self._helper.replace("We've been helped!".to_string());
+		// self.helped();
 	}
 
-	pub fn description(&self) -> String {
-		unsafe { apt::long_desc(self.ptr) }
-	}
+	pub fn description(&self) -> String { unsafe { apt::long_desc(self.ptr) } }
 
-	pub fn summary(&self) -> String {
-		unsafe { apt::short_desc(self.ptr) }
-	}
+	pub fn summary(&self) -> String { unsafe { apt::short_desc(self.ptr) } }
 	// pub fn helped(&self) {
 	// 	//println!("{}", self._helper.borrow())
 	// }
@@ -391,9 +377,7 @@ impl Drop for Cache {
 }
 
 impl Default for Cache {
-	fn default() -> Self {
-		Self::new()
-	}
+	fn default() -> Self { Self::new() }
 }
 
 impl Cache {
@@ -451,7 +435,8 @@ impl Cache {
 
 	/// Internal method for getting a package by name
 	/// Find a package by name and additionally architecture.
-	/// The returned iterator will either be at the end, or at a matching package.
+	/// The returned iterator will either be at the end, or at a matching
+	/// package.
 	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PkgIterator {
 		unsafe {
 			let name = ffi::CString::new(name).unwrap();
