@@ -86,6 +86,11 @@ const char *ver_section(VerIterator *iterator);
 const char *ver_priority_str(VerIterator *wrapper);
 const char *ver_source_package(VerIterator *iterator);
 const char *ver_source_version(VerIterator *iterator);
+rust::string ver_name(VerIterator *wrapper);
+int32_t ver_size(VerIterator *wrapper);
+int32_t ver_installed_size(VerIterator *wrapper);
+bool ver_downloadable(VerIterator *wrapper);
+int32_t ver_id(VerIterator *wrapper);
 bool ver_installed(VerIterator *wrapper);
 int32_t ver_priority(PCache *pcache, VerIterator *wrapper);
 

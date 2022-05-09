@@ -58,4 +58,14 @@ mod tests {
 			}
 		};
 	}
+
+	#[test]
+	fn test_version_fields() {
+		let cache = Cache::new();
+		if let Some(apt) = cache.get("apt") {
+			for version in apt.versions() {
+				println!("{version}")
+			}
+		};
+	}
 }

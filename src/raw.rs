@@ -101,6 +101,11 @@ pub mod apt {
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
 		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const c_char;
 		// pub unsafe fn ver_source_version(iterator: *mut VerIterator) -> *const c_char;
+		pub unsafe fn ver_name(iterator: *mut VerIterator) -> String;
+		pub unsafe fn ver_size(iterator: *mut VerIterator) -> i32;
+		pub unsafe fn ver_installed_size(iterator: *mut VerIterator) -> i32;
+		pub unsafe fn ver_downloadable(iterator: *mut VerIterator) -> bool;
+		pub unsafe fn ver_id(iterator: *mut VerIterator) -> i32;
 		pub unsafe fn ver_installed(iterator: *mut VerIterator) -> bool;
 
 		/// Package Records Management

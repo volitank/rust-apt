@@ -328,6 +328,26 @@ const char *ver_source_version(VerIterator *wrapper) {
 	return wrapper->iterator.SourceVerStr();
 }
 
+rust::string ver_name(VerIterator *wrapper) {
+	return wrapper->iterator.ParentPkg().Name();
+}
+
+int32_t ver_size(VerIterator *wrapper) {
+	return wrapper->iterator->Size;
+}
+
+int32_t ver_installed_size(VerIterator *wrapper) {
+	return wrapper->iterator->InstalledSize;
+}
+
+bool ver_downloadable(VerIterator *wrapper) {
+	return wrapper->iterator.Downloadable();
+}
+
+int32_t ver_id(VerIterator *wrapper) {
+	return wrapper->iterator->ID;
+}
+
 bool ver_installed(VerIterator *wrapper) {
 	return wrapper->iterator.ParentPkg().CurrentVer() == wrapper->iterator;
 }

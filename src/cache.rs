@@ -155,16 +155,15 @@ pub struct Version<'a> {
 	_records: Rc<RefCell<Records>>,
 	desc_ptr: *mut apt::DescIterator,
 	ptr: *mut apt::VerIterator,
-	//	pub pkgname: String,
+	pub pkgname: String,
 	pub version: String,
 	// hash: int
 	//	_file_list: Option<Vec<PackageFile>>,
-	// translated_description: Description
-	//	pub installed_size: i32,
-	//	size: i32,
+	pub size: i32,
+	pub installed_size: i32,
 	pub arch: String,
-	//	downloadable: bool,
-	//	id: i32,
+	pub downloadable: bool,
+	pub id: i32,
 	pub section: String,
 	pub priority: i32,
 	pub priority_str: String,
@@ -195,10 +194,15 @@ impl<'a> Version<'a> {
 				desc_ptr: apt::ver_desc_file(ver_ptr),
 				_records: records,
 				_lifetime: &PhantomData,
+				pkgname: apt::ver_name(ver_ptr),
 				priority: ver_priority,
 				//_file_list: None,
 				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
+				size: apt::ver_size(ver_ptr),
+				installed_size: apt::ver_installed_size(ver_ptr),
 				arch: raw::own_string(apt::ver_arch(ver_ptr)).unwrap(),
+				downloadable: apt::ver_downloadable(ver_ptr),
+				id: apt::ver_id(ver_ptr),
 				section: raw::own_string(apt::ver_section(ver_ptr))
 					.unwrap_or_else(|| String::from("None")),
 				priority_str: raw::own_string(apt::ver_priority_str(ver_ptr)).unwrap(),
@@ -279,10 +283,20 @@ impl<'a> fmt::Display for Version<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(
 			f,
-			"Version: <version: {}, arch: {}, section: {} Priority {} at {}>",
-			self.version, self.arch, self.section, self.priority_str, self.priority,
+			"{}: Version {} \
+			<ID: {}, arch: {}, size: {}, installed_size: {}\
+			, section: {} Priority {} at {}, downloadable: {}>",
+			self.pkgname,
+			self.version,
+			self.id,
+			self.arch,
+			unit_str(self.size),
+			unit_str(self.installed_size),
+			self.section,
+			self.priority_str,
+			self.priority,
+			self.downloadable,
 		)?;
-
 		Ok(())
 	}
 }
@@ -507,4 +521,14 @@ impl Cache {
 		}
 		package_map
 	}
+}
+
+pub fn unit_str(val: i32) -> String {
+	let num: i32 = 1000;
+	if val > num.pow(2) {
+		return format!("{:.2} MB", val as f32 / 1000.0 / 1000.0);
+	} else if val > num {
+		return format!("{:.2} kB", val as f32 / 1000.0);
+	}
+	return format!("{val} B");
 }
