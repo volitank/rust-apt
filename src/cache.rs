@@ -305,25 +305,24 @@ impl<'a> fmt::Display for Version<'a> {
 	}
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct PackageSort {
 	pub upgradable: bool,
 	pub virtual_pkgs: bool,
 }
 
-// impl Default for PackageSort {
-// 	fn default() -> PackageSort{
-// 		PackageSort {
-// 			iInsertMax: -1,
-// 			iUpdateMax: -1,
-// 			iDeleteMax: -1,
-// 			iInstanceMax: -1,
-// 			tFirstInstance: false,
-// 			tCreateTables: false,
-// 			tContinue: false,
-// 		}
-// 	}
-// }
+impl PackageSort {
+	pub fn upgradable(mut self, switch: bool) -> Self {
+		self.upgradable = switch;
+		self
+	}
+
+	pub fn virtual_pkgs(mut self, switch: bool) -> Self {
+		self.virtual_pkgs = switch;
+		self
+	}
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Lookup {
 	Desc(*mut apt::DescIterator),
@@ -341,7 +340,7 @@ impl Records {
 	pub fn new(pcache: *mut apt::PCache) -> Self {
 		Records {
 			ptr: unsafe { apt::pkg_records_create(pcache) },
-			pcache: pcache,
+			pcache,
 			last: RefCell::new(None),
 		}
 	}

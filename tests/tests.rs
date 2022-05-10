@@ -6,10 +6,7 @@ mod tests {
 	fn mem_leak_test() {
 		let cache = Cache::new();
 
-		let sort = PackageSort {
-			upgradable: true,
-			virtual_pkgs: false,
-		};
+		let sort = PackageSort::default().upgradable(true);
 
 		for pkg in cache.packages() {
 			println!("{}", pkg)
@@ -62,11 +59,30 @@ mod tests {
 	#[test]
 	fn test_fields() {
 		let cache = Cache::new();
+		println!("Package and Version Field Test:");
 		if let Some(apt) = cache.get("apt") {
 			println!("{apt}");
 			for version in apt.versions() {
 				println!("{version}")
 			}
 		};
+	}
+
+	#[test]
+	fn sort_defaults() {
+		let sort = PackageSort::default().upgradable(true);
+
+		assert!(sort.upgradable);
+		assert!(!sort.virtual_pkgs);
+
+		let sort = PackageSort::default().virtual_pkgs(true);
+
+		assert!(!sort.upgradable);
+		assert!(sort.virtual_pkgs);
+
+		let sort = PackageSort::default().upgradable(true).virtual_pkgs(false);
+
+		assert!(sort.upgradable);
+		assert!(!sort.virtual_pkgs);
 	}
 }
