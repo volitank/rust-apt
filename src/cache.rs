@@ -234,13 +234,13 @@ impl<'a> Version<'a> {
 
 	pub fn description(&self) -> String {
 		let records = self._records.borrow_mut();
-		records.desc_lookup(self.desc_ptr);
+		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.description()
 	}
 
 	pub fn summary(&self) -> String {
 		let records = self._records.borrow_mut();
-		records.desc_lookup(self.desc_ptr);
+		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.summary()
 	}
 
@@ -249,7 +249,8 @@ impl<'a> Version<'a> {
 		for package_file in self.file_list() {
 			unsafe {
 				let records = self._records.borrow_mut();
-				records.lookup(package_file.ver_file);
+				records.lookup(Lookup::VerFile(package_file.ver_file));
+
 				let uri = apt::ver_uri(records.ptr, package_file.index);
 				if !uri.starts_with("file:") {
 					uris.push(apt::ver_uri(records.ptr, package_file.index));
@@ -310,12 +311,17 @@ pub struct PackageSort {
 // 		}
 // 	}
 // }
+#[derive(Debug, PartialEq)]
+pub enum Lookup {
+	Desc(*mut apt::DescIterator),
+	VerFile(*mut apt::VerFileIterator),
+}
 
 #[derive(Debug)]
 pub struct Records {
 	ptr: *mut apt::PkgRecords,
 	_pcache: *mut apt::PCache,
-	// pub _helper: RefCell<String>,
+	last: RefCell<Option<Lookup>>, // pub _helper: RefCell<String>,
 }
 
 impl Records {
@@ -323,31 +329,36 @@ impl Records {
 		Records {
 			ptr: unsafe { apt::pkg_records_create(pcache) },
 			_pcache: pcache,
-			//_helper: RefCell::new("Not been helped!".to_string()),
+			last: RefCell::new(None),
 		}
 	}
 
-	pub fn desc_lookup(&self, desc_file: *mut apt::DescIterator) {
-		unsafe {
-			apt::desc_file_lookup(self.ptr, desc_file);
+	pub fn lookup(&self, record: Lookup) {
+		// Check if what we're looking up is currently looked up.
+		if let Some(last) = self.last.borrow().as_ref() {
+			if last == &record {
+				return;
+			}
 		}
-	}
 
-	pub fn lookup(&self, ver_file: *mut apt::VerFileIterator) {
+		// Call the correct binding depending on what we're looking up.
 		unsafe {
-			apt::ver_file_lookup(self.ptr, ver_file);
+			match &record {
+				Lookup::Desc(desc) => {
+					apt::desc_file_lookup(self.ptr, *desc);
+				},
+				Lookup::VerFile(ver_file) => {
+					apt::ver_file_lookup(self.ptr, *ver_file);
+				},
+			}
 		}
-		// println!("We're helping!");
-		// self._helper.replace("We've been helped!".to_string());
-		// self.helped();
+		// Finally replace the stored value for the next lookup
+		self.last.replace(Some(record));
 	}
 
 	pub fn description(&self) -> String { unsafe { apt::long_desc(self.ptr) } }
 
 	pub fn summary(&self) -> String { unsafe { apt::short_desc(self.ptr) } }
-	// pub fn helped(&self) {
-	// 	//println!("{}", self._helper.borrow())
-	// }
 }
 
 impl Drop for Records {
