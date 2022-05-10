@@ -79,6 +79,11 @@ bool pkg_has_provides(PkgIterator *wrapper);
 rust::string get_fullname(PkgIterator *iterator, bool pretty);
 const char *pkg_name(PkgIterator *iterator);
 const char *pkg_arch(PkgIterator *iterator);
+int32_t pkg_id(PkgIterator *wrapper);
+int32_t pkg_current_state(PkgIterator *wrapper);
+int32_t pkg_inst_state(PkgIterator *wrapper);
+int32_t pkg_selected_state(PkgIterator *wrapper);
+bool pkg_essential(PkgIterator *wrapper);
 
 const char *ver_arch(VerIterator *iterator);
 const char *ver_str(VerIterator *iterator);

@@ -60,9 +60,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_version_fields() {
+	fn test_fields() {
 		let cache = Cache::new();
 		if let Some(apt) = cache.get("apt") {
+			println!("{apt}");
 			for version in apt.versions() {
 				println!("{version}")
 			}

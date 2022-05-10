@@ -10,24 +10,23 @@ use crate::raw::apt;
 
 #[derive(Debug)]
 pub struct Package<'a> {
-	// Commented attributes are to be implemented
+	// Commented fields are to be implemented
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	ptr: *mut apt::PkgIterator,
 	pub name: String,
 	pub arch: String,
-	// id: i32,
-	// essential: bool,
-	// current_state: i32,
-	// inst_state: i32,
-	// selected_state: i32,
+	pub id: i32,
+	pub essential: bool,
+	pub current_state: i32,
+	pub inst_state: i32,
+	pub selected_state: i32,
 	pub has_versions: bool,
 	pub has_provides: bool,
 	// provides_list: List[Tuple[str, str, Version]],
 }
 impl<'a> Package<'a> {
 	pub fn new(
-		//_cache: *mut apt::PCache,
 		records: Rc<RefCell<Records>>,
 		pkg_ptr: *mut apt::PkgIterator,
 		clone: bool,
@@ -40,6 +39,11 @@ impl<'a> Package<'a> {
 				records,
 				name: apt::get_fullname(pkg_ptr, true),
 				arch: raw::own_string(apt::pkg_arch(pkg_ptr)).unwrap(),
+				id: apt::pkg_id(pkg_ptr),
+				essential: apt::pkg_essential(pkg_ptr),
+				current_state: apt::pkg_current_state(pkg_ptr),
+				inst_state: apt::pkg_inst_state(pkg_ptr),
+				selected_state: apt::pkg_selected_state(pkg_ptr),
 				has_versions: apt::pkg_has_versions(pkg_ptr),
 				has_provides: apt::pkg_has_provides(pkg_ptr),
 			}
@@ -114,8 +118,17 @@ impl<'a> fmt::Display for Package<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(
 			f,
-			"Package< name: {}, arch: {}, virtual: {}, provides: {}>",
-			self.name, self.arch, !self.has_versions, self.has_provides
+			"Package< name: {}, arch: {}, id: {}, essential: {}, states: [curr: {}, inst {}, sel \
+			 {}], virtual: {}, provides: {}>",
+			self.name,
+			self.arch,
+			self.id,
+			self.essential,
+			self.current_state,
+			self.inst_state,
+			self.selected_state,
+			!self.has_versions,
+			self.has_provides
 		)?;
 		Ok(())
 	}

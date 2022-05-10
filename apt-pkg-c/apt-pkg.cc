@@ -304,6 +304,26 @@ const char *pkg_arch(PkgIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
 
+int32_t pkg_id(PkgIterator *wrapper) {
+	return wrapper->iterator->ID;
+}
+
+int32_t pkg_current_state(PkgIterator *wrapper) {
+	return wrapper->iterator->CurrentState;
+}
+
+int32_t pkg_inst_state(PkgIterator *wrapper) {
+	return wrapper->iterator->InstState;
+}
+
+int32_t pkg_selected_state(PkgIterator *wrapper) {
+	return wrapper->iterator->SelectedState;
+}
+
+bool pkg_essential(PkgIterator *wrapper) {
+	return (wrapper->iterator->Flags & pkgCache::Flag::Essential) != 0;
+}
+
 const char *ver_arch(VerIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }

@@ -93,6 +93,11 @@ pub mod apt {
 		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;
 		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> *const c_char;
 		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> *const c_char;
+		pub unsafe fn pkg_id(iterator: *mut PkgIterator) -> i32;
+		pub unsafe fn pkg_current_state(iterator: *mut PkgIterator) -> i32;
+		pub unsafe fn pkg_inst_state(iterator: *mut PkgIterator) -> i32;
+		pub unsafe fn pkg_selected_state(iterator: *mut PkgIterator) -> i32;
+		pub unsafe fn pkg_essential(iterator: *mut PkgIterator) -> bool;
 
 		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> *const c_char;
 		pub unsafe fn ver_str(iterator: *mut VerIterator) -> *const c_char;
