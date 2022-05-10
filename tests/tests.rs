@@ -32,7 +32,7 @@ mod tests {
 		for version in versions {
 			println!("{version}");
 			println!("Version is installed? {}", version.is_installed());
-			println!("{:?}\n", version.get_uris());
+			println!("{:?}\n", version.uris());
 		}
 	}
 

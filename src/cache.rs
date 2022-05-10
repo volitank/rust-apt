@@ -257,7 +257,7 @@ impl<'a> Version<'a> {
 		records.summary()
 	}
 
-	pub fn get_uris(&self) -> Vec<String> {
+	pub fn uris(&self) -> Vec<String> {
 		let mut uris = Vec::new();
 		for package_file in self.file_list() {
 			unsafe {
