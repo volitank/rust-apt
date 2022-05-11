@@ -536,45 +536,34 @@ impl Cache {
 		}
 	}
 
-	/// Returns a BTreeMap of packages sorted by package name.
-	///
-	/// The key is the package name and the value is the package object.
-	pub fn sorted(&self, sort: PackageSort) -> BTreeMap<String, Package> {
+	/// An iterator of packages sorted by package name.
+	pub fn sorted(&self, sort: &PackageSort) -> impl Iterator<Item = Package> + '_ {
 		let mut package_map = BTreeMap::new();
-		unsafe {
-			let pkg_iterator = apt::pkg_begin(self.ptr);
-			let mut first = true;
-			loop {
-				// We have to make sure we get the first package
-				if !first {
-					apt::pkg_next(pkg_iterator);
-				}
-				first = false;
-				if apt::pkg_end(pkg_iterator) {
-					break;
-				}
-
-				if !sort.virtual_pkgs && !apt::pkg_has_versions(pkg_iterator) {
-					continue;
-				}
-				if sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_iterator) {
-					continue;
-				}
-				package_map.insert(
-					apt::get_fullname(pkg_iterator, true),
-					Package::new(Rc::clone(&self.records), pkg_iterator, true),
-				);
+		for pkg_ptr in self.pointers.iter() {
+			if let Some(pkg) = self.sort_package(*pkg_ptr, sort) {
+				package_map.insert(pkg.get_fullname(true), pkg);
 			}
-			apt::pkg_release(pkg_iterator);
 		}
-		package_map
+		package_map.into_values()
 	}
 
-	/// Returns an unsorted iterator of all packages in the cache.
-	pub fn packages(&self) -> impl Iterator<Item = Package> + '_ {
+	/// And iterator of packages not sorted by name.
+	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
 		self.pointers
 			.iter()
-			.map(|pkg_ptr| Package::new(Rc::clone(&self.records), *pkg_ptr, true))
+			.filter_map(move |pkg_ptr| self.sort_package(*pkg_ptr, sort))
+	}
+
+	fn sort_package(&self, pkg_ptr: *mut apt::PkgIterator, sort: &PackageSort) -> Option<Package> {
+		unsafe {
+			if !sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr) {
+				return None;
+			}
+			if sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr) {
+				return None;
+			}
+		}
+		Some(Package::new(Rc::clone(&self.records), pkg_ptr, true))
 	}
 
 	/// Internal method for building the list of all package pointers.

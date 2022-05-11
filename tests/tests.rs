@@ -7,12 +7,13 @@ mod tests {
 		let cache = Cache::new();
 
 		let sort = PackageSort::default().upgradable(true);
+		let unsort = PackageSort::default();
 
-		for pkg in cache.packages() {
-			println!("{}", pkg)
+		for pkg in cache.packages(&unsort) {
+			println!("{pkg}")
 		}
 
-		for pkg in cache.sorted(sort).values() {
+		for pkg in cache.sorted(&sort) {
 			println!("This Package is Upgradable! {}", pkg.name);
 			if let Some(candidate) = pkg.candidate() {
 				println!("{candidate}");
