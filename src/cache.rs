@@ -27,17 +27,13 @@ pub struct Package<'a> {
 	pub has_provides: bool,
 	// provides_list: List[Tuple[str, str, Version]],
 }
+
 impl<'a> Package<'a> {
-	pub fn new(
-		records: Rc<RefCell<Records>>,
-		pkg_ptr: *mut apt::PkgIterator,
-		clone: bool,
-	) -> Package<'a> {
+	pub fn new(records: Rc<RefCell<Records>>, pkg_ptr: *mut apt::PkgIterator) -> Package<'a> {
 		unsafe {
 			Package {
-				// Get a new pointer for the package
-				ptr: if clone { apt::pkg_clone(pkg_ptr) } else { pkg_ptr },
 				_lifetime: &PhantomData,
+				ptr: pkg_ptr,
 				records,
 				name: apt::get_fullname(pkg_ptr, true),
 				arch: raw::own_string(apt::pkg_arch(pkg_ptr)).unwrap(),
@@ -441,7 +437,6 @@ impl Drop for Records {
 #[derive(Debug)]
 pub struct Cache {
 	pub ptr: *mut apt::PCache,
-	pointers: Vec<*mut apt::PkgIterator>,
 	pub records: Rc<RefCell<Records>>,
 }
 
@@ -449,9 +444,6 @@ impl Drop for Cache {
 	fn drop(&mut self) {
 		unsafe {
 			apt::pkg_cache_release(self.ptr);
-			for ptr in (*self.pointers).iter() {
-				apt::pkg_release(*ptr);
-			}
 		}
 	}
 }
@@ -465,14 +457,11 @@ impl Cache {
 	///
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
-		unsafe {
-			apt::init_config_system();
-			let cache_ptr = apt::pkg_cache_create();
-			Self {
-				ptr: cache_ptr,
-				pointers: Cache::get_pointers(apt::pkg_begin(cache_ptr)),
-				records: Rc::new(RefCell::new(Records::new(cache_ptr))),
-			}
+		apt::init_config_system();
+		let cache_ptr = apt::pkg_cache_create();
+		Self {
+			ptr: cache_ptr,
+			records: Rc::new(RefCell::new(Records::new(cache_ptr))),
 		}
 	}
 
@@ -516,7 +505,7 @@ impl Cache {
 				return None;
 			}
 		}
-		Some(Package::new(Rc::clone(&self.records), pkg_ptr, false))
+		Some(Package::new(Rc::clone(&self.records), pkg_ptr))
 	}
 
 	/// Internal method for getting a package by name
@@ -539,53 +528,49 @@ impl Cache {
 	/// An iterator of packages sorted by package name.
 	pub fn sorted(&self, sort: &PackageSort) -> impl Iterator<Item = Package> + '_ {
 		let mut package_map = BTreeMap::new();
-		for pkg_ptr in self.pointers.iter() {
-			if let Some(pkg) = self.sort_package(*pkg_ptr, sort) {
+		for pkg_ptr in Self::pointers(unsafe { apt::pkg_begin(self.ptr) }) {
+			if let Some(pkg) = self.sort_package(pkg_ptr, sort) {
 				package_map.insert(pkg.get_fullname(true), pkg);
 			}
 		}
 		package_map.into_values()
 	}
 
-	/// And iterator of packages not sorted by name.
+	/// An iterator of packages not sorted by name.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		self.pointers
-			.iter()
-			.filter_map(move |pkg_ptr| self.sort_package(*pkg_ptr, sort))
+		Self::pointers(unsafe { apt::pkg_begin(self.ptr) })
+			.filter_map(move |pkg_ptr| self.sort_package(pkg_ptr, sort))
 	}
 
 	fn sort_package(&self, pkg_ptr: *mut apt::PkgIterator, sort: &PackageSort) -> Option<Package> {
 		unsafe {
 			if !sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr) {
+				apt::pkg_release(pkg_ptr);
 				return None;
 			}
 			if sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr) {
+				apt::pkg_release(pkg_ptr);
 				return None;
 			}
 		}
-		Some(Package::new(Rc::clone(&self.records), pkg_ptr, true))
+		Some(Package::new(Rc::clone(&self.records), pkg_ptr))
 	}
 
-	/// Internal method for building the list of all package pointers.
-	fn get_pointers(pkg_iterator: *mut apt::PkgIterator) -> Vec<*mut apt::PkgIterator> {
-		let mut package_map = Vec::new();
+	fn pointers(
+		iter_ptr: *mut apt::PkgIterator,
+	) -> impl Iterator<Item = *mut apt::PkgIterator> {
 		unsafe {
-			let mut first = true;
-			loop {
-				// We have to make sure we get the first package
-				if !first {
-					apt::pkg_next(pkg_iterator);
+			std::iter::from_fn(move || {
+				if apt::pkg_end(iter_ptr) {
+					apt::pkg_release(iter_ptr);
+					return None;
 				}
 
-				first = false;
-				if apt::pkg_end(pkg_iterator) {
-					break;
-				}
-				package_map.push(apt::pkg_clone(pkg_iterator));
-			}
-			apt::pkg_release(pkg_iterator);
+				let current = apt::pkg_clone(iter_ptr);
+				apt::pkg_next(iter_ptr);
+				Some(current)
+			})
 		}
-		package_map
 	}
 }
 
