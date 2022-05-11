@@ -52,10 +52,24 @@ impl<'a> Package<'a> {
 		}
 	}
 
+	/// Get the fullname of the package.
+	///
+	/// Pretty is a bool that will omit the native arch.
+	///
+	/// For example on an amd64 system:
+	///
+	/// `pkg.get_fullname(true)` would return just `"apt"` for the amd64 package
+	/// and `"apt:i386"` for the i386 package.
+	///
+	/// `pkg.get_fullname(false)` would return `"apt:amd64"` for the amd64
+	/// version and `"apt:i386"` for the i386 package.
 	pub fn get_fullname(&self, pretty: bool) -> String {
 		unsafe { apt::get_fullname(self.ptr, pretty) }
 	}
 
+	/// Returns the version object of the candidate.
+	///
+	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, self.ptr);
@@ -66,6 +80,7 @@ impl<'a> Package<'a> {
 		}
 	}
 
+	/// Check if a package is installed.
 	pub fn installed(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_current_version(self.ptr);
@@ -76,6 +91,7 @@ impl<'a> Package<'a> {
 		}
 	}
 
+	/// Check if a package is upgradable.
 	pub fn is_upgradable(&self) -> bool {
 		unsafe { apt::pkg_is_upgradable(self.records.borrow_mut().pcache, self.ptr) }
 	}
@@ -217,6 +233,7 @@ impl<'a> Version<'a> {
 		}
 	}
 
+	/// Internal Method for Generating the PackageFiles
 	fn gen_file_list(&self) -> Vec<PackageFile> {
 		let mut package_files = Vec::new();
 		unsafe {
@@ -244,24 +261,33 @@ impl<'a> Version<'a> {
 		package_files
 	}
 
+	/// Check if the version is installed
 	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(self.ptr) } }
 
+	/// Get the translated long description
 	pub fn description(&self) -> String {
 		let records = self._records.borrow_mut();
 		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.description()
 	}
 
+	/// Get the translated short description
 	pub fn summary(&self) -> String {
 		let records = self._records.borrow_mut();
 		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.summary()
 	}
 
+	/// Get the sha256 hash. If there isn't one returns None
+	/// This is equivalent to `version.hash("sha256")`
 	pub fn sha256(&self) -> Option<String> { self.hash("sha256") }
 
+	/// Get the sha512 hash. If there isn't one returns None
+	/// This is equivalent to `version.hash("sha512")`
 	pub fn sha512(&self) -> Option<String> { self.hash("sha512") }
 
+	/// Get the hash specified. If there isn't one returns None
+	/// `version.hash("md5sum")`
 	pub fn hash(&self, hash_type: &str) -> Option<String> {
 		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
 
@@ -273,6 +299,7 @@ impl<'a> Version<'a> {
 		None
 	}
 
+	/// Returns an iterator of URIs for the version
 	pub fn uris(&'a self) -> impl Iterator<Item = String> + 'a {
 		self.file_list
 			.get_or_init(|| self.gen_file_list())
@@ -329,11 +356,13 @@ pub struct PackageSort {
 }
 
 impl PackageSort {
+	/// If true, only packages that are upgradable will be included
 	pub fn upgradable(mut self, switch: bool) -> Self {
 		self.upgradable = switch;
 		self
 	}
 
+	/// If true, virtual pkgs will be included
 	pub fn virtual_pkgs(mut self, switch: bool) -> Self {
 		self.virtual_pkgs = switch;
 		self
@@ -432,6 +461,9 @@ impl Default for Cache {
 }
 
 impl Cache {
+	/// Initialize the configuration system, open and return the cache.
+	///
+	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
 		unsafe {
 			apt::init_config_system();
@@ -444,6 +476,9 @@ impl Cache {
 		}
 	}
 
+	/// Clears all changes made to packages.
+	///
+	/// Currently this doesn't do anything as we can't manipulate packages.
 	pub fn clear(&mut self) {
 		unsafe {
 			apt::depcache_init(self.ptr);
@@ -485,7 +520,9 @@ impl Cache {
 	}
 
 	/// Internal method for getting a package by name
+	///
 	/// Find a package by name and additionally architecture.
+	///
 	/// The returned iterator will either be at the end, or at a matching
 	/// package.
 	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PkgIterator {
@@ -499,6 +536,9 @@ impl Cache {
 		}
 	}
 
+	/// Returns a BTreeMap of packages sorted by package name.
+	///
+	/// The key is the package name and the value is the package object.
 	pub fn sorted(&self, sort: PackageSort) -> BTreeMap<String, Package> {
 		let mut package_map = BTreeMap::new();
 		unsafe {
@@ -530,13 +570,14 @@ impl Cache {
 		package_map
 	}
 
+	/// Returns an unsorted iterator of all packages in the cache.
 	pub fn packages(&self) -> impl Iterator<Item = Package> + '_ {
-		let pointers = &self.pointers;
-		pointers
+		self.pointers
 			.iter()
 			.map(|pkg_ptr| Package::new(Rc::clone(&self.records), *pkg_ptr, true))
 	}
 
+	/// Internal method for building the list of all package pointers.
 	fn get_pointers(pkg_iterator: *mut apt::PkgIterator) -> Vec<*mut apt::PkgIterator> {
 		let mut package_map = Vec::new();
 		unsafe {
@@ -559,6 +600,9 @@ impl Cache {
 	}
 }
 
+/// Converts a version's size into human readable output.
+///
+/// `println!("{}", unit_str(version.size))`
 pub fn unit_str(val: i32) -> String {
 	let num: i32 = 1000;
 	if val > num.pow(2) {
