@@ -400,6 +400,13 @@ rust::string short_desc(PkgRecords *records) {
 	return records->parser->ShortDesc();
 }
 
+rust::string hash_find(PkgRecords *records, rust::string hash_type) {
+	auto hashes = records->parser->Hashes();
+	auto hash = hashes.find(hash_type.c_str());
+	if (hash == NULL) { return "KeyError"; }
+	return hash->HashValue();
+}
+
 // #define VALIDATE_ITERATOR(I) {
 // 	if ((I).Cache() != &depcache->GetCache()) return(false);
 // 	return(true); }

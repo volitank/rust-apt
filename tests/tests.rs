@@ -85,4 +85,17 @@ mod tests {
 		assert!(sort.upgradable);
 		assert!(!sort.virtual_pkgs);
 	}
+	#[test]
+	fn test_hashes() {
+		let cache = Cache::new();
+		if let Some(apt) = cache.get("apt") {
+			for version in apt.versions() {
+				println!("sha256 {:?}", version.sha256());
+				println!("sha256 {:?}", version.hash("sha256"));
+				println!("sha512 {:?}", version.sha512());
+				println!("md5sum {:?}", version.hash("md5sum"));
+				println!("sha1 {:?}", version.hash("sha1"))
+			}
+		};
+	}
 }

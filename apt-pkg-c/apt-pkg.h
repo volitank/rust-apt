@@ -105,6 +105,7 @@ void desc_file_lookup(PkgRecords *records, DescIterator *wrapper);
 rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file);
 rust::string long_desc(PkgRecords *records);
 rust::string short_desc(PkgRecords *records);
+rust::string hash_find(PkgRecords *records, rust::string hash_type);
 
 
 /// Unused Functions

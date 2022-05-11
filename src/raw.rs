@@ -120,6 +120,7 @@ pub mod apt {
 		pub unsafe fn ver_uri(records: *mut PkgRecords, index_file: *mut PkgIndexFile) -> String;
 		pub unsafe fn long_desc(records: *mut PkgRecords) -> String;
 		pub unsafe fn short_desc(records: *mut PkgRecords) -> String;
+		pub unsafe fn hash_find(records: *mut PkgRecords, hash_type: String) -> String;
 		// pub unsafe fn long_desc(
 		// 	cache: *mut PCache,
 		// 	records: *mut PkgRecords,

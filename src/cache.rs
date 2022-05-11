@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::{ffi, fmt};
 
+use once_cell::unsync::OnceCell;
+
 #[deny(clippy::not_unsafe_ptr_arg_deref)]
 use crate::raw;
 use crate::raw::apt;
@@ -168,7 +170,7 @@ pub struct Version<'a> {
 	pub pkgname: String,
 	pub version: String,
 	// hash: int
-	// 	_file_list: Option<Vec<PackageFile>>,
+	file_list: OnceCell<Vec<PackageFile>>,
 	pub size: i32,
 	pub installed_size: i32,
 	pub arch: String,
@@ -202,7 +204,7 @@ impl<'a> Version<'a> {
 				_lifetime: &PhantomData,
 				pkgname: apt::ver_name(ver_ptr),
 				priority: ver_priority,
-				//_file_list: None,
+				file_list: OnceCell::new(),
 				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
 				size: apt::ver_size(ver_ptr),
 				installed_size: apt::ver_installed_size(ver_ptr),
@@ -216,7 +218,7 @@ impl<'a> Version<'a> {
 		}
 	}
 
-	fn file_list(&self) -> Vec<PackageFile> {
+	fn gen_file_list(&self) -> Vec<PackageFile> {
 		let mut package_files = Vec::new();
 		unsafe {
 			let ver_file = apt::ver_file(self.ptr);
@@ -257,9 +259,26 @@ impl<'a> Version<'a> {
 		records.summary()
 	}
 
+	pub fn sha256(&self) -> Option<String> { self.hash("sha256") }
+
+	pub fn sha512(&self) -> Option<String> { self.hash("sha512") }
+
+	pub fn hash(&self, hash_type: &str) -> Option<String> {
+		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
+
+		if let Some(pkg_file) = package_files.into_iter().next() {
+			let records = self._records.borrow_mut();
+			records.lookup(Lookup::VerFile(pkg_file.ver_file));
+			return records.hash_find(hash_type);
+		}
+		None
+	}
+
 	pub fn uris(&self) -> Vec<String> {
+		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
+
 		let mut uris = Vec::new();
-		for package_file in self.file_list() {
+		for package_file in package_files {
 			unsafe {
 				let records = self._records.borrow_mut();
 				records.lookup(Lookup::VerFile(package_file.ver_file));
@@ -333,7 +352,7 @@ pub enum Lookup {
 pub struct Records {
 	ptr: *mut apt::PkgRecords,
 	pcache: *mut apt::PCache,
-	last: RefCell<Option<Lookup>>, // pub _helper: RefCell<String>,
+	last: RefCell<Option<Lookup>>,
 }
 
 impl Records {
@@ -371,6 +390,17 @@ impl Records {
 	pub fn description(&self) -> String { unsafe { apt::long_desc(self.ptr) } }
 
 	pub fn summary(&self) -> String { unsafe { apt::short_desc(self.ptr) } }
+
+	pub fn hash_find(&self, hash_type: &str) -> Option<String> {
+		unsafe {
+			let hash = apt::hash_find(self.ptr, hash_type.to_string());
+			if hash == "KeyError" {
+				return None;
+			} else {
+				return Some(hash);
+			}
+		}
+	}
 }
 
 impl Drop for Records {
