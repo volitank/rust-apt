@@ -32,7 +32,7 @@ mod tests {
 		for version in versions {
 			println!("{version}");
 			println!("Version is installed? {}", version.is_installed());
-			println!("{:?}\n", version.uris());
+			println!("{:?}\n", version.uris().collect::<Vec<_>>());
 		}
 	}
 
@@ -57,13 +57,16 @@ mod tests {
 	}
 
 	#[test]
-	fn test_fields() {
+	fn test_version() {
 		let cache = Cache::new();
-		println!("Package and Version Field Test:");
+		println!("Package and Version Test:");
 		if let Some(apt) = cache.get("apt") {
 			println!("{apt}");
 			for version in apt.versions() {
-				println!("{version}")
+				println!("{version}");
+				for uri in version.uris() {
+					println!("{uri}")
+				}
 			}
 		};
 	}

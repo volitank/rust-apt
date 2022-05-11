@@ -167,10 +167,9 @@ pub struct Version<'a> {
 	_records: Rc<RefCell<Records>>,
 	desc_ptr: *mut apt::DescIterator,
 	ptr: *mut apt::VerIterator,
+	file_list: OnceCell<Vec<PackageFile>>,
 	pub pkgname: String,
 	pub version: String,
-	// hash: int
-	file_list: OnceCell<Vec<PackageFile>>,
 	pub size: i32,
 	pub installed_size: i32,
 	pub arch: String,
@@ -274,22 +273,21 @@ impl<'a> Version<'a> {
 		None
 	}
 
-	pub fn uris(&self) -> Vec<String> {
-		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
-
-		let mut uris = Vec::new();
-		for package_file in package_files {
-			unsafe {
+	pub fn uris(&'a self) -> impl Iterator<Item = String> + 'a {
+		self.file_list
+			.get_or_init(|| self.gen_file_list())
+			.into_iter()
+			.filter_map(|package_file| {
 				let records = self._records.borrow_mut();
 				records.lookup(Lookup::VerFile(package_file.ver_file));
 
-				let uri = apt::ver_uri(records.ptr, package_file.index);
+				let uri = unsafe { apt::ver_uri(records.ptr, package_file.index) };
 				if !uri.starts_with("file:") {
-					uris.push(apt::ver_uri(records.ptr, package_file.index));
+					Some(uri)
+				} else {
+					None
 				}
-			}
-		}
-		uris
+			})
 	}
 }
 
