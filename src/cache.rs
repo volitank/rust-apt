@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::{ffi, fmt};
@@ -526,29 +525,28 @@ impl Cache {
 	}
 
 	/// An iterator of packages sorted by package name.
-	pub fn sorted(&self, sort: &PackageSort) -> impl Iterator<Item = Package> + '_ {
-		let mut package_map = BTreeMap::new();
-		for pkg_ptr in Self::pointers(unsafe { apt::pkg_begin(self.ptr) }) {
-			if let Some(pkg) = self.sort_package(pkg_ptr, sort) {
-				package_map.insert(pkg.get_fullname(true), pkg);
-			}
-		}
-		package_map.into_values()
+	///
+	/// Slower than the `cache.packages` method.
+	pub fn sorted<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
+		let mut pkgs = self.packages(sort).collect::<Vec<Package>>();
+		pkgs.sort_by_cached_key(|pkg| pkg.name.to_owned());
+		pkgs.into_iter()
 	}
 
 	/// An iterator of packages not sorted by name.
+	///
+	/// Faster than the `cache.sorted` method.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
 		Self::pointers(unsafe { apt::pkg_begin(self.ptr) })
 			.filter_map(move |pkg_ptr| self.sort_package(pkg_ptr, sort))
 	}
 
+	/// Internal method for sorting packages.
 	fn sort_package(&self, pkg_ptr: *mut apt::PkgIterator, sort: &PackageSort) -> Option<Package> {
 		unsafe {
-			if !sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr) {
-				apt::pkg_release(pkg_ptr);
-				return None;
-			}
-			if sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr) {
+			if (!sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr))
+				|| (sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr))
+			{
 				apt::pkg_release(pkg_ptr);
 				return None;
 			}
@@ -556,9 +554,8 @@ impl Cache {
 		Some(Package::new(Rc::clone(&self.records), pkg_ptr))
 	}
 
-	fn pointers(
-		iter_ptr: *mut apt::PkgIterator,
-	) -> impl Iterator<Item = *mut apt::PkgIterator> {
+	/// Internal method for iterating apt's package pointers.
+	fn pointers(iter_ptr: *mut apt::PkgIterator) -> impl Iterator<Item = *mut apt::PkgIterator> {
 		unsafe {
 			std::iter::from_fn(move || {
 				if apt::pkg_end(iter_ptr) {
