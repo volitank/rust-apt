@@ -479,25 +479,18 @@ impl Cache {
 	// 	unsafe { apt::validate(ver, self._cache) }
 	// }
 
+	/// Get a single package.
+	///
+	/// `cache.get("apt")` Returns a Package object for the native arch.
+	///
+	/// `cache.get("apt:i386")` Returns a Package object for the i386 arch
 	pub fn get<'a>(&'a self, name: &str) -> Option<Package<'a>> {
-		let _name: &str;
-		let _arch: &str;
+		let mut fields = name.split(':');
 
-		if name.contains(':') {
-			let package: Vec<&str> = name.split(':').collect();
+		let name = fields.next()?;
+		let arch = fields.next().unwrap_or_default();
+		let pkg_ptr = self.find_by_name(name, arch);
 
-			if package.len() > 2 {
-				panic!("Value is wrong");
-			}
-
-			_name = package[0];
-			_arch = package[1];
-		} else {
-			_name = name;
-			_arch = "";
-		}
-
-		let pkg_ptr = self.find_by_name(_name, _arch);
 		unsafe {
 			if apt::pkg_end(pkg_ptr) {
 				apt::pkg_release(pkg_ptr);
