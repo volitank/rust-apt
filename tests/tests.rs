@@ -3,25 +3,9 @@ mod tests {
 	use rust_apt::cache::*;
 
 	#[test]
-	fn mem_leak_test() {
+	fn test_version_vec() {
 		let cache = Cache::new();
 
-		let sort = PackageSort::default().upgradable(true);
-		let unsort = PackageSort::default();
-
-		for pkg in cache.packages(&unsort) {
-			println!("{pkg}")
-		}
-
-		for pkg in cache.sorted(&sort) {
-			println!("This Package is Upgradable! {}", pkg.name);
-			if let Some(candidate) = pkg.candidate() {
-				println!("{candidate}");
-			}
-			if let Some(installed) = pkg.installed() {
-				println!("{installed}");
-			}
-		}
 		let mut versions = Vec::new();
 		if let Some(apt) = cache.get("apt") {
 			println!("{}", apt.name);
@@ -30,10 +14,50 @@ mod tests {
 				versions.push(version);
 			}
 		}
+
 		for version in versions {
 			println!("{version}");
 			println!("Version is installed? {}", version.is_installed());
 			println!("{:?}\n", version.uris().collect::<Vec<_>>());
+		}
+	}
+
+	#[test]
+	fn test_all_packages() {
+		let cache = Cache::new();
+		let sort = PackageSort::default();
+
+		for pkg in cache.packages(&sort) {
+			println!("{pkg}")
+		}
+	}
+
+	#[test]
+	fn test_upgradable() {
+		let cache = Cache::new();
+		let sort = PackageSort::default().upgradable(true);
+
+		for pkg in cache.sorted(&sort) {
+			println!(
+				"Package is Upgradable! {} ({}) -> ({})",
+				pkg.name,
+				pkg.installed().unwrap().version,
+				pkg.candidate().unwrap().version
+			);
+		}
+	}
+
+	#[test]
+	fn test_installed() {
+		let cache = Cache::new();
+		let sort = PackageSort::default().installed(true);
+
+		for pkg in cache.sorted(&sort) {
+			println!(
+				"Package is Installed! {} ({})",
+				pkg.name,
+				pkg.installed().unwrap().version
+			);
 		}
 	}
 
@@ -74,20 +98,26 @@ mod tests {
 
 	#[test]
 	fn sort_defaults() {
-		let sort = PackageSort::default().upgradable(true);
+		let sort = PackageSort::default().upgradable(true).installed(true);
 
 		assert!(sort.upgradable);
 		assert!(!sort.virtual_pkgs);
+		assert!(sort.installed);
 
 		let sort = PackageSort::default().virtual_pkgs(true);
 
 		assert!(!sort.upgradable);
 		assert!(sort.virtual_pkgs);
+		assert!(!sort.installed);
 
-		let sort = PackageSort::default().upgradable(true).virtual_pkgs(false);
+		let sort = PackageSort::default()
+			.upgradable(true)
+			.virtual_pkgs(false)
+			.installed(true);
 
 		assert!(sort.upgradable);
 		assert!(!sort.virtual_pkgs);
+		assert!(sort.installed);
 	}
 	#[test]
 	fn test_hashes() {

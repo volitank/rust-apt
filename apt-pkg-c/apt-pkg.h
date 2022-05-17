@@ -74,6 +74,7 @@ void ver_desc_release(DescIterator *wrapper);
 
 /// Information Accessors
 bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper);
+bool pkg_is_installed(PkgIterator *wrapper);
 bool pkg_has_versions(PkgIterator *wrapper);
 bool pkg_has_provides(PkgIterator *wrapper);
 rust::string get_fullname(PkgIterator *iterator, bool pretty);

@@ -88,6 +88,7 @@ pub mod apt {
 
 		/// Information Accessors
 		pub unsafe fn pkg_is_upgradable(cache: *mut PCache, iterator: *mut PkgIterator) -> bool;
+		pub unsafe fn pkg_is_installed(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;

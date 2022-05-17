@@ -284,6 +284,10 @@ bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
 	return (*cache->cache_file)[pkg].Upgradable();
 }
 
+bool pkg_is_installed(PkgIterator *wrapper) {
+	return !(wrapper->iterator.CurrentVer() == 0);
+}
+
 bool pkg_has_versions(PkgIterator *wrapper) {
 	return wrapper->iterator.VersionList().end() == false;
 }

@@ -75,7 +75,9 @@ impl<'a> Package<'a> {
 		}
 	}
 
-	/// Check if a package is installed.
+	/// Returns the version object of the installed version.
+	///
+	/// If there isn't an installed version, returns None
 	pub fn installed(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_current_version(self.ptr);
@@ -85,6 +87,9 @@ impl<'a> Package<'a> {
 			Some(Version::new(Rc::clone(&self.records), ver, false))
 		}
 	}
+
+	/// Check if the package is installed.
+	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(self.ptr) } }
 
 	/// Check if a package is upgradable.
 	pub fn is_upgradable(&self) -> bool {
@@ -348,6 +353,7 @@ impl<'a> fmt::Display for Version<'a> {
 pub struct PackageSort {
 	pub upgradable: bool,
 	pub virtual_pkgs: bool,
+	pub installed: bool,
 }
 
 impl PackageSort {
@@ -360,6 +366,12 @@ impl PackageSort {
 	/// If true, virtual pkgs will be included
 	pub fn virtual_pkgs(mut self, switch: bool) -> Self {
 		self.virtual_pkgs = switch;
+		self
+	}
+
+	/// If true, only packages that are installed will be included
+	pub fn installed(mut self, switch: bool) -> Self {
+		self.installed = switch;
 		self
 	}
 }
@@ -539,6 +551,7 @@ impl Cache {
 		unsafe {
 			if (!sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr))
 				|| (sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr))
+				|| (sort.installed && !apt::pkg_is_installed(pkg_ptr))
 			{
 				apt::pkg_release(pkg_ptr);
 				return None;
