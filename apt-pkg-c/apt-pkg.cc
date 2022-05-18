@@ -39,9 +39,6 @@ struct PCache {
 	// Borrowed from cache_file.
 	pkgCache *cache;
 
-	// Borrowed from cache_file.
-	pkgDepCache *depcache;
-
 	pkgSourceList *source;
 };
 
@@ -98,11 +95,6 @@ void init_config_system() {
 	pkgInitSystem(*_config, _system);
 }
 
-void depcache_init(PCache *pcache) {
-	pcache->depcache->Init(0);
-	pkgApplyStatus(*pcache->depcache);
-}
-
 PCache *pkg_cache_create() {
 	pkgCacheFile *cache_file = new pkgCacheFile();
 	PCache *ret = new PCache();
@@ -110,13 +102,7 @@ PCache *pkg_cache_create() {
 
 	ret->cache_file = cache_file;
 	ret->cache = cache_file->GetPkgCache();
-	// DepCache initialization is slow. Only do it when necessary
-	ret->depcache = cache_file->GetDepCache();
 	ret->source = cache_file->GetSourceList();
-
-	// Initializing the depcache slows us down.
-	// Might not want to unless we actually need it.
-	// depcache_init(ret);
 	return ret;
 }
 
@@ -126,6 +112,12 @@ PkgRecords *pkg_records_create(PCache *pcache) {
 	// Can't populate the parser until we need it.
 	records->parser = NULL;
 	return records;
+}
+
+pkgDepCache *depcache_create(PCache *pcache) {
+	pkgDepCache *depcache = pcache->cache_file->GetDepCache();
+//	pkgApplyStatus(*depcache);
+	return depcache;
 }
 
 void pkg_cache_release(PCache *cache) {
@@ -301,11 +293,10 @@ void ver_desc_release(DescIterator *wrapper) {
 
 /// Information Accessors
 ///
-bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
-	// DepCache
+bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper) {
 	pkgCache::PkgIterator &pkg = wrapper->iterator;
 	if (pkg.CurrentVer() == 0) { return false; }
-	return (*cache->cache_file)[pkg].Upgradable();
+	return (*depcache)[pkg].Upgradable();
 }
 
 bool pkg_is_installed(PkgIterator *wrapper) {

@@ -14,6 +14,7 @@ pub struct Package<'a> {
 	// Commented fields are to be implemented
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
+	depcache: Rc<RefCell<DepCache>>,
 	ptr: *mut apt::PkgIterator,
 	pub name: String,
 	pub arch: String,
@@ -28,12 +29,17 @@ pub struct Package<'a> {
 }
 
 impl<'a> Package<'a> {
-	pub fn new(records: Rc<RefCell<Records>>, pkg_ptr: *mut apt::PkgIterator) -> Package<'a> {
+	pub fn new(
+		records: Rc<RefCell<Records>>,
+		depcache: Rc<RefCell<DepCache>>,
+		pkg_ptr: *mut apt::PkgIterator,
+	) -> Package<'a> {
 		unsafe {
 			Package {
 				_lifetime: &PhantomData,
 				ptr: pkg_ptr,
 				records,
+				depcache,
 				name: apt::get_fullname(pkg_ptr, true),
 				arch: raw::own_string(apt::pkg_arch(pkg_ptr)).unwrap(),
 				id: apt::pkg_id(pkg_ptr),
@@ -92,9 +98,7 @@ impl<'a> Package<'a> {
 	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(self.ptr) } }
 
 	/// Check if a package is upgradable.
-	pub fn is_upgradable(&self) -> bool {
-		unsafe { apt::pkg_is_upgradable(self.records.borrow_mut().pcache, self.ptr) }
-	}
+	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(self.ptr) }
 
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
@@ -445,10 +449,48 @@ impl Drop for Records {
 	}
 }
 
+/// Internal Struct for managing apt's pkgDepCache.
+#[derive(Debug)]
+pub struct DepCache {
+	ptr: OnceCell<*mut apt::PkgDepCache>,
+	pcache: *mut apt::PCache,
+}
+
+// DepCache does not have a drop because we don't need to free the pointer.
+// The pointer is freed when the cache is dropped
+// DepCache is not initialized with the cache as it slows down some operations
+// Instead we have this struct to lazily initialize when we need it.
+impl DepCache {
+	pub fn new(pcache: *mut apt::PCache) -> Self {
+		DepCache {
+			ptr: OnceCell::new(),
+			pcache,
+		}
+	}
+
+	/// Internal helper to init the depcache if it hasn't been already.
+	fn ptr(&self) -> *mut apt::PkgDepCache {
+		*self
+			.ptr
+			.get_or_init(|| unsafe { apt::depcache_create(self.pcache) })
+	}
+
+	pub fn clear(&self) {
+		unsafe {
+			apt::depcache_create(self.pcache);
+		}
+	}
+
+	pub fn is_upgradable(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_is_upgradable(self.ptr(), pkg_ptr) }
+	}
+}
+
 #[derive(Debug)]
 pub struct Cache {
 	pub ptr: *mut apt::PCache,
 	pub records: Rc<RefCell<Records>>,
+	depcache: Rc<RefCell<DepCache>>,
 }
 
 impl Drop for Cache {
@@ -473,17 +515,14 @@ impl Cache {
 		Self {
 			ptr: cache_ptr,
 			records: Rc::new(RefCell::new(Records::new(cache_ptr))),
+			depcache: Rc::new(RefCell::new(DepCache::new(cache_ptr))),
 		}
 	}
 
 	/// Clears all changes made to packages.
 	///
 	/// Currently this doesn't do anything as we can't manipulate packages.
-	pub fn clear(&mut self) {
-		unsafe {
-			apt::depcache_init(self.ptr);
-		}
-	}
+	pub fn clear(&self) { self.depcache.borrow().clear(); }
 
 	/// Returns an iterator of SourceURIs.
 	///
@@ -516,7 +555,11 @@ impl Cache {
 				return None;
 			}
 		}
-		Some(Package::new(Rc::clone(&self.records), pkg_ptr))
+		Some(Package::new(
+			Rc::clone(&self.records),
+			Rc::clone(&self.depcache),
+			pkg_ptr,
+		))
 	}
 
 	/// Internal method for getting a package by name
@@ -557,14 +600,18 @@ impl Cache {
 	fn sort_package(&self, pkg_ptr: *mut apt::PkgIterator, sort: &PackageSort) -> Option<Package> {
 		unsafe {
 			if (!sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr))
-				|| (sort.upgradable && !apt::pkg_is_upgradable(self.ptr, pkg_ptr))
+				|| (sort.upgradable && !self.depcache.borrow().is_upgradable(pkg_ptr))
 				|| (sort.installed && !apt::pkg_is_installed(pkg_ptr))
 			{
 				apt::pkg_release(pkg_ptr);
 				return None;
 			}
 		}
-		Some(Package::new(Rc::clone(&self.records), pkg_ptr))
+		Some(Package::new(
+			Rc::clone(&self.records),
+			Rc::clone(&self.depcache),
+			pkg_ptr,
+		))
 	}
 
 	/// Internal method for iterating apt's package pointers.

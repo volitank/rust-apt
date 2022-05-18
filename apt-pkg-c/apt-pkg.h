@@ -3,9 +3,9 @@
 // For Development Typing
 #include "cxx-typing.h"
 #include "rust/cxx.h"
+#include <apt-pkg/depcache.h>
 //#include <memory>
 
-struct pkgCacheFile;
 struct PCache;
 struct PkgIterator;
 struct PkgFileIterator;
@@ -17,6 +17,7 @@ struct PkgRecords;
 struct PkgIndexFile;
 struct DescIterator;
 struct SourceFile;
+using PkgDepCache = pkgDepCache;
 // From Rust to C++
 //
 // CXX Test Function
@@ -27,10 +28,10 @@ struct SourceFile;
 //
 /// Main Initializers for APT
 void init_config_system();
-void depcache_init(PCache *pcache);
 
 PCache *pkg_cache_create();
 PkgRecords *pkg_records_create(PCache *pcache);
+pkgDepCache *depcache_create(PCache *pcache);
 
 void pkg_cache_release(PCache *cache);
 void pkg_records_release(PkgRecords *records);
@@ -74,7 +75,7 @@ void pkg_index_file_release(PkgIndexFile *wrapper);
 void ver_desc_release(DescIterator *wrapper);
 
 /// Information Accessors
-bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper);
+bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper);
 bool pkg_is_installed(PkgIterator *wrapper);
 bool pkg_has_versions(PkgIterator *wrapper);
 bool pkg_has_provides(PkgIterator *wrapper);

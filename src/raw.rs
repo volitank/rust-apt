@@ -33,14 +33,15 @@ pub mod apt {
 		type PkgRecords;
 		type PkgIndexFile;
 		type DescIterator;
+		type PkgDepCache;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 
 		/// Main Initializers for APT
 		pub fn init_config_system();
-		pub unsafe fn depcache_init(pcache: *mut PCache);
 
 		pub fn pkg_cache_create() -> *mut PCache;
 		pub unsafe fn pkg_records_create(pcache: *mut PCache) -> *mut PkgRecords;
+		pub unsafe fn depcache_create(pcache: *mut PCache) -> *mut PkgDepCache;
 
 		pub unsafe fn pkg_cache_release(cache: *mut PCache);
 		pub unsafe fn pkg_records_release(records: *mut PkgRecords);
@@ -102,7 +103,10 @@ pub mod apt {
 		pub unsafe fn ver_desc_release(iterator: *mut DescIterator);
 
 		/// Information Accessors
-		pub unsafe fn pkg_is_upgradable(cache: *mut PCache, iterator: *mut PkgIterator) -> bool;
+		pub unsafe fn pkg_is_upgradable(
+			depcache: *mut PkgDepCache,
+			iterator: *mut PkgIterator,
+		) -> bool;
 		pub unsafe fn pkg_is_installed(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
