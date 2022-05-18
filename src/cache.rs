@@ -1,12 +1,11 @@
 use std::cell::RefCell;
+use std::fmt;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use std::{ffi, fmt};
 
 use once_cell::unsync::OnceCell;
 
 #[deny(clippy::not_unsafe_ptr_arg_deref)]
-use crate::raw;
 use crate::raw::apt;
 
 #[derive(Debug)]
@@ -41,7 +40,7 @@ impl<'a> Package<'a> {
 				records,
 				depcache,
 				name: apt::get_fullname(pkg_ptr, true),
-				arch: raw::own_string(apt::pkg_arch(pkg_ptr)).unwrap(),
+				arch: apt::pkg_arch(pkg_ptr),
 				id: apt::pkg_id(pkg_ptr),
 				essential: apt::pkg_essential(pkg_ptr),
 				current_state: apt::pkg_current_state(pkg_ptr),
@@ -224,15 +223,14 @@ impl<'a> Version<'a> {
 				pkgname: apt::ver_name(ver_ptr),
 				priority: ver_priority,
 				file_list: OnceCell::new(),
-				version: raw::own_string(apt::ver_str(ver_ptr)).unwrap(),
+				version: apt::ver_str(ver_ptr),
 				size: apt::ver_size(ver_ptr),
 				installed_size: apt::ver_installed_size(ver_ptr),
-				arch: raw::own_string(apt::ver_arch(ver_ptr)).unwrap(),
+				arch: apt::ver_arch(ver_ptr),
 				downloadable: apt::ver_downloadable(ver_ptr),
 				id: apt::ver_id(ver_ptr),
-				section: raw::own_string(apt::ver_section(ver_ptr))
-					.unwrap_or_else(|| String::from("None")),
-				priority_str: raw::own_string(apt::ver_priority_str(ver_ptr)).unwrap(),
+				section: apt::ver_section(ver_ptr),
+				priority_str: apt::ver_priority_str(ver_ptr),
 			}
 		}
 	}
@@ -570,12 +568,10 @@ impl Cache {
 	/// package.
 	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PkgIterator {
 		unsafe {
-			let name = ffi::CString::new(name).unwrap();
 			if !arch.is_empty() {
-				let arch = ffi::CString::new(arch).unwrap();
-				return apt::pkg_cache_find_name_arch(self.ptr, name.as_ptr(), arch.as_ptr());
+				return apt::pkg_cache_find_name_arch(self.ptr, name, arch);
 			}
-			apt::pkg_cache_find_name(self.ptr, name.as_ptr())
+			apt::pkg_cache_find_name(self.ptr, name)
 		}
 	}
 

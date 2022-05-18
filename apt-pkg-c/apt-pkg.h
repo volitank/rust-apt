@@ -54,8 +54,8 @@ PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
 DescIterator *ver_desc_file(VerIterator *wrapper);
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 
-PkgIterator *pkg_cache_find_name(PCache *cache, const char *name);
-PkgIterator *pkg_cache_find_name_arch(PCache *cache, const char *name, const char *arch);
+PkgIterator *pkg_cache_find_name(PCache *pcache, rust::str name);
+PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::str name, rust::str arch);
 
 /// Iterator Manipulation
 void pkg_next(PkgIterator *iterator);
@@ -80,20 +80,20 @@ bool pkg_is_installed(PkgIterator *wrapper);
 bool pkg_has_versions(PkgIterator *wrapper);
 bool pkg_has_provides(PkgIterator *wrapper);
 rust::string get_fullname(PkgIterator *iterator, bool pretty);
-const char *pkg_name(PkgIterator *iterator);
-const char *pkg_arch(PkgIterator *iterator);
+rust::string pkg_name(PkgIterator *iterator);
+rust::string pkg_arch(PkgIterator *iterator);
 int32_t pkg_id(PkgIterator *wrapper);
 int32_t pkg_current_state(PkgIterator *wrapper);
 int32_t pkg_inst_state(PkgIterator *wrapper);
 int32_t pkg_selected_state(PkgIterator *wrapper);
 bool pkg_essential(PkgIterator *wrapper);
 
-const char *ver_arch(VerIterator *iterator);
-const char *ver_str(VerIterator *iterator);
-const char *ver_section(VerIterator *iterator);
-const char *ver_priority_str(VerIterator *wrapper);
-const char *ver_source_package(VerIterator *iterator);
-const char *ver_source_version(VerIterator *iterator);
+rust::string ver_arch(VerIterator *iterator);
+rust::string ver_str(VerIterator *iterator);
+rust::string ver_section(VerIterator *iterator);
+rust::string ver_priority_str(VerIterator *wrapper);
+rust::string ver_source_package(VerIterator *iterator);
+rust::string ver_source_version(VerIterator *iterator);
 rust::string ver_name(VerIterator *wrapper);
 int32_t ver_size(VerIterator *wrapper);
 int32_t ver_installed_size(VerIterator *wrapper);

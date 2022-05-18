@@ -1,5 +1,4 @@
-use std::os::raw::c_char;
-use std::{ffi, fmt};
+use std::fmt;
 
 impl fmt::Display for apt::SourceFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -75,14 +74,11 @@ pub mod apt {
 			pkg_file: *mut PkgFileIterator,
 		) -> *mut PkgIndexFile;
 
-		pub unsafe fn pkg_cache_find_name(
-			cache: *mut PCache,
-			name: *const c_char,
-		) -> *mut PkgIterator;
+		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: &str) -> *mut PkgIterator;
 		pub unsafe fn pkg_cache_find_name_arch(
 			cache: *mut PCache,
-			name: *const c_char,
-			arch: *const c_char,
+			name: &str,
+			arch: &str,
 		) -> *mut PkgIterator;
 
 		/// Iterator Manipulation
@@ -111,18 +107,18 @@ pub mod apt {
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;
-		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> *const c_char;
-		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> *const c_char;
+		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> String;
+		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> String;
 		pub unsafe fn pkg_id(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_current_state(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_inst_state(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_selected_state(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_essential(iterator: *mut PkgIterator) -> bool;
 
-		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_str(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_section(iterator: *mut VerIterator) -> *const c_char;
-		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> *const c_char;
+		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> String;
+		pub unsafe fn ver_str(iterator: *mut VerIterator) -> String;
+		pub unsafe fn ver_section(iterator: *mut VerIterator) -> String;
+		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> String;
 		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
 		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const
 		// c_char; pub unsafe fn ver_source_version(iterator: *mut VerIterator) ->
@@ -183,18 +179,5 @@ pub mod apt {
 		// unsafe fn pkg_file_iter_architecture(iterator: *mut PkgFileIterator) ->
 		// *const c_char; pub unsafe fn pkg_file_iter_index_type(iterator: *mut
 		// PkgFileIterator) -> *const c_char;
-	}
-}
-
-pub unsafe fn own_string(ptr: *const c_char) -> Option<String> {
-	if ptr.is_null() {
-		None
-	} else {
-		Some(
-			ffi::CStr::from_ptr(ptr)
-				.to_str()
-				.expect("value should always be low-ascii")
-				.to_string(),
-		)
 	}
 }

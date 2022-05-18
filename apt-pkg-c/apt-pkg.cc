@@ -231,15 +231,15 @@ PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 }
 
 // These two are how we get a specific package by name.
-PkgIterator *pkg_cache_find_name(PCache *pcache, const char *name) {
+PkgIterator *pkg_cache_find_name(PCache *pcache, rust::str name) {
 	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name);
+	wrapper->iterator = pcache->cache->FindPkg(name.data());
 	return wrapper;
 }
 
-PkgIterator*pkg_cache_find_name_arch(PCache *pcache, const char *name, const char *arch) {
+PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::str name, rust::str arch) {
 	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name, arch);
+	wrapper->iterator = pcache->cache->FindPkg(name.data(), arch.data());
 	return wrapper;
 }
 
@@ -315,11 +315,11 @@ rust::string get_fullname(PkgIterator *wrapper, bool pretty) {
 	return wrapper->iterator.FullName(pretty);
 }
 
-const char *pkg_name(PkgIterator *wrapper) {
+rust::string pkg_name(PkgIterator *wrapper) {
 	return wrapper->iterator.Name();
 }
 
-const char *pkg_arch(PkgIterator *wrapper) {
+rust::string pkg_arch(PkgIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
 
@@ -343,27 +343,27 @@ bool pkg_essential(PkgIterator *wrapper) {
 	return (wrapper->iterator->Flags & pkgCache::Flag::Essential) != 0;
 }
 
-const char *ver_arch(VerIterator *wrapper) {
+rust::string ver_arch(VerIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
 
-const char *ver_str(VerIterator *wrapper) {
+rust::string ver_str(VerIterator *wrapper) {
 	return wrapper->iterator.VerStr();
 }
 
-const char *ver_section(VerIterator *wrapper) {
+rust::string ver_section(VerIterator *wrapper) {
    return wrapper->iterator.Section();
 }
 
-const char *ver_priority_str(VerIterator *wrapper) {
+rust::string ver_priority_str(VerIterator *wrapper) {
 	return wrapper->iterator.PriorityType();
 }
 
-const char *ver_source_package(VerIterator *wrapper) {
+rust::string ver_source_package(VerIterator *wrapper) {
 	return wrapper->iterator.SourcePkgName();
 }
 
-const char *ver_source_version(VerIterator *wrapper) {
+rust::string ver_source_version(VerIterator *wrapper) {
 	return wrapper->iterator.SourceVerStr();
 }
 
