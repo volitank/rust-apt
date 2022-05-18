@@ -485,6 +485,13 @@ impl Cache {
 		}
 	}
 
+	/// Returns an iterator of SourceURIs.
+	///
+	/// These are the files that `apt update` will fetch.
+	pub fn sources(&self) -> impl Iterator<Item = apt::SourceFile> + '_ {
+		unsafe { apt::source_uris(self.ptr).into_iter() }
+	}
+
 	// Disabled as it doesn't really work yet. Would likely need to
 	// Be on the objects them self and not the cache
 	// pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {

@@ -16,7 +16,7 @@ struct VerFileParser;
 struct PkgRecords;
 struct PkgIndexFile;
 struct DescIterator;
-
+struct SourceFile;
 // From Rust to C++
 //
 // CXX Test Function
@@ -35,6 +35,7 @@ PkgRecords *pkg_records_create(PCache *pcache);
 void pkg_cache_release(PCache *cache);
 void pkg_records_release(PkgRecords *records);
 
+rust::Vec<SourceFile> source_uris(PCache *pcache);
 int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right);
 
 /// Iterator Creators

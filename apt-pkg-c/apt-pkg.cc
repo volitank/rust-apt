@@ -16,6 +16,9 @@
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/version.h>
 #include <apt-pkg/algorithms.h>
+#include <apt-pkg/acquire.h>
+#include <apt-pkg/acquire-item.h>
+#include <apt-pkg/fileutl.h>
 
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
@@ -38,6 +41,8 @@ struct PCache {
 
 	// Borrowed from cache_file.
 	pkgDepCache *depcache;
+
+	pkgSourceList *source;
 };
 
 struct PkgRecords {
@@ -100,18 +105,18 @@ void depcache_init(PCache *pcache) {
 
 PCache *pkg_cache_create() {
 	pkgCacheFile *cache_file = new pkgCacheFile();
-	pkgCache *cache = cache_file->GetPkgCache();
-	pkgDepCache *depcache = cache_file->GetDepCache();
-
 	PCache *ret = new PCache();
 	cache_file->BuildSourceList();
 
 	ret->cache_file = cache_file;
-	ret->cache = cache;
-	ret->depcache = depcache;
+	ret->cache = cache_file->GetPkgCache();
+	// DepCache initialization is slow. Only do it when necessary
+	ret->depcache = cache_file->GetDepCache();
+	ret->source = cache_file->GetSourceList();
+
 	// Initializing the depcache slows us down.
 	// Might not want to unless we actually need it.
-	//	depcache_init(ret);
+	// depcache_init(ret);
 	return ret;
 }
 
@@ -136,6 +141,24 @@ void pkg_index_file_release(PkgIndexFile *wrapper) {
 void pkg_records_release(PkgRecords *records) {
 	delete records -> records;
 	delete records;
+}
+
+rust::Vec<SourceFile> source_uris(PCache *pcache) {
+	pkgAcquire fetcher;
+	rust::Vec<SourceFile> list;
+
+	pcache->source->GetIndexes(&fetcher, true);
+	pkgAcquire::UriIterator I = fetcher.UriBegin();
+
+	for (; I != fetcher.UriEnd(); ++I) {
+		list.push_back(
+			SourceFile {
+				I->URI,
+				flNotDir(I->Owner->DestFile)
+			}
+		);
+	}
+	return list;
 }
 
 int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right) {
@@ -279,6 +302,7 @@ void ver_desc_release(DescIterator *wrapper) {
 /// Information Accessors
 ///
 bool pkg_is_upgradable(PCache *cache, PkgIterator *wrapper) {
+	// DepCache
 	pkgCache::PkgIterator &pkg = wrapper->iterator;
 	if (pkg.CurrentVer() == 0) { return false; }
 	return (*cache->cache_file)[pkg].Upgradable();

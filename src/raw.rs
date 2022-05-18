@@ -1,12 +1,26 @@
-/// In general:
-///  * `*mut c_void` are to be released by the appropriate function
-///  * `*const c_chars` are short-term borrows
-///  * `*mut c_chars` are to be freed by `libc::free`.
-use std::ffi;
 use std::os::raw::c_char;
+use std::{ffi, fmt};
+
+impl fmt::Display for apt::SourceFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "Source< Uri: {}, Filename: {}>", self.uri, self.filename)?;
+		Ok(())
+	}
+}
 
 #[cxx::bridge]
 pub mod apt {
+
+	/// Struct representing a Source File.
+	///
+	/// uri = `http://deb.volian.org/volian/dists/scar/InRelease`
+	///
+	/// filename = `deb.volian.org_volian_dists_scar_InRelease`
+	#[derive(Debug)]
+	struct SourceFile {
+		uri: String,
+		filename: String,
+	}
 
 	unsafe extern "C++" {
 		type PCache;
@@ -31,6 +45,7 @@ pub mod apt {
 		pub unsafe fn pkg_cache_release(cache: *mut PCache);
 		pub unsafe fn pkg_records_release(records: *mut PkgRecords);
 
+		pub unsafe fn source_uris(pcache: *mut PCache) -> Vec<SourceFile>;
 		// pub unsafe fn pkg_cache_compare_versions(
 		// 	cache: *mut PCache,
 		// 	left: *const c_char,

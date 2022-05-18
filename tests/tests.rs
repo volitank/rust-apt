@@ -119,6 +119,7 @@ mod tests {
 		assert!(!sort.virtual_pkgs);
 		assert!(sort.installed);
 	}
+
 	#[test]
 	fn test_hashes() {
 		let cache = Cache::new();
@@ -131,5 +132,13 @@ mod tests {
 				println!("sha1 {:?}", version.hash("sha1"))
 			}
 		};
+	}
+
+	#[test]
+	fn test_sources() {
+		let cache = Cache::new();
+		for source in cache.sources() {
+			println!("uri: {}, filename: {}", source.uri, source.filename);
+		}
 	}
 }
