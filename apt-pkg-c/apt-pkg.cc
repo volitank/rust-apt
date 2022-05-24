@@ -299,6 +299,56 @@ bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper) {
 	return (*depcache)[pkg].Upgradable();
 }
 
+bool pkg_is_auto_installed(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Flags & pkgCache::Flag::Auto;
+}
+
+bool pkg_is_garbage(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Garbage;
+}
+
+bool pkg_marked_install(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].NewInstall();
+}
+
+bool pkg_marked_upgrade(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Upgrade();
+}
+
+bool pkg_marked_delete(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Delete();
+}
+
+bool pkg_marked_keep(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Keep();
+}
+
+bool pkg_marked_downgrade(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].Downgrade();
+}
+
+bool pkg_marked_reinstall(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].ReInstall();
+}
+
+bool pkg_is_now_broken(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].NowBroken();
+}
+
+bool pkg_is_inst_broken(pkgDepCache *depcache, PkgIterator *wrapper) {
+	pkgCache::PkgIterator &pkg = wrapper->iterator;
+	return (*depcache)[pkg].InstBroken();
+}
+
 bool pkg_is_installed(PkgIterator *wrapper) {
 	return !(wrapper->iterator.CurrentVer() == 0);
 }

@@ -98,26 +98,41 @@ mod tests {
 
 	#[test]
 	fn sort_defaults() {
-		let sort = PackageSort::default().upgradable(true).installed(true);
-
-		assert!(sort.upgradable);
-		assert!(!sort.virtual_pkgs);
-		assert!(sort.installed);
-
 		let sort = PackageSort::default().virtual_pkgs(true);
 
 		assert!(!sort.upgradable);
 		assert!(sort.virtual_pkgs);
 		assert!(!sort.installed);
+		assert!(!sort.auto_installed);
+		assert!(!sort.auto_removable);
 
 		let sort = PackageSort::default()
 			.upgradable(true)
 			.virtual_pkgs(false)
-			.installed(true);
+			.installed(true)
+			.auto_installed(true)
+			.auto_removable(true);
 
 		assert!(sort.upgradable);
 		assert!(!sort.virtual_pkgs);
 		assert!(sort.installed);
+		assert!(sort.auto_installed);
+		assert!(sort.auto_removable);
+	}
+
+	#[test]
+	fn depcache_marked() {
+		let cache = Cache::new();
+		if let Some(pkg) = cache.get("apt") {
+			pkg.marked_install();
+			pkg.marked_upgrade();
+			pkg.marked_delete();
+			pkg.marked_keep();
+			pkg.marked_downgrade();
+			pkg.marked_reinstall();
+			pkg.is_now_broken();
+			pkg.is_inst_broken();
+		};
 	}
 
 	#[test]

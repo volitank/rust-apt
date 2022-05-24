@@ -103,6 +103,44 @@ pub mod apt {
 			depcache: *mut PkgDepCache,
 			iterator: *mut PkgIterator,
 		) -> bool;
+		pub unsafe fn pkg_is_auto_installed(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_is_garbage(depcache: *mut PkgDepCache, wrapper: *mut PkgIterator)
+			-> bool;
+		pub unsafe fn pkg_marked_install(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_marked_upgrade(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_marked_delete(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_marked_keep(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_marked_downgrade(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_marked_reinstall(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_is_now_broken(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
+		pub unsafe fn pkg_is_inst_broken(
+			depcache: *mut PkgDepCache,
+			wrapper: *mut PkgIterator,
+		) -> bool;
 		pub unsafe fn pkg_is_installed(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;

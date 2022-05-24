@@ -76,6 +76,16 @@ void ver_desc_release(DescIterator *wrapper);
 
 /// Information Accessors
 bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_is_auto_installed(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_is_garbage(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_install(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_upgrade(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_delete(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_keep(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_downgrade(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_marked_reinstall(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_is_now_broken(pkgDepCache *depcache, PkgIterator *wrapper);
+bool pkg_is_inst_broken(pkgDepCache *depcache, PkgIterator *wrapper);
 bool pkg_is_installed(PkgIterator *wrapper);
 bool pkg_has_versions(PkgIterator *wrapper);
 bool pkg_has_provides(PkgIterator *wrapper);

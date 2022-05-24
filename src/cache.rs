@@ -96,8 +96,38 @@ impl<'a> Package<'a> {
 	/// Check if the package is installed.
 	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(self.ptr) } }
 
-	/// Check if a package is upgradable.
+	/// Check if the package is upgradable.
 	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(self.ptr) }
+
+	/// Check if the package is auto installed. (Not installed by the user)
+	pub fn is_auto_installed(&self) -> bool { self.depcache.borrow().is_auto_installed(self.ptr) }
+
+	/// Check if the package is auto removable
+	pub fn is_auto_removable(&self) -> bool { self.depcache.borrow().is_auto_removable(self.ptr) }
+
+	/// Check if the package is now broken
+	pub fn is_now_broken(&self) -> bool { self.depcache.borrow().is_now_broken(self.ptr) }
+
+	/// Check if the package package installed is broken
+	pub fn is_inst_broken(&self) -> bool { self.depcache.borrow().is_inst_broken(self.ptr) }
+
+	/// Check if the package is marked install
+	pub fn marked_install(&self) -> bool { self.depcache.borrow().marked_install(self.ptr) }
+
+	/// Check if the package is marked upgrade
+	pub fn marked_upgrade(&self) -> bool { self.depcache.borrow().marked_upgrade(self.ptr) }
+
+	/// Check if the package is marked delete
+	pub fn marked_delete(&self) -> bool { self.depcache.borrow().marked_delete(self.ptr) }
+
+	/// Check if the package is marked keep
+	pub fn marked_keep(&self) -> bool { self.depcache.borrow().marked_keep(self.ptr) }
+
+	/// Check if the package is marked downgrade
+	pub fn marked_downgrade(&self) -> bool { self.depcache.borrow().marked_downgrade(self.ptr) }
+
+	/// Check if the package is marked reinstall
+	pub fn marked_reinstall(&self) -> bool { self.depcache.borrow().marked_reinstall(self.ptr) }
 
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
@@ -356,6 +386,8 @@ pub struct PackageSort {
 	pub upgradable: bool,
 	pub virtual_pkgs: bool,
 	pub installed: bool,
+	pub auto_installed: bool,
+	pub auto_removable: bool,
 }
 
 impl PackageSort {
@@ -374,6 +406,18 @@ impl PackageSort {
 	/// If true, only packages that are installed will be included
 	pub fn installed(mut self, switch: bool) -> Self {
 		self.installed = switch;
+		self
+	}
+
+	/// If true, only packages that are auto installed will be included
+	pub fn auto_installed(mut self, switch: bool) -> Self {
+		self.auto_installed = switch;
+		self
+	}
+
+	/// If true, only packages that are auto removable will be included
+	pub fn auto_removable(mut self, switch: bool) -> Self {
+		self.auto_removable = switch;
 		self
 	}
 }
@@ -481,6 +525,50 @@ impl DepCache {
 
 	pub fn is_upgradable(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
 		unsafe { apt::pkg_is_upgradable(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn is_auto_installed(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_is_auto_installed(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn is_auto_removable(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		let dep_ptr = self.ptr();
+		unsafe {
+			(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(dep_ptr, pkg_ptr))
+				&& apt::pkg_is_garbage(self.ptr(), pkg_ptr)
+		}
+	}
+
+	pub fn marked_install(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_install(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn marked_upgrade(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_upgrade(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn marked_delete(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_delete(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn marked_keep(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_keep(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn marked_downgrade(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_downgrade(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn marked_reinstall(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_marked_reinstall(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn is_now_broken(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_is_now_broken(self.ptr(), pkg_ptr) }
+	}
+
+	pub fn is_inst_broken(&self, pkg_ptr: *mut apt::PkgIterator) -> bool {
+		unsafe { apt::pkg_is_inst_broken(self.ptr(), pkg_ptr) }
 	}
 }
 
@@ -598,6 +686,8 @@ impl Cache {
 			if (!sort.virtual_pkgs && !apt::pkg_has_versions(pkg_ptr))
 				|| (sort.upgradable && !self.depcache.borrow().is_upgradable(pkg_ptr))
 				|| (sort.installed && !apt::pkg_is_installed(pkg_ptr))
+				|| (sort.auto_installed && !self.depcache.borrow().is_auto_installed(pkg_ptr))
+				|| (sort.auto_removable && !self.depcache.borrow().is_auto_removable(pkg_ptr))
 			{
 				apt::pkg_release(pkg_ptr);
 				return None;
