@@ -74,11 +74,11 @@ pub mod apt {
 			pkg_file: *mut PkgFileIterator,
 		) -> *mut PkgIndexFile;
 
-		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: &str) -> *mut PkgIterator;
+		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: String) -> *mut PkgIterator;
 		pub unsafe fn pkg_cache_find_name_arch(
 			cache: *mut PCache,
-			name: &str,
-			arch: &str,
+			name: String,
+			arch: String,
 		) -> *mut PkgIterator;
 
 		/// Iterator Manipulation

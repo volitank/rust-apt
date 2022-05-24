@@ -283,9 +283,9 @@ impl Cache {
 	fn find_by_name(&self, name: &str, arch: &str) -> *mut apt::PkgIterator {
 		unsafe {
 			if !arch.is_empty() {
-				return apt::pkg_cache_find_name_arch(self.ptr, name, arch);
+				return apt::pkg_cache_find_name_arch(self.ptr, name.to_owned(), arch.to_owned());
 			}
-			apt::pkg_cache_find_name(self.ptr, name)
+			apt::pkg_cache_find_name(self.ptr, name.to_owned())
 		}
 	}
 

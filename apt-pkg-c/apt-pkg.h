@@ -54,8 +54,8 @@ PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
 DescIterator *ver_desc_file(VerIterator *wrapper);
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 
-PkgIterator *pkg_cache_find_name(PCache *pcache, rust::str name);
-PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::str name, rust::str arch);
+PkgIterator *pkg_cache_find_name(PCache *pcache, rust::string name);
+PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch);
 
 /// Iterator Manipulation
 void pkg_next(PkgIterator *iterator);

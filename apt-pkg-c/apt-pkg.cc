@@ -231,15 +231,15 @@ PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 }
 
 // These two are how we get a specific package by name.
-PkgIterator *pkg_cache_find_name(PCache *pcache, rust::str name) {
+PkgIterator *pkg_cache_find_name(PCache *pcache, rust::string name) {
 	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name.data());
+	wrapper->iterator = pcache->cache->FindPkg(name.c_str());
 	return wrapper;
 }
 
-PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::str name, rust::str arch) {
+PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch) {
 	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name.data(), arch.data());
+	wrapper->iterator = pcache->cache->FindPkg(name.c_str(), arch.c_str());
 	return wrapper;
 }
 
