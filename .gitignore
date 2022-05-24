@@ -5,4 +5,4 @@ Cargo.lock
 *.iml
 apt-c/lib.o
 apt-c/libapt-c.a
-compile_commands.json
+.cache
