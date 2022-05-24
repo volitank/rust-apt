@@ -17,6 +17,7 @@ struct PkgRecords;
 struct PkgIndexFile;
 struct DescIterator;
 struct SourceFile;
+struct Provider;
 using PkgDepCache = pkgDepCache;
 // From Rust to C++
 //
@@ -89,6 +90,7 @@ bool pkg_is_inst_broken(pkgDepCache *depcache, PkgIterator *wrapper);
 bool pkg_is_installed(PkgIterator *wrapper);
 bool pkg_has_versions(PkgIterator *wrapper);
 bool pkg_has_provides(PkgIterator *wrapper);
+rust::Vec<Provider> pkg_provides_list(PCache *cache, PkgIterator *wrapper, bool cand_only);
 rust::string get_fullname(PkgIterator *iterator, bool pretty);
 rust::string pkg_name(PkgIterator *iterator);
 rust::string pkg_arch(PkgIterator *iterator);

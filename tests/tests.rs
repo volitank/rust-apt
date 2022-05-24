@@ -150,6 +150,18 @@ mod tests {
 	}
 
 	#[test]
+	fn test_provides() {
+		let cache = Cache::new();
+		println!("Provider Test");
+		if let Some(pkg) = cache.get("www-browser") {
+			println!("{} is provided by:", pkg.name);
+			for ppkg in cache.provides(&pkg, true) {
+				println!("  {}", ppkg.name);
+			}
+		};
+	}
+
+	#[test]
 	fn test_sources() {
 		let cache = Cache::new();
 		for source in cache.sources() {

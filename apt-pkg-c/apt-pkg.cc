@@ -361,6 +361,25 @@ bool pkg_has_provides(PkgIterator *wrapper) {
 	return wrapper->iterator.ProvidesList().end() == false;
 }
 
+rust::Vec<Provider> pkg_provides_list(PCache *cache, PkgIterator *wrapper, bool cand_only) {
+	pkgCache::PrvIterator provide = wrapper->iterator.ProvidesList();
+	rust::Vec<Provider> list;
+
+	for (; provide.end() == false; provide++) {
+		pkgCache::PkgIterator pkg = provide.OwnerPkg();
+		bool is_cand = (
+			provide.OwnerVer() == cache->cache_file->GetPolicy()->GetCandidateVer(pkg)
+		);
+		if (!cand_only || is_cand) {
+			PkgIterator *pkg_wrap = new PkgIterator();
+			pkg_wrap->iterator = pkg;
+
+			list.push_back( Provider { pkg.FullName(), pkg_wrap } );
+		}
+	}
+	return list;
+}
+
 rust::string get_fullname(PkgIterator *wrapper, bool pretty) {
 	return wrapper->iterator.FullName(pretty);
 }

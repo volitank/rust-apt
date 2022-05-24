@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
@@ -241,6 +242,33 @@ impl Cache {
 	/// These are the files that `apt update` will fetch.
 	pub fn sources(&self) -> impl Iterator<Item = apt::SourceFile> + '_ {
 		unsafe { apt::source_uris(self.ptr).into_iter() }
+	}
+
+	/// Returns an iterator of Packages that provide the virtual package
+	pub fn provides(
+		&self,
+		virt_pkg: &Package,
+		cand_only: bool,
+	) -> impl Iterator<Item = Package> + '_ {
+		// Use a hash set to remove duplicates
+		let mut unique = HashSet::new();
+		unsafe {
+			apt::pkg_provides_list(self.ptr, virt_pkg.ptr, cand_only)
+				.into_iter()
+				.filter_map(move |provider| {
+					// Duplication check
+					if !unique.insert(provider.hash()) {
+						apt::pkg_release(provider.ptr);
+						return None;
+					}
+
+					Some(Package::new(
+						Rc::clone(&self.records),
+						Rc::clone(&self.depcache),
+						provider.ptr,
+					))
+				})
+		}
 	}
 
 	// Disabled as it doesn't really work yet. Would likely need to

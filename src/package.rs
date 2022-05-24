@@ -14,7 +14,7 @@ pub struct Package<'a> {
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
-	ptr: *mut apt::PkgIterator,
+	pub(crate) ptr: *mut apt::PkgIterator,
 	pub name: String,
 	pub arch: String,
 	pub id: i32,
@@ -24,7 +24,6 @@ pub struct Package<'a> {
 	pub selected_state: i32,
 	pub has_versions: bool,
 	pub has_provides: bool,
-	// provides_list: List[Tuple[str, str, Version]],
 }
 
 impl<'a> Package<'a> {

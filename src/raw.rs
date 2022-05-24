@@ -1,9 +1,19 @@
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 impl fmt::Display for apt::SourceFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "Source< Uri: {}, Filename: {}>", self.uri, self.filename)?;
 		Ok(())
+	}
+}
+
+impl apt::Provider {
+	pub fn hash(&self) -> u64 {
+		let mut s = DefaultHasher::new();
+		self.name.hash(&mut s);
+		s.finish()
 	}
 }
 
@@ -19,6 +29,13 @@ pub mod apt {
 	struct SourceFile {
 		uri: String,
 		filename: String,
+	}
+
+	#[derive(Debug)]
+	// Simple struct for getting provider list
+	struct Provider {
+		name: String,
+		ptr: *mut PkgIterator,
 	}
 
 	unsafe extern "C++" {
@@ -144,6 +161,11 @@ pub mod apt {
 		pub unsafe fn pkg_is_installed(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
+		pub unsafe fn pkg_provides_list(
+			cache: *mut PCache,
+			iterator: *mut PkgIterator,
+			cand_only: bool,
+		) -> Vec<Provider>;
 		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;
 		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> String;
 		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> String;
