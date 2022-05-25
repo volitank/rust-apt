@@ -38,6 +38,26 @@ pub mod apt {
 		ptr: *mut PkgIterator,
 	}
 
+	#[derive(Debug)]
+	struct BaseDep {
+		name: String,
+		version: String,
+		comp: String,
+		dep_type: String,
+		ptr: *mut DepIterator,
+	}
+
+	#[derive(Debug)]
+	struct DepContainer {
+		dep_type: String,
+		dep_list: Vec<BaseDep>,
+	}
+
+	#[derive(Debug)]
+	struct VersionPtr {
+		ptr: *mut VerIterator,
+	}
+
 	unsafe extern "C++" {
 		type PCache;
 		type PkgIterator;
@@ -50,6 +70,7 @@ pub mod apt {
 		type PkgIndexFile;
 		type DescIterator;
 		type PkgDepCache;
+		type AptVer;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 
 		/// Main Initializers for APT
@@ -114,6 +135,7 @@ pub mod apt {
 		pub unsafe fn pkg_index_file_release(iterator: *mut PkgIndexFile);
 		pub unsafe fn pkg_file_release(iterator: *mut PkgFileIterator);
 		pub unsafe fn ver_desc_release(iterator: *mut DescIterator);
+		pub unsafe fn dep_release(iterator: *mut DepIterator);
 
 		/// Information Accessors
 		pub unsafe fn pkg_is_upgradable(
@@ -175,6 +197,7 @@ pub mod apt {
 		pub unsafe fn pkg_selected_state(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_essential(iterator: *mut PkgIterator) -> bool;
 
+		pub unsafe fn dep_list(iterator: *mut VerIterator) -> Vec<DepContainer>;
 		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> String;
 		pub unsafe fn ver_str(iterator: *mut VerIterator) -> String;
 		pub unsafe fn ver_section(iterator: *mut VerIterator) -> String;
@@ -197,6 +220,8 @@ pub mod apt {
 		pub unsafe fn long_desc(records: *mut PkgRecords) -> String;
 		pub unsafe fn short_desc(records: *mut PkgRecords) -> String;
 		pub unsafe fn hash_find(records: *mut PkgRecords, hash_type: String) -> String;
+
+		pub unsafe fn dep_all_targets(iterator: *mut DepIterator) -> Vec<VersionPtr>;
 		// pub unsafe fn long_desc(
 		// 	cache: *mut PCache,
 		// 	records: *mut PkgRecords,

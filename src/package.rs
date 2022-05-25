@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -57,11 +58,21 @@ impl<'a> Package<'a> {
 	///
 	/// For example on an amd64 system:
 	///
-	/// `pkg.get_fullname(true)` would return just `"apt"` for the amd64 package
-	/// and `"apt:i386"` for the i386 package.
+	/// ```
+	/// use rust_apt::cache::Cache;
+	/// let cache = Cache::new();
+	/// if let Some(pkg) = cache.get("apt") {
+	/// 	// Prints just "apt"
+	/// 	println!("{}", pkg.get_fullname(true));
+	/// 	// Prints "apt:amd64"
+	/// 	println!("{}", pkg.get_fullname(false));
+	/// };
 	///
-	/// `pkg.get_fullname(false)` would return `"apt:amd64"` for the amd64
-	/// version and `"apt:i386"` for the i386 package.
+	/// if let Some(pkg) = cache.get("apt:i386") {
+	/// 	// Prints "apt:i386" for the i386 package
+	/// 	println!("{}", pkg.get_fullname(true));
+	/// };
+	/// ```
 	pub fn get_fullname(&self, pretty: bool) -> String {
 		unsafe { apt::get_fullname(self.ptr, pretty) }
 	}
@@ -188,10 +199,11 @@ impl<'a> fmt::Display for Package<'a> {
 pub struct Version<'a> {
 	//_parent: RefCell<Package<'a>>,
 	_lifetime: &'a PhantomData<Cache>,
-	_records: Rc<RefCell<Records>>,
 	desc_ptr: *mut apt::DescIterator,
 	ptr: *mut apt::VerIterator,
+	records: Rc<RefCell<Records>>,
 	file_list: OnceCell<Vec<PackageFile>>,
+	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
 	pub pkgname: String,
 	pub version: String,
 	pub size: i32,
@@ -202,18 +214,6 @@ pub struct Version<'a> {
 	pub section: String,
 	pub priority: i32,
 	pub priority_str: String,
-	// provides_list: List[Tuple[str,str,str]]
-	// depends_list: Dict[str, List[List[Dependency]]]
-	// parent_pkg: Package
-	// multi_arch: int
-	// MULTI_ARCH_ALL: int
-	// MULTI_ARCH_ALLOWED: int
-	// MULTI_ARCH_ALL_ALLOWED: int
-	// MULTI_ARCH_ALL_FOREIGN: int
-	// MULTI_ARCH_FOREIGN: int
-	// MULTI_ARCH_NO: int
-	// MULTI_ARCH_NONE: int
-	// MULTI_ARCH_SAME: int
 }
 
 impl<'a> Version<'a> {
@@ -221,13 +221,15 @@ impl<'a> Version<'a> {
 		unsafe {
 			let ver_priority = apt::ver_priority(records.borrow_mut().pcache, ver_ptr);
 			Self {
+				_lifetime: &PhantomData,
 				ptr: if clone { apt::ver_clone(ver_ptr) } else { ver_ptr },
 				desc_ptr: apt::ver_desc_file(ver_ptr),
-				_records: records,
-				_lifetime: &PhantomData,
+				records,
+				file_list: OnceCell::new(),
+				depends_list: OnceCell::new(),
+
 				pkgname: apt::ver_name(ver_ptr),
 				priority: ver_priority,
-				file_list: OnceCell::new(),
 				version: apt::ver_str(ver_ptr),
 				size: apt::ver_size(ver_ptr),
 				installed_size: apt::ver_installed_size(ver_ptr),
@@ -260,7 +262,7 @@ impl<'a> Version<'a> {
 				package_files.push(PackageFile {
 					ver_file: apt::ver_file_clone(ver_file),
 					pkg_file,
-					index: apt::pkg_index_file(self._records.borrow_mut().pcache, pkg_file),
+					index: apt::pkg_index_file(self.records.borrow_mut().pcache, pkg_file),
 				});
 			}
 			apt::ver_file_release(ver_file);
@@ -268,19 +270,132 @@ impl<'a> Version<'a> {
 		package_files
 	}
 
+	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
+		let mut base_vec = Vec::new();
+		for base_dep in apt_deps.dep_list {
+			base_vec.push(BaseDep {
+				name: base_dep.name,
+				version: base_dep.version,
+				comp: base_dep.comp,
+				dep_type: base_dep.dep_type,
+				ptr: base_dep.ptr,
+				records: Rc::clone(&self.records),
+			})
+		}
+		Dependency {
+			dep_type: base_vec[0].name.to_owned(),
+			base_deps: base_vec,
+		}
+	}
+
+	/// Internal Method for Generating the Dependency HashMap
+	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
+		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
+
+		unsafe {
+			for dep in apt::dep_list(self.ptr) {
+				if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
+					vec.push(self.convert_depends(dep))
+				} else {
+					dependencies.insert(dep.dep_type.to_owned(), vec![self.convert_depends(dep)]);
+				}
+			}
+		}
+		dependencies
+	}
+
+	/// Returns a reference to the Dependency Map owned by the Version
+	/// ```
+	/// let keys = [
+	/// 	"Depends",
+	/// 	"PreDepends",
+	/// 	"Suggests",
+	/// 	"Recommends",
+	/// 	"Conflicts",
+	/// 	"Replaces",
+	/// 	"Obsoletes",
+	/// 	"Breaks",
+	/// 	"Enhances",
+	/// ];
+	/// ```
+	/// Dependencies are in a `Vec<Dependency>`
+	///
+	/// The Dependency struct represents an Or Group of dependencies.
+	/// The base deps are located in `Dependency.base_deps`
+	///
+	/// For example where we use the `"Depends"` key:
+	///
+	/// ```
+	/// use rust_apt::cache::Cache;
+	/// let cache = Cache::new();
+	/// let version = cache.get("apt").unwrap().candidate().unwrap();
+	/// for dep in version.depends_map().get("Depends").unwrap() {
+	/// 	if dep.is_or() {
+	/// 		for base_dep in &dep.base_deps {
+	/// 			println!("{}", base_dep.name)
+	/// 		}
+	/// 	} else {
+	/// 		// is_or is false so there is only one BaseDep
+	/// 		println!("{}", dep.first().name)
+	/// 	}
+	/// }
+	/// ```
+	pub fn depends_map(&self) -> &HashMap<String, Vec<Dependency>> {
+		self.depends_list.get_or_init(|| self.gen_depends())
+	}
+
+	/// Returns a reference Vector, if it exists, for the given key.
+	///
+	/// See the doc for `depends_map()` for more information.
+	pub fn get_depends(&self, key: &str) -> Option<&Vec<Dependency>> {
+		self.depends_list
+			.get_or_init(|| self.gen_depends())
+			.get(key)
+	}
+
+	/// Returns a Reference Vector, if it exists, for "Enhances".
+	pub fn enhances(&self) -> Option<&Vec<Dependency>> { self.get_depends("Enhances") }
+
+	/// Returns a Reference Vector, if it exists, for "Depends" and
+	/// "PreDepends".
+	pub fn dependencies(&self) -> Option<Vec<&Dependency>> {
+		let mut ret_vec: Vec<&Dependency> = Vec::new();
+
+		if let Some(dep_list) = self.get_depends("Depends") {
+			for dep in dep_list {
+				ret_vec.push(dep)
+			}
+		}
+		if let Some(dep_list) = self.get_depends("PreDepends") {
+			for dep in dep_list {
+				ret_vec.push(dep)
+			}
+		}
+		if ret_vec.len() == 0 {
+			return None;
+		}
+		Some(ret_vec)
+	}
+
+	/// Returns a Reference Vector, if it exists, for "Recommends".
+	pub fn recommends(&self) -> Option<&Vec<Dependency>> { self.get_depends("Recommends") }
+
+	/// Returns a Reference Vector, if it exists, for "suggests".
+	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends("Suggests") }
+
 	/// Check if the version is installed
 	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(self.ptr) } }
 
 	/// Get the translated long description
 	pub fn description(&self) -> String {
-		let records = self._records.borrow_mut();
+		let records = self.records.borrow_mut();
 		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.description()
 	}
 
 	/// Get the translated short description
 	pub fn summary(&self) -> String {
-		let records = self._records.borrow_mut();
+		let records = self.records.borrow_mut();
 		records.lookup(Lookup::Desc(self.desc_ptr));
 		records.summary()
 	}
@@ -299,7 +414,7 @@ impl<'a> Version<'a> {
 		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
 
 		if let Some(pkg_file) = package_files.into_iter().next() {
-			let records = self._records.borrow_mut();
+			let records = self.records.borrow_mut();
 			records.lookup(Lookup::VerFile(pkg_file.ver_file));
 			return records.hash_find(hash_type);
 		}
@@ -312,7 +427,7 @@ impl<'a> Version<'a> {
 			.get_or_init(|| self.gen_file_list())
 			.into_iter()
 			.filter_map(|package_file| {
-				let records = self._records.borrow_mut();
+				let records = self.records.borrow_mut();
 				records.lookup(Lookup::VerFile(package_file.ver_file));
 
 				let uri = unsafe { apt::ver_uri(records.ptr, package_file.index) };
@@ -352,6 +467,82 @@ impl<'a> fmt::Display for Version<'a> {
 			self.priority,
 			self.downloadable,
 		)?;
+		Ok(())
+	}
+}
+
+/// A struct representing a Base Dependency
+#[derive(Debug)]
+pub struct BaseDep {
+	pub name: String,
+	pub version: String,
+	pub comp: String,
+	pub dep_type: String,
+	ptr: *mut apt::DepIterator,
+	records: Rc<RefCell<Records>>,
+}
+
+impl BaseDep {
+	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
+		unsafe {
+			apt::dep_all_targets(self.ptr)
+				.into_iter()
+				.filter_map(|ver_ptr| {
+					Some(Version::new(Rc::clone(&self.records), ver_ptr.ptr, false))
+				})
+		}
+	}
+}
+
+impl fmt::Display for BaseDep {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>",
+			self.name, self.version, self.comp, self.dep_type,
+		)?;
+		Ok(())
+	}
+}
+
+impl Drop for BaseDep {
+	fn drop(&mut self) {
+		unsafe {
+			apt::dep_release(self.ptr);
+		}
+	}
+}
+
+/// A struct representing an Or_Group of Dependencies
+#[derive(Debug)]
+pub struct Dependency {
+	pub dep_type: String,
+	pub base_deps: Vec<BaseDep>,
+}
+
+impl Dependency {
+	/// Returns True if there are multiple dependencies that can satisfy this
+	pub fn is_or(&self) -> bool { self.base_deps.len() > 1 }
+
+	/// Returns a reference to the first BaseDep
+	pub fn first(&self) -> &BaseDep { &self.base_deps[0] }
+}
+
+impl fmt::Display for Dependency {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		if self.is_or() {
+			write!(f, "Or Dependencies[")?;
+		} else {
+			write!(f, "Dependency[")?;
+		}
+		for dep in &self.base_deps {
+			write!(
+				f,
+				"\n    BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>,",
+				dep.name, dep.version, dep.comp, dep.dep_type,
+			)?;
+		}
+		write!(f, "\n]")?;
 		Ok(())
 	}
 }

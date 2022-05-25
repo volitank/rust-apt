@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <cstdint>
 
@@ -72,6 +73,10 @@ struct PkgFileIterator {
 struct PkgIndexFile {
 	// Owned by us.
 	pkgIndexFile *index;
+};
+
+struct DepIterator {
+	pkgCache::DepIterator iterator;
 };
 
 /// CXX Test Function
@@ -291,6 +296,10 @@ void ver_desc_release(DescIterator *wrapper) {
 	delete wrapper;
 }
 
+void dep_release(DepIterator *wrapper) {
+	delete wrapper;
+}
+
 /// Information Accessors
 ///
 bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper) {
@@ -412,6 +421,57 @@ bool pkg_essential(PkgIterator *wrapper) {
 	return (wrapper->iterator->Flags & pkgCache::Flag::Essential) != 0;
 }
 
+const char *UntranslatedDepTypes[] = {
+	"", "Depends","PreDepends","Suggests",
+	"Recommends","Conflicts","Replaces",
+	"Obsoletes", "Breaks", "Enhances"
+};
+
+rust::Vec<DepContainer> dep_list(VerIterator *wrapper) {
+	rust::Vec<DepContainer> depend_list;
+
+	for (pkgCache::DepIterator dep = wrapper->iterator.DependsList(); dep.end() == false;) {
+		DepContainer depend = DepContainer();
+		pkgCache::DepIterator Start;
+		pkgCache::DepIterator End;
+		dep.GlobOr(Start, End);
+
+		depend.dep_type = UntranslatedDepTypes[Start->Type];
+		rust::Vec<BaseDep> list;
+
+		while (true) {
+			DepIterator *dep_wrapper = new DepIterator();
+			dep_wrapper->iterator = Start;
+
+			rust::string version;
+			if (Start->Version == 0) {
+				version = "";
+			} else {
+				version = Start.TargetVer();
+			}
+
+			list.push_back(
+				BaseDep {
+					Start.TargetPkg().Name(),
+					version,
+					Start.CompType(),
+					UntranslatedDepTypes[Start->Type],
+					dep_wrapper
+				}
+			);
+
+			if (Start == End) {
+				depend.dep_list = list;
+				depend_list.push_back(depend);
+				break;
+			}
+
+			Start++;
+		}
+	}
+	return depend_list;
+}
+
 rust::string ver_arch(VerIterator *wrapper) {
 	return wrapper->iterator.Arch();
 }
@@ -495,6 +555,21 @@ rust::string hash_find(PkgRecords *records, rust::string hash_type) {
 	return hash->HashValue();
 }
 
+rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
+	rust::Vec<VersionPtr> list;
+
+	std::unique_ptr<pkgCache::Version *[]> versions(wrapper->iterator.AllTargets());
+	for (pkgCache::Version **I = versions.get(); *I != 0; I++) {
+
+		VerIterator *wrap = new VerIterator();
+		wrap->iterator = AptVer(*wrapper->iterator.Cache(), *I);
+		list.push_back(
+			VersionPtr { wrap }
+		);
+	}
+	return list;
+}
+
 // #define VALIDATE_ITERATOR(I) {
 // 	if ((I).Cache() != &depcache->GetCache()) return(false);
 // 	return(true); }
@@ -542,27 +617,6 @@ rust::string hash_find(PkgRecords *records, rust::string hash_type) {
 // 	return new_wrapper;
 // }
 
-// const char *dep_iter_target_ver(PDepIterator *wrapper) {
-// 	return wrapper->iterator.TargetVer();
-// }
-
-// const char *dep_iter_comp_type(PDepIterator *wrapper) {
-// 	return wrapper->iterator.CompType();
-// }
-
-// const char *dep_iter_dep_type(PDepIterator *wrapper) {
-// 	return wrapper->iterator.DepType();
-// }
-
-
-// Look at ver_uri for answers.
-// Maybe *get_hash(idk, *for_real) -> hash {
-	// std::cout << "SHA256 = ";
-	// auto hashes = parser->Hashes();
-	// auto hash = hashes.find("sha256");
-	// if (hash == NULL) {std::cout << "NULL";} else {std::cout << parser->Hashes().find("sha256")->HashValue();}
-// }
-
 // const char *ver_file_parser_maintainer(VerFileParser *parser) {
 // 	std::string maint = parser->parser->Maintainer();
 // 	return to_c_string(maint);
@@ -572,7 +626,6 @@ rust::string hash_find(PkgRecords *records, rust::string hash_type) {
 // 	std::string hp = parser->parser->Homepage();
 // 	return to_c_string(hp);
 // }
-
 
 /// Unused Functions
 /// They may be used in the future

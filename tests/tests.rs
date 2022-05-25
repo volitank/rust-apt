@@ -162,6 +162,46 @@ mod tests {
 	}
 
 	#[test]
+	fn test_depends() {
+		let cache = Cache::new();
+		println!("Depends Test");
+		if let Some(pkg) = cache.get("apt") {
+			let cand = pkg.candidate().unwrap();
+			println!("Display Deps for: {}", pkg.name);
+			for dep in cand.dependencies().unwrap() {
+				println!("{}", dep);
+			}
+			println!("\nDisplay Base Deps:");
+			for dep in cand.dependencies().unwrap() {
+				for base_dep in &dep.base_deps {
+					println!("{}", base_dep)
+				}
+			}
+
+			println!("\nPackage Name: {}", pkg.name);
+			println!("Target Versions for Depends:");
+			for deps in cand.dependencies().unwrap() {
+				for dep in &deps.base_deps {
+					for ver in dep.all_targets() {
+						println!("{}", ver)
+					}
+				}
+			}
+
+			for dep in cand.depends_map().get("Depends").unwrap() {
+				if dep.is_or() {
+					for base_dep in &dep.base_deps {
+						println!("{}", base_dep.name)
+					}
+				} else {
+					// is_or is false so there is only one BaseDep
+					println!("{}", dep.first().name)
+				}
+			}
+		};
+	}
+
+	#[test]
 	fn test_sources() {
 		let cache = Cache::new();
 		for source in cache.sources() {
