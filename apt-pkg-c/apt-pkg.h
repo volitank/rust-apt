@@ -27,7 +27,6 @@ struct Provider;
 
 // Apt Aliases
 using PkgDepCache = pkgDepCache;
-using AptVer = pkgCache::VerIterator;
 // From Rust to C++
 //
 // CXX Test Function
@@ -52,16 +51,15 @@ int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *
 /// Iterator Creators
 PkgIterator *pkg_begin(PCache *cache);
 PkgIterator *pkg_clone(PkgIterator *iterator);
-VerIterator *ver_clone(VerIterator *iterator);
-VerFileIterator *ver_file(VerIterator *iterator);
+VerFileIterator *ver_file(const VersionPtr &ver);
 VerFileIterator *ver_file_clone(VerFileIterator *iterator);
 
-VerIterator *pkg_current_version(PkgIterator *iterator);
-VerIterator *pkg_candidate_version(PCache *cache, PkgIterator *iterator);
-VerIterator *pkg_version_list(PkgIterator *iterator);
+VersionPtr pkg_current_version(PkgIterator *iterator);
+VersionPtr pkg_candidate_version(PCache *cache, PkgIterator *iterator);
+rust::Vec<VersionPtr> pkg_version_list(PkgIterator *iterator);
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
-DescIterator *ver_desc_file(VerIterator *wrapper);
+DescIterator *ver_desc_file(const VersionPtr &ver);
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 
 PkgIterator *pkg_cache_find_name(PCache *pcache, rust::string name);
@@ -71,10 +69,7 @@ PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::s
 void pkg_next(PkgIterator *iterator);
 bool pkg_end(PkgIterator *iterator);
 void pkg_release(PkgIterator *iterator);
-
-void ver_next(VerIterator *iterator);
-bool ver_end(VerIterator *iterator);
-void ver_release(VerIterator *iterator);
+void ver_release(VersionPtr &ver);
 
 void ver_file_next(VerFileIterator *iterator);
 bool ver_file_end(VerFileIterator *iterator);
@@ -110,20 +105,20 @@ int32_t pkg_inst_state(PkgIterator *wrapper);
 int32_t pkg_selected_state(PkgIterator *wrapper);
 bool pkg_essential(PkgIterator *wrapper);
 
-rust::Vec<DepContainer> dep_list(VerIterator *wrapper);
-rust::string ver_arch(VerIterator *iterator);
-rust::string ver_str(VerIterator *iterator);
-rust::string ver_section(VerIterator *iterator);
-rust::string ver_priority_str(VerIterator *wrapper);
-rust::string ver_source_package(VerIterator *iterator);
-rust::string ver_source_version(VerIterator *iterator);
-rust::string ver_name(VerIterator *wrapper);
-int32_t ver_size(VerIterator *wrapper);
-int32_t ver_installed_size(VerIterator *wrapper);
-bool ver_downloadable(VerIterator *wrapper);
-int32_t ver_id(VerIterator *wrapper);
-bool ver_installed(VerIterator *wrapper);
-int32_t ver_priority(PCache *pcache, VerIterator *wrapper);
+rust::Vec<DepContainer> dep_list(const VersionPtr &ver);
+rust::string ver_arch(const VersionPtr &ver);
+rust::string ver_str(const VersionPtr &ver);
+rust::string ver_section(const VersionPtr &ver);
+rust::string ver_priority_str(const VersionPtr &ver);
+rust::string ver_source_package(const VersionPtr &ver);
+rust::string ver_source_version(const VersionPtr &ver);
+rust::string ver_name(const VersionPtr &ver);
+int32_t ver_size(const VersionPtr &ver);
+int32_t ver_installed_size(const VersionPtr &ver);
+bool ver_downloadable(const VersionPtr &ver);
+int32_t ver_id(const VersionPtr &ver);
+bool ver_installed(const VersionPtr &ver);
+int32_t ver_priority(PCache *pcache, const VersionPtr &ver);
 
 /// Package Record Management
 void ver_file_lookup(PkgRecords *records, VerFileIterator *iterator);

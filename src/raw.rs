@@ -55,6 +55,7 @@ pub mod apt {
 
 	#[derive(Debug)]
 	struct VersionPtr {
+		end: bool,
 		ptr: *mut VerIterator,
 	}
 
@@ -70,7 +71,6 @@ pub mod apt {
 		type PkgIndexFile;
 		type DescIterator;
 		type PkgDepCache;
-		type AptVer;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 
 		/// Main Initializers for APT
@@ -94,19 +94,18 @@ pub mod apt {
 		pub unsafe fn pkg_begin(cache: *mut PCache) -> *mut PkgIterator;
 		pub unsafe fn pkg_clone(iterator: *mut PkgIterator) -> *mut PkgIterator;
 
-		pub unsafe fn ver_clone(iterator: *mut VerIterator) -> *mut VerIterator;
-		pub unsafe fn ver_file(iterator: *mut VerIterator) -> *mut VerFileIterator;
+		pub unsafe fn ver_file(version: &VersionPtr) -> *mut VerFileIterator;
 		pub unsafe fn ver_file_clone(iterator: *mut VerFileIterator) -> *mut VerFileIterator;
 
-		pub unsafe fn pkg_current_version(iterator: *mut PkgIterator) -> *mut VerIterator;
+		pub unsafe fn pkg_current_version(iterator: *mut PkgIterator) -> VersionPtr;
 		pub unsafe fn pkg_candidate_version(
 			cache: *mut PCache,
 			iterator: *mut PkgIterator,
-		) -> *mut VerIterator;
-		pub unsafe fn pkg_version_list(pkg: *mut PkgIterator) -> *mut VerIterator;
+		) -> VersionPtr;
+		pub unsafe fn pkg_version_list(pkg: *mut PkgIterator) -> Vec<VersionPtr>;
 
 		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
-		pub unsafe fn ver_desc_file(iterator: *mut VerIterator) -> *mut DescIterator;
+		pub unsafe fn ver_desc_file(version: &VersionPtr) -> *mut DescIterator;
 		pub unsafe fn pkg_index_file(
 			pcache: *mut PCache,
 			pkg_file: *mut PkgFileIterator,
@@ -123,10 +122,7 @@ pub mod apt {
 		pub unsafe fn pkg_next(iterator: *mut PkgIterator);
 		pub unsafe fn pkg_end(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_release(iterator: *mut PkgIterator);
-
-		pub unsafe fn ver_next(iterator: *mut VerIterator);
-		pub unsafe fn ver_end(iterator: *mut VerIterator) -> bool;
-		pub unsafe fn ver_release(iterator: *mut VerIterator);
+		pub unsafe fn ver_release(version: &mut VersionPtr);
 
 		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
 		pub unsafe fn ver_file_end(iterator: *mut VerFileIterator) -> bool;
@@ -197,21 +193,21 @@ pub mod apt {
 		pub unsafe fn pkg_selected_state(iterator: *mut PkgIterator) -> i32;
 		pub unsafe fn pkg_essential(iterator: *mut PkgIterator) -> bool;
 
-		pub unsafe fn dep_list(iterator: *mut VerIterator) -> Vec<DepContainer>;
-		pub unsafe fn ver_arch(iterator: *mut VerIterator) -> String;
-		pub unsafe fn ver_str(iterator: *mut VerIterator) -> String;
-		pub unsafe fn ver_section(iterator: *mut VerIterator) -> String;
-		pub unsafe fn ver_priority_str(iterator: *mut VerIterator) -> String;
-		pub unsafe fn ver_priority(cache: *mut PCache, iterator: *mut VerIterator) -> i32;
-		// pub unsafe fn ver_source_package(iterator: *mut VerIterator) -> *const
-		// c_char; pub unsafe fn ver_source_version(iterator: *mut VerIterator) ->
+		pub unsafe fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
+		pub unsafe fn ver_arch(version: &VersionPtr) -> String;
+		pub unsafe fn ver_str(version: &VersionPtr) -> String;
+		pub unsafe fn ver_section(version: &VersionPtr) -> String;
+		pub unsafe fn ver_priority_str(version: &VersionPtr) -> String;
+		pub unsafe fn ver_priority(cache: *mut PCache, version: &VersionPtr) -> i32;
+		// pub unsafe fn ver_source_package(version: VersionPtr) -> *const
+		// c_char; pub unsafe fn ver_source_version(version: VersionPtr) ->
 		// *const c_char;
-		pub unsafe fn ver_name(iterator: *mut VerIterator) -> String;
-		pub unsafe fn ver_size(iterator: *mut VerIterator) -> i32;
-		pub unsafe fn ver_installed_size(iterator: *mut VerIterator) -> i32;
-		pub unsafe fn ver_downloadable(iterator: *mut VerIterator) -> bool;
-		pub unsafe fn ver_id(iterator: *mut VerIterator) -> i32;
-		pub unsafe fn ver_installed(iterator: *mut VerIterator) -> bool;
+		pub unsafe fn ver_name(version: &VersionPtr) -> String;
+		pub unsafe fn ver_size(version: &VersionPtr) -> i32;
+		pub unsafe fn ver_installed_size(version: &VersionPtr) -> i32;
+		pub unsafe fn ver_downloadable(version: &VersionPtr) -> bool;
+		pub unsafe fn ver_id(version: &VersionPtr) -> i32;
+		pub unsafe fn ver_installed(version: &VersionPtr) -> bool;
 
 		/// Package Records Management
 		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);
@@ -230,8 +226,8 @@ pub mod apt {
 
 		// Unused Functions
 		// They may be used in the future
-		// pub unsafe fn validate(iterator: *mut VerIterator, depcache: *mut PCache) ->
-		// bool; pub unsafe fn ver_iter_dep_iter(iterator: *mut VerIterator) -> *mut
+		// pub unsafe fn validate(version: VersionPtr, depcache: *mut PCache) ->
+		// bool; pub unsafe fn ver_iter_dep_iter(version: VersionPtr) -> *mut
 		// DepIterator; pub unsafe fn dep_iter_release(iterator: *mut DepIterator);
 
 		// pub unsafe fn dep_iter_next(iterator: *mut DepIterator);

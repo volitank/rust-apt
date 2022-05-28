@@ -83,10 +83,10 @@ impl<'a> Package<'a> {
 	pub fn candidate(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, self.ptr);
-			if apt::ver_end(ver) {
+			if ver.end {
 				return None;
 			}
-			Some(Version::new(Rc::clone(&self.records), ver, false))
+			Some(Version::new(Rc::clone(&self.records), ver))
 		}
 	}
 
@@ -96,10 +96,10 @@ impl<'a> Package<'a> {
 	pub fn installed(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_current_version(self.ptr);
-			if apt::ver_end(ver) {
+			if ver.end {
 				return None;
 			}
-			Some(Version::new(Rc::clone(&self.records), ver, false))
+			Some(Version::new(Rc::clone(&self.records), ver))
 		}
 	}
 
@@ -141,28 +141,12 @@ impl<'a> Package<'a> {
 
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
-	pub fn versions(&self) -> Vec<Version<'a>> {
-		let mut version_map = Vec::new();
+	pub fn versions(&self) -> impl Iterator<Item = Version<'a>> + '_ {
 		unsafe {
-			let version_iterator = apt::pkg_version_list(self.ptr);
-			let mut first = true;
-			loop {
-				if !first {
-					apt::ver_next(version_iterator);
-				}
-				first = false;
-				if apt::ver_end(version_iterator) {
-					break;
-				}
-				version_map.push(Version::new(
-					Rc::clone(&self.records),
-					version_iterator,
-					true,
-				));
-			}
-			apt::ver_release(version_iterator);
+			apt::pkg_version_list(self.ptr)
+				.into_iter()
+				.filter_map(|ver_ptr| Some(Version::new(Rc::clone(&self.records), ver_ptr)))
 		}
-		version_map
 	}
 }
 
@@ -200,7 +184,7 @@ pub struct Version<'a> {
 	//_parent: RefCell<Package<'a>>,
 	_lifetime: &'a PhantomData<Cache>,
 	desc_ptr: *mut apt::DescIterator,
-	ptr: *mut apt::VerIterator,
+	ptr: apt::VersionPtr,
 	records: Rc<RefCell<Records>>,
 	file_list: OnceCell<Vec<PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
@@ -217,27 +201,26 @@ pub struct Version<'a> {
 }
 
 impl<'a> Version<'a> {
-	fn new(records: Rc<RefCell<Records>>, ver_ptr: *mut apt::VerIterator, clone: bool) -> Self {
+	fn new(records: Rc<RefCell<Records>>, ver_ptr: apt::VersionPtr) -> Self {
 		unsafe {
-			let ver_priority = apt::ver_priority(records.borrow_mut().pcache, ver_ptr);
+			let ver_priority = apt::ver_priority(records.borrow_mut().pcache, &ver_ptr);
 			Self {
 				_lifetime: &PhantomData,
-				ptr: if clone { apt::ver_clone(ver_ptr) } else { ver_ptr },
-				desc_ptr: apt::ver_desc_file(ver_ptr),
+				desc_ptr: apt::ver_desc_file(&ver_ptr),
 				records,
 				file_list: OnceCell::new(),
 				depends_list: OnceCell::new(),
-
-				pkgname: apt::ver_name(ver_ptr),
+				pkgname: apt::ver_name(&ver_ptr),
 				priority: ver_priority,
-				version: apt::ver_str(ver_ptr),
-				size: apt::ver_size(ver_ptr),
-				installed_size: apt::ver_installed_size(ver_ptr),
-				arch: apt::ver_arch(ver_ptr),
-				downloadable: apt::ver_downloadable(ver_ptr),
-				id: apt::ver_id(ver_ptr),
-				section: apt::ver_section(ver_ptr),
-				priority_str: apt::ver_priority_str(ver_ptr),
+				version: apt::ver_str(&ver_ptr),
+				size: apt::ver_size(&ver_ptr),
+				installed_size: apt::ver_installed_size(&ver_ptr),
+				arch: apt::ver_arch(&ver_ptr),
+				downloadable: apt::ver_downloadable(&ver_ptr),
+				id: apt::ver_id(&ver_ptr),
+				section: apt::ver_section(&ver_ptr),
+				priority_str: apt::ver_priority_str(&ver_ptr),
+				ptr: ver_ptr,
 			}
 		}
 	}
@@ -246,7 +229,7 @@ impl<'a> Version<'a> {
 	fn gen_file_list(&self) -> Vec<PackageFile> {
 		let mut package_files = Vec::new();
 		unsafe {
-			let ver_file = apt::ver_file(self.ptr);
+			let ver_file = apt::ver_file(&self.ptr);
 			let mut first = true;
 
 			loop {
@@ -293,7 +276,7 @@ impl<'a> Version<'a> {
 		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
 
 		unsafe {
-			for dep in apt::dep_list(self.ptr) {
+			for dep in apt::dep_list(&self.ptr) {
 				if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
 					vec.push(self.convert_depends(dep))
 				} else {
@@ -384,7 +367,7 @@ impl<'a> Version<'a> {
 	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends("Suggests") }
 
 	/// Check if the version is installed
-	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(self.ptr) } }
+	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(&self.ptr) } }
 
 	/// Get the translated long description
 	pub fn description(&self) -> String {
@@ -444,7 +427,7 @@ impl<'a> Version<'a> {
 impl<'a> Drop for Version<'a> {
 	fn drop(&mut self) {
 		unsafe {
-			apt::ver_release(self.ptr);
+			apt::ver_release(&mut self.ptr);
 			apt::ver_desc_release(self.desc_ptr)
 		}
 	}
@@ -487,9 +470,7 @@ impl BaseDep {
 		unsafe {
 			apt::dep_all_targets(self.ptr)
 				.into_iter()
-				.filter_map(|ver_ptr| {
-					Some(Version::new(Rc::clone(&self.records), ver_ptr.ptr, false))
-				})
+				.filter_map(|ver_ptr| Some(Version::new(Rc::clone(&self.records), ver_ptr)))
 		}
 	}
 }

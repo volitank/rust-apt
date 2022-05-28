@@ -43,11 +43,15 @@ struct PCache {
 	pkgSourceList *source;
 };
 
+struct PkgIndexFile {
+	// Owned by us.
+	pkgIndexFile *index;
+};
+
 struct PkgRecords {
 	pkgRecords *records;
 
 	pkgRecords::Parser *parser;
-
 };
 
 struct PkgIterator {
@@ -55,7 +59,7 @@ struct PkgIterator {
 };
 
 struct VerIterator {
-	pkgCache::VerIterator iterator;
+	pkgCache::VerIterator version;
 };
 
 struct VerFileIterator {
@@ -70,11 +74,6 @@ struct PkgFileIterator {
 	pkgCache::PkgFileIterator iterator;
 };
 
-struct PkgIndexFile {
-	// Owned by us.
-	pkgIndexFile *index;
-};
-
 struct DepIterator {
 	pkgCache::DepIterator iterator;
 };
@@ -86,12 +85,15 @@ struct DepIterator {
 //   return get_num();
 // }
 
-/// Unused helper function since switching to CXX
-// const char *to_c_string(std::string s) {
-// 	char *cstr = new char[s.length()+1];
-// 	std::strcpy(cstr, s.c_str());
-// 	return cstr;
-// }
+static VersionPtr wrap_version(pkgCache::VerIterator ver) {
+	if (ver.end()) {
+		return VersionPtr { true, NULL };
+	}
+
+	VerIterator *wrapper = new VerIterator();
+	wrapper->version = ver;
+	return VersionPtr { false, wrapper };
+}
 
 /// Main Initializers for APT
 ///
@@ -178,15 +180,9 @@ PkgIterator *pkg_clone(PkgIterator *iterator) {
 	return wrapper;
 }
 
-VerIterator *ver_clone(VerIterator *iterator) {
-	VerIterator *wrapper = new VerIterator();
-	wrapper->iterator = iterator->iterator;
-	return wrapper;
-}
-
-VerFileIterator *ver_file(VerIterator *wrapper) {
+VerFileIterator *ver_file(const VersionPtr &ver) {
 	VerFileIterator *new_wrapper = new VerFileIterator();
-	new_wrapper->iterator = wrapper->iterator.FileList();
+	new_wrapper->iterator = ver.ptr->version.FileList();
 	return new_wrapper;
 }
 
@@ -196,22 +192,23 @@ VerFileIterator *ver_file_clone(VerFileIterator *iterator) {
 	return wrapper;
 }
 
-VerIterator *pkg_current_version(PkgIterator *wrapper) {
-	VerIterator *new_wrapper = new VerIterator();
-	new_wrapper->iterator = wrapper->iterator.CurrentVer();
-	return new_wrapper;
+VersionPtr pkg_current_version(PkgIterator *wrapper) {
+	return wrap_version(wrapper->iterator.CurrentVer());
 }
 
-VerIterator *pkg_candidate_version(PCache *cache, PkgIterator *wrapper) {
-	VerIterator *new_wrapper = new VerIterator();
-	new_wrapper->iterator = cache->cache_file->GetPolicy()->GetCandidateVer(wrapper->iterator);
-	return new_wrapper;
+VersionPtr pkg_candidate_version(PCache *cache, PkgIterator *wrapper) {
+	return wrap_version(
+		cache->cache_file->GetPolicy()->GetCandidateVer(wrapper->iterator)
+	);
 }
 
-VerIterator *pkg_version_list(PkgIterator *wrapper) {
-	VerIterator *new_wrapper = new VerIterator();
-	new_wrapper->iterator = wrapper->iterator.VersionList();
-	return new_wrapper;
+rust::Vec<VersionPtr> pkg_version_list(PkgIterator *wrapper) {
+	rust::Vec<VersionPtr> list;
+
+	for (pkgCache::VerIterator I = wrapper->iterator.VersionList(); I.end() == false; I++) {
+		list.push_back(wrap_version(I));
+	}
+	return list;
 }
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
@@ -220,9 +217,9 @@ PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
 	return new_wrapper;
 }
 
-DescIterator *ver_desc_file(VerIterator *wrapper) {
+DescIterator *ver_desc_file(const VersionPtr &ver) {
 	DescIterator *new_wrapper = new DescIterator();
-	new_wrapper->iterator = wrapper->iterator.TranslatedDescription();
+	new_wrapper->iterator = ver.ptr->version.TranslatedDescription();
 	return new_wrapper;
 }
 
@@ -262,18 +259,10 @@ void pkg_release(PkgIterator *wrapper) {
 	delete wrapper;
 }
 
-void ver_next(VerIterator *wrapper) {
-	++wrapper->iterator;
-}
-
-bool ver_end(VerIterator *wrapper) {
-	return wrapper->iterator.end();
-}
-
-void ver_release(VerIterator *wrapper) {
+void ver_release(VersionPtr &ver) {
 	// Maybe we should do this check no matter what?
 	// if (wrapper->iterator == 0) { return; }
-	delete wrapper;
+	delete ver.ptr;
 }
 
 void ver_file_next(VerFileIterator *wrapper) {
@@ -427,10 +416,10 @@ const char *UntranslatedDepTypes[] = {
 	"Obsoletes", "Breaks", "Enhances"
 };
 
-rust::Vec<DepContainer> dep_list(VerIterator *wrapper) {
+rust::Vec<DepContainer> dep_list(const VersionPtr &ver) {
 	rust::Vec<DepContainer> depend_list;
 
-	for (pkgCache::DepIterator dep = wrapper->iterator.DependsList(); dep.end() == false;) {
+	for (pkgCache::DepIterator dep = ver.ptr->version.DependsList(); dep.end() == false;) {
 		DepContainer depend = DepContainer();
 		pkgCache::DepIterator Start;
 		pkgCache::DepIterator End;
@@ -472,57 +461,56 @@ rust::Vec<DepContainer> dep_list(VerIterator *wrapper) {
 	return depend_list;
 }
 
-rust::string ver_arch(VerIterator *wrapper) {
-	return wrapper->iterator.Arch();
+rust::string ver_arch(const VersionPtr &ver) {
+	return ver.ptr->version.Arch();
 }
 
-rust::string ver_str(VerIterator *wrapper) {
-	return wrapper->iterator.VerStr();
+rust::string ver_str(const VersionPtr &ver) {
+	return ver.ptr->version.VerStr();
 }
 
-rust::string ver_section(VerIterator *wrapper) {
-   return wrapper->iterator.Section();
+rust::string ver_section(const VersionPtr &ver) {
+   return ver.ptr->version.Section();
 }
 
-rust::string ver_priority_str(VerIterator *wrapper) {
-	return wrapper->iterator.PriorityType();
+rust::string ver_priority_str(const VersionPtr &ver) {
+	return ver.ptr->version.PriorityType();
 }
 
-rust::string ver_source_package(VerIterator *wrapper) {
-	return wrapper->iterator.SourcePkgName();
+rust::string ver_source_package(const VersionPtr &ver) {
+	return ver.ptr->version.SourcePkgName();
 }
 
-rust::string ver_source_version(VerIterator *wrapper) {
-	return wrapper->iterator.SourceVerStr();
+rust::string ver_source_version(const VersionPtr &ver) {
+	return ver.ptr->version.SourceVerStr();
 }
 
-rust::string ver_name(VerIterator *wrapper) {
-	return wrapper->iterator.ParentPkg().Name();
+rust::string ver_name(const VersionPtr &ver) {
+	return ver.ptr->version.ParentPkg().Name();
 }
 
-int32_t ver_size(VerIterator *wrapper) {
-	return wrapper->iterator->Size;
+int32_t ver_size(const VersionPtr &ver) {
+	return ver.ptr->version->Size;
 }
 
-int32_t ver_installed_size(VerIterator *wrapper) {
-	return wrapper->iterator->InstalledSize;
+int32_t ver_installed_size(const VersionPtr &ver) {
+	return ver.ptr->version->InstalledSize;
 }
 
-bool ver_downloadable(VerIterator *wrapper) {
-	return wrapper->iterator.Downloadable();
+bool ver_downloadable(const VersionPtr &ver) {
+	return ver.ptr->version.Downloadable();
 }
 
-int32_t ver_id(VerIterator *wrapper) {
-	return wrapper->iterator->ID;
+int32_t ver_id(const VersionPtr &ver) {
+	return ver.ptr->version->ID;
 }
 
-bool ver_installed(VerIterator *wrapper) {
-	return wrapper->iterator.ParentPkg().CurrentVer() == wrapper->iterator;
+bool ver_installed(const VersionPtr &ver) {
+	return ver.ptr->version.ParentPkg().CurrentVer() == ver.ptr->version;
 }
 
-int32_t ver_priority(PCache *pcache, VerIterator *wrapper) {
-	pkgCache::VerIterator &ver = wrapper->iterator;
-	return pcache->cache_file->GetPolicy()->GetPriority(ver);
+int32_t ver_priority(PCache *pcache, const VersionPtr &ver) {
+	return pcache->cache_file->GetPolicy()->GetPriority(ver.ptr->version);
 }
 
 /// Package Record Management
@@ -560,11 +548,8 @@ rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
 
 	std::unique_ptr<pkgCache::Version *[]> versions(wrapper->iterator.AllTargets());
 	for (pkgCache::Version **I = versions.get(); *I != 0; I++) {
-
-		VerIterator *wrap = new VerIterator();
-		wrap->iterator = AptVer(*wrapper->iterator.Cache(), *I);
 		list.push_back(
-			VersionPtr { wrap }
+			wrap_version(pkgCache::VerIterator(*wrapper->iterator.Cache(), *I))
 		);
 	}
 	return list;
