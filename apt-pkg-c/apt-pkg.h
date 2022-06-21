@@ -69,7 +69,6 @@ PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::s
 void pkg_next(PkgIterator *iterator);
 bool pkg_end(PkgIterator *iterator);
 void pkg_release(PkgIterator *iterator);
-void ver_release(VersionPtr &ver);
 
 void ver_file_next(VerFileIterator *iterator);
 bool ver_file_end(VerFileIterator *iterator);

@@ -127,7 +127,6 @@ pub mod apt {
 		pub unsafe fn pkg_next(iterator: *mut PkgIterator);
 		pub unsafe fn pkg_end(iterator: *mut PkgIterator) -> bool;
 		pub unsafe fn pkg_release(iterator: *mut PkgIterator);
-		pub unsafe fn ver_release(version: &mut VersionPtr);
 
 		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
 		pub unsafe fn ver_file_end(iterator: *mut VerFileIterator) -> bool;
