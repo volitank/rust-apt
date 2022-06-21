@@ -83,7 +83,7 @@ impl<'a> Package<'a> {
 	pub fn candidate(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, self.ptr);
-			if ver.end {
+			if ver.ptr.is_null() {
 				return None;
 			}
 			Some(Version::new(Rc::clone(&self.records), ver))
@@ -96,7 +96,7 @@ impl<'a> Package<'a> {
 	pub fn installed(&self) -> Option<Version<'a>> {
 		unsafe {
 			let ver = apt::pkg_current_version(self.ptr);
-			if ver.end {
+			if ver.ptr.is_null() {
 				return None;
 			}
 			Some(Version::new(Rc::clone(&self.records), ver))
@@ -425,12 +425,7 @@ impl<'a> Version<'a> {
 
 // We must release the pointer on drop
 impl<'a> Drop for Version<'a> {
-	fn drop(&mut self) {
-		unsafe {
-			apt::ver_release(&mut self.ptr);
-			apt::ver_desc_release(self.desc_ptr)
-		}
-	}
+	fn drop(&mut self) { unsafe { apt::ver_desc_release(self.desc_ptr) } }
 }
 
 impl<'a> fmt::Display for Version<'a> {

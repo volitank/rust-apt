@@ -2,6 +2,13 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+impl fmt::Debug for apt::VersionPtr {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "VersionPtr")?;
+		Ok(())
+	}
+}
+
 impl fmt::Display for apt::SourceFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "Source< Uri: {}, Filename: {}>", self.uri, self.filename)?;
@@ -53,10 +60,8 @@ pub mod apt {
 		dep_list: Vec<BaseDep>,
 	}
 
-	#[derive(Debug)]
 	struct VersionPtr {
-		end: bool,
-		ptr: *mut VerIterator,
+		ptr: UniquePtr<VerIterator>,
 	}
 
 	unsafe extern "C++" {

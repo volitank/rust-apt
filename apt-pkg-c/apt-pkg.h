@@ -10,7 +10,6 @@
 struct PCache;
 struct PkgIterator;
 struct PkgFileIterator;
-struct VerIterator;
 struct VerFileIterator;
 struct DepIterator;
 struct VerFileParser;
@@ -27,6 +26,7 @@ struct Provider;
 
 // Apt Aliases
 using PkgDepCache = pkgDepCache;
+using VerIterator = pkgCache::VerIterator;
 // From Rust to C++
 //
 // CXX Test Function
@@ -56,7 +56,7 @@ VerFileIterator *ver_file_clone(VerFileIterator *iterator);
 
 VersionPtr pkg_current_version(PkgIterator *iterator);
 VersionPtr pkg_candidate_version(PCache *cache, PkgIterator *iterator);
-rust::Vec<VersionPtr> pkg_version_list(PkgIterator *iterator);
+rust::vec<VersionPtr> pkg_version_list(PkgIterator *iterator);
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
 DescIterator *ver_desc_file(const VersionPtr &ver);
