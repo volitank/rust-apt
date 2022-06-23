@@ -11,39 +11,39 @@ use crate::raw::apt;
 pub type PackageSort = apt::PackageSort;
 
 impl PackageSort {
-	/// If true, packages will be sorted by their names a -> z
-	pub fn names(mut self, switch: bool) -> Self {
-		self.names = switch;
+	/// Packages will be sorted by their names a -> z.
+	pub fn names(mut self) -> Self {
+		self.names = true;
 		self
 	}
 
-	/// If true, only packages that are upgradable will be included
-	pub fn upgradable(mut self, switch: bool) -> Self {
-		self.upgradable = switch;
+	/// Packages that are upgradable will be included.
+	pub fn upgradable(mut self) -> Self {
+		self.upgradable = true;
 		self
 	}
 
-	/// If true, virtual pkgs will be included
-	pub fn virtual_pkgs(mut self, switch: bool) -> Self {
-		self.virtual_pkgs = switch;
+	/// Virtual pkgs will be included.
+	pub fn virtual_pkgs(mut self) -> Self {
+		self.virtual_pkgs = true;
 		self
 	}
 
-	/// If true, only packages that are installed will be included
-	pub fn installed(mut self, switch: bool) -> Self {
-		self.installed = switch;
+	/// Packages that are installed will be included.
+	pub fn installed(mut self) -> Self {
+		self.installed = true;
 		self
 	}
 
-	/// If true, only packages that are auto installed will be included
-	pub fn auto_installed(mut self, switch: bool) -> Self {
-		self.auto_installed = switch;
+	/// Packages that are auto installed will be included.
+	pub fn auto_installed(mut self) -> Self {
+		self.auto_installed = true;
 		self
 	}
 
-	/// If true, only packages that are auto removable will be included
-	pub fn auto_removable(mut self, switch: bool) -> Self {
-		self.auto_removable = switch;
+	/// Packages that are auto removable will be included.
+	pub fn auto_removable(mut self) -> Self {
+		self.auto_removable = true;
 		self
 	}
 }

@@ -35,7 +35,7 @@ mod tests {
 	#[test]
 	fn test_upgradable() {
 		let cache = Cache::new();
-		let sort = PackageSort::default().upgradable(true).names(true);
+		let sort = PackageSort::default().upgradable().names();
 
 		for pkg in cache.packages(&sort) {
 			println!(
@@ -50,7 +50,7 @@ mod tests {
 	#[test]
 	fn test_installed() {
 		let cache = Cache::new();
-		let sort = PackageSort::default().installed(true).names(true);
+		let sort = PackageSort::default().installed().names();
 
 		for pkg in cache.packages(&sort) {
 			println!(
@@ -98,7 +98,7 @@ mod tests {
 
 	#[test]
 	fn sort_defaults() {
-		let sort = PackageSort::default().virtual_pkgs(true);
+		let sort = PackageSort::default().virtual_pkgs();
 
 		assert!(!sort.upgradable);
 		assert!(sort.virtual_pkgs);
@@ -107,11 +107,10 @@ mod tests {
 		assert!(!sort.auto_removable);
 
 		let sort = PackageSort::default()
-			.upgradable(true)
-			.virtual_pkgs(false)
-			.installed(true)
-			.auto_installed(true)
-			.auto_removable(true);
+			.upgradable()
+			.installed()
+			.auto_installed()
+			.auto_removable();
 
 		assert!(sort.upgradable);
 		assert!(!sort.virtual_pkgs);
