@@ -107,10 +107,9 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 
 	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
 
-		if ((sort.virtual_pkgs && !pkg.VersionList().end()) ||
-		(sort.upgradable &&
-		(pkg.CurrentVer() == 0 || !(*cache->GetDepCache())[pkg].Upgradable())) ||
-		(sort.installed && (pkg.CurrentVer() == 0)) ||
+		if ((sort.virtual_pkgs && pkg.VersionList()) ||
+		(sort.upgradable && (!pkg.CurrentVer() || !(*cache->GetDepCache())[pkg].Upgradable())) ||
+		(sort.installed && (!pkg.CurrentVer())) ||
 		(sort.auto_installed && !((*cache->GetDepCache())[pkg].Flags & pkgCache::Flag::Auto)) ||
 		(sort.auto_removable && !(*cache->GetDepCache())[pkg].Garbage)) {
 			continue;
@@ -184,24 +183,18 @@ const std::unique_ptr<PkgCacheFile>& cache, rust::string name, rust::string arch
 
 
 /// Check if the package is installed.
-bool pkg_is_installed(const PackagePtr& pkg) {
-	return !(pkg.ptr->CurrentVer() == 0);
-}
+bool pkg_is_installed(const PackagePtr& pkg) { return pkg.ptr->CurrentVer(); }
 
 
 /// Check if the package has versions.
 /// If a package has no versions it is considered virtual.
-bool pkg_has_versions(const PackagePtr& pkg) {
-	return !pkg.ptr->VersionList().end();
-}
+bool pkg_has_versions(const PackagePtr& pkg) { return pkg.ptr->VersionList(); }
 
 
 /// Check if a package provides anything.
 /// Virtual packages may provide a real package.
 /// This is how you would access the packages to satisfy it.
-bool pkg_has_provides(const PackagePtr& pkg) {
-	return !pkg.ptr->ProvidesList().end();
-}
+bool pkg_has_provides(const PackagePtr& pkg) { return pkg.ptr->ProvidesList(); }
 
 
 /// Return true if the package is essential, otherwise false.
@@ -284,7 +277,7 @@ rust::Vec<DepContainer> dep_list(const VersionPtr& ver) {
 
 		while (true) {
 			rust::string version;
-			if (Start->Version == 0) {
+			if (!Start->Version) {
 				version = "";
 			} else {
 				version = Start.TargetVer();
@@ -328,7 +321,7 @@ rust::string ver_str(const VersionPtr& ver) { return ver.ptr->VerStr(); }
 /// The section of the version as shown in `apt show`.
 rust::string ver_section(const VersionPtr& ver) {
 	// Some packages, such as msft teams, doesn't have a section.
-	if (ver.ptr->Section() == 0) {
+	if (!ver.ptr->Section()) {
 		return "None";
 	}
 	return ver.ptr->Section();
@@ -386,7 +379,7 @@ bool ver_installed(const VersionPtr& ver) {
 
 /// Is the Package upgradable?
 bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
-	if (pkg.ptr->CurrentVer() == 0) {
+	if (!pkg.ptr->CurrentVer()) {
 		return false;
 	}
 	return (*cache->GetDepCache())[*pkg.ptr].Upgradable();
