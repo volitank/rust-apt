@@ -8,7 +8,7 @@ mod tests {
 
 		let mut versions = Vec::new();
 		if let Some(apt) = cache.get("apt") {
-			println!("{}", apt.name);
+			println!("{}", apt.name());
 			for version in apt.versions() {
 				println!("{version}");
 				versions.push(version);
@@ -40,9 +40,9 @@ mod tests {
 		for pkg in cache.sorted(&sort) {
 			println!(
 				"Package is Upgradable! {} ({}) -> ({})",
-				pkg.name,
-				pkg.installed().unwrap().version,
-				pkg.candidate().unwrap().version
+				pkg.name(),
+				pkg.installed().unwrap().version(),
+				pkg.candidate().unwrap().version()
 			);
 		}
 	}
@@ -55,8 +55,8 @@ mod tests {
 		for pkg in cache.sorted(&sort) {
 			println!(
 				"Package is Installed! {} ({})",
-				pkg.name,
-				pkg.installed().unwrap().version
+				pkg.name(),
+				pkg.installed().unwrap().version()
 			);
 		}
 	}
@@ -66,7 +66,7 @@ mod tests {
 		let cache = Cache::new();
 		if let Some(apt) = cache.get("apt") {
 			if let Some((cand, inst)) = apt.candidate().zip(apt.installed()) {
-				println!("Package Name: {}", apt.name);
+				println!("Package Name: {}", apt.name());
 				println!(
 					"Summary: {}\nDescription:\n\n{}\n",
 					cand.summary(),
@@ -154,9 +154,9 @@ mod tests {
 		let cache = Cache::new();
 		println!("Provider Test");
 		if let Some(pkg) = cache.get("www-browser") {
-			println!("{} is provided by:", pkg.name);
-			for ppkg in cache.provides(&pkg, true) {
-				println!("  {}", ppkg.name);
+			println!("{} is provided by:", (pkg.name()));
+			for pkg in cache.provides(&pkg, true) {
+				println!("  {}", (pkg.name()));
 			}
 		};
 	}
@@ -167,7 +167,7 @@ mod tests {
 		println!("Depends Test");
 		if let Some(pkg) = cache.get("apt") {
 			let cand = pkg.candidate().unwrap();
-			println!("Display Deps for: {}", pkg.name);
+			println!("Display Deps for: {}", (pkg.name()));
 			for dep in cand.dependencies().unwrap() {
 				println!("{}", dep);
 			}
@@ -178,7 +178,7 @@ mod tests {
 				}
 			}
 
-			println!("\nPackage Name: {}", pkg.name);
+			println!("\nPackage Name: {}", (pkg.name()));
 			println!("Target Versions for Depends:");
 			for deps in cand.dependencies().unwrap() {
 				for dep in &deps.base_deps {

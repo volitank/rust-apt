@@ -5,5 +5,5 @@
 //! For more information please see the readme in the source code.
 
 pub mod cache;
-mod package;
-mod raw;
+pub mod package;
+pub mod raw;

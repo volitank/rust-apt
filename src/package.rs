@@ -1,3 +1,4 @@
+//! Contains Package, Version and Dependency Structs.
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
@@ -9,21 +10,13 @@ use once_cell::unsync::OnceCell;
 use crate::cache::{unit_str, Cache, DepCache, Records};
 use crate::raw::apt;
 
+/// A struct representing an `apt` Package
 #[derive(Debug)]
 pub struct Package<'a> {
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
 	pub(crate) ptr: apt::PackagePtr,
-	pub name: String,
-	pub arch: String,
-	pub id: i32,
-	pub essential: bool,
-	pub current_state: i32,
-	pub inst_state: i32,
-	pub selected_state: i32,
-	pub has_versions: bool,
-	pub has_provides: bool,
 }
 
 impl<'a> Package<'a> {
@@ -36,18 +29,37 @@ impl<'a> Package<'a> {
 			_lifetime: &PhantomData,
 			records,
 			depcache,
-			name: apt::get_fullname(&pkg_ptr, true),
-			arch: apt::pkg_arch(&pkg_ptr),
-			id: apt::pkg_id(&pkg_ptr),
-			essential: apt::pkg_essential(&pkg_ptr),
-			current_state: apt::pkg_current_state(&pkg_ptr),
-			inst_state: apt::pkg_inst_state(&pkg_ptr),
-			selected_state: apt::pkg_selected_state(&pkg_ptr),
-			has_versions: apt::pkg_has_versions(&pkg_ptr),
-			has_provides: apt::pkg_has_provides(&pkg_ptr),
 			ptr: pkg_ptr,
 		}
 	}
+
+	/// Get the name of the package.
+	/// If the arch is not native this will return "name:arch".
+	pub fn name(&self) -> String { apt::get_fullname(&self.ptr, true) }
+
+	/// Get the architecture of the package.
+	pub fn arch(&self) -> String { apt::pkg_arch(&self.ptr) }
+
+	/// Get the ID of the package.
+	pub fn id(&self) -> i32 { apt::pkg_id(&self.ptr) }
+
+	/// The current state of the package.
+	pub fn current_state(&self) -> i32 { apt::pkg_current_state(&self.ptr) }
+
+	/// The installed state of the package.
+	pub fn inst_state(&self) -> i32 { apt::pkg_inst_state(&self.ptr) }
+
+	/// The selected state of the package.
+	pub fn selected_state(&self) -> i32 { apt::pkg_selected_state(&self.ptr) }
+
+	/// Check if the package is essnetial or not.
+	pub fn essential(&self) -> bool { apt::pkg_essential(&self.ptr) }
+
+	/// Check if the package has versions.
+	pub fn has_versions(&self) -> bool { apt::pkg_has_versions(&self.ptr) }
+
+	/// Check if the package has provides.
+	pub fn has_provides(&self) -> bool { apt::pkg_has_provides(&self.ptr) }
 
 	/// Get the fullname of the package.
 	///
@@ -145,20 +157,21 @@ impl<'a> fmt::Display for Package<'a> {
 			f,
 			"Package< name: {}, arch: {}, id: {}, essential: {}, states: [curr: {}, inst {}, sel \
 			 {}], virtual: {}, provides: {}>",
-			self.name,
-			self.arch,
-			self.id,
-			self.essential,
-			self.current_state,
-			self.inst_state,
-			self.selected_state,
-			!self.has_versions,
-			self.has_provides
+			self.name(),
+			self.arch(),
+			self.id(),
+			self.essential(),
+			self.current_state(),
+			self.inst_state(),
+			self.selected_state(),
+			!self.has_versions(),
+			self.has_provides(),
 		)?;
 		Ok(())
 	}
 }
 
+/// A struct representing a version of an `apt` Package
 #[derive(Debug)]
 pub struct Version<'a> {
 	_lifetime: &'a PhantomData<Cache>,
@@ -166,39 +179,50 @@ pub struct Version<'a> {
 	records: Rc<RefCell<Records>>,
 	file_list: OnceCell<Vec<apt::PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
-	pub pkgname: String,
-	pub version: String,
-	pub size: i32,
-	pub installed_size: i32,
-	pub arch: String,
-	pub downloadable: bool,
-	pub id: i32,
-	pub section: String,
-	pub priority: i32,
-	pub priority_str: String,
 }
 
 impl<'a> Version<'a> {
 	fn new(records: Rc<RefCell<Records>>, ver_ptr: apt::VersionPtr) -> Self {
-		let ver_priority = apt::ver_priority(&records.borrow().cache.borrow(), &ver_ptr);
 		Self {
 			_lifetime: &PhantomData,
 			records,
 			file_list: OnceCell::new(),
 			depends_list: OnceCell::new(),
-			pkgname: apt::ver_name(&ver_ptr),
-			priority: ver_priority,
-			version: apt::ver_str(&ver_ptr),
-			size: apt::ver_size(&ver_ptr),
-			installed_size: apt::ver_installed_size(&ver_ptr),
-			arch: apt::ver_arch(&ver_ptr),
-			downloadable: apt::ver_downloadable(&ver_ptr),
-			id: apt::ver_id(&ver_ptr),
-			section: apt::ver_section(&ver_ptr),
-			priority_str: apt::ver_priority_str(&ver_ptr),
 			ptr: ver_ptr,
 		}
 	}
+
+	/// Get the name of the versions Parent Package.
+	pub fn pkgname(&self) -> String { apt::ver_name(&self.ptr) }
+
+	/// The architecture of the version.
+	pub fn arch(&self) -> String { apt::ver_arch(&self.ptr) }
+
+	/// The version string of the version.
+	pub fn version(&self) -> String { apt::ver_str(&self.ptr) }
+
+	/// The section of the version as shown in `apt show`.
+	pub fn section(&self) -> String { apt::ver_section(&self.ptr) }
+
+	/// The priority string as shown in `apt show`.
+	pub fn priority_str(&self) -> String { apt::ver_priority_str(&self.ptr) }
+
+	/// The priority of the package as shown in `apt policy`.
+	pub fn priority(&self) -> i32 {
+		apt::ver_priority(&self.records.borrow().cache.borrow(), &self.ptr)
+	}
+
+	/// The size of the .deb file.
+	pub fn size(&self) -> i32 { apt::ver_size(&self.ptr) }
+
+	/// The uncompressed size of the .deb file.
+	pub fn installed_size(&self) -> i32 { apt::ver_installed_size(&self.ptr) }
+
+	/// The ID of the version.
+	pub fn id(&self) -> i32 { apt::ver_id(&self.ptr) }
+
+	/// If the version is able to be downloaded.
+	pub fn downloadable(&self) -> bool { apt::ver_downloadable(&self.ptr) }
 
 	/// Internal Method for Generating the PackageFiles
 	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
@@ -374,16 +398,16 @@ impl<'a> fmt::Display for Version<'a> {
 			f,
 			"{}: Version {} <ID: {}, arch: {}, size: {}, installed_size: {}, section: {} Priority \
 			 {} at {}, downloadable: {}>",
-			self.pkgname,
-			self.version,
-			self.id,
-			self.arch,
-			unit_str(self.size),
-			unit_str(self.installed_size),
-			self.section,
-			self.priority_str,
-			self.priority,
-			self.downloadable,
+			self.pkgname(),
+			self.version(),
+			self.id(),
+			self.arch(),
+			unit_str(self.size()),
+			unit_str(self.installed_size()),
+			self.section(),
+			self.priority_str(),
+			self.priority(),
+			self.downloadable(),
 		)?;
 		Ok(())
 	}
@@ -465,27 +489,3 @@ impl fmt::Display for Dependency {
 		Ok(())
 	}
 }
-
-// #[derive(Debug)]
-// struct PackageFile {
-// 	ver_file: *mut apt::VerFileIterator,
-// 	pkg_file: *mut apt::PkgFileIterator,
-// 	index: *mut apt::PkgIndexFile,
-// }
-
-// impl Drop for PackageFile {
-// 	fn drop(&mut self) {
-// 		unsafe {
-// 			apt::ver_file_release(self.ver_file);
-// 			apt::pkg_file_release(self.pkg_file);
-// 			apt::pkg_index_file_release(self.index);
-// 		}
-// 	}
-// }
-
-// impl fmt::Display for PackageFile {
-// 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-// 		write!(f, "package file: {:?}", self.pkg_file)?;
-// 		Ok(())
-// 	}
-// }

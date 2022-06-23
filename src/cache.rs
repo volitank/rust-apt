@@ -1,3 +1,4 @@
+//! Contains Cache related structs.
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -6,6 +7,7 @@ use cxx::UniquePtr;
 use crate::package::Package;
 use crate::raw::apt;
 
+/// Struct for sorting packages.
 #[derive(Debug, Default, PartialEq)]
 pub struct PackageSort {
 	pub upgradable: bool,
@@ -47,6 +49,7 @@ impl PackageSort {
 	}
 }
 
+/// Internal Struct for managing package records.
 #[derive(Debug)]
 pub struct Records {
 	pub(crate) ptr: apt::Records,
@@ -85,7 +88,7 @@ impl Records {
 	}
 }
 
-/// Internal Struct for managing apt's pkgDepCache.
+/// Internal Struct for managing the pkgDepCache.
 #[derive(Debug)]
 pub struct DepCache {
 	cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
@@ -143,6 +146,7 @@ impl DepCache {
 	}
 }
 
+/// The main struct for accessing any and all `apt` data.
 #[derive(Debug)]
 pub struct Cache {
 	pub ptr: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
@@ -242,7 +246,7 @@ impl Cache {
 	/// Slower than the `cache.packages` method.
 	pub fn sorted<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
 		let mut pkgs = self.packages(sort).collect::<Vec<Package>>();
-		pkgs.sort_by_cached_key(|pkg| pkg.name.to_owned());
+		pkgs.sort_by_cached_key(|pkg| pkg.name());
 		pkgs.into_iter()
 	}
 

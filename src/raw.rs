@@ -1,3 +1,4 @@
+//! Contains the raw bindings to libapt-pkg.
 use std::fmt;
 
 impl fmt::Debug for apt::VersionPtr {
