@@ -12,9 +12,23 @@ impl fmt::Debug for apt::VersionPtr {
 	}
 }
 
+impl fmt::Debug for apt::Records {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "package file: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
 impl fmt::Debug for apt::PackagePtr {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "PackagePtr: {}", apt::get_fullname(self, false))?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for apt::PackageFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "package file: {{ To Be Implemented }}")?;
 		Ok(())
 	}
 }
@@ -61,6 +75,16 @@ pub mod apt {
 
 	struct VersionPtr {
 		ptr: UniquePtr<VerIterator>,
+		desc: UniquePtr<DescIterator>,
+	}
+
+	struct PackageFile {
+		ver_file: UniquePtr<VerFileIterator>,
+		pkg_file: UniquePtr<PkgFileIterator>,
+	}
+
+	struct Records {
+		records: UniquePtr<PkgRecords>,
 	}
 
 	unsafe extern "C++" {
@@ -70,9 +94,7 @@ pub mod apt {
 		type VerIterator;
 		type VerFileIterator;
 		type DepIterator;
-		type VerFileParser;
 		type PkgRecords;
-		type PkgIndexFile;
 		type DescIterator;
 		type PkgDepCache;
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
@@ -81,11 +103,10 @@ pub mod apt {
 		pub fn init_config_system();
 
 		pub fn pkg_cache_create() -> *mut PCache;
-		pub unsafe fn pkg_records_create(pcache: *mut PCache) -> *mut PkgRecords;
+		pub unsafe fn pkg_records_create(pcache: *mut PCache) -> Records;
 		pub unsafe fn depcache_create(pcache: *mut PCache) -> *mut PkgDepCache;
 
 		pub unsafe fn pkg_cache_release(cache: *mut PCache);
-		pub unsafe fn pkg_records_release(records: *mut PkgRecords);
 
 		pub unsafe fn source_uris(pcache: *mut PCache) -> Vec<SourceFile>;
 		// pub unsafe fn pkg_cache_compare_versions(
@@ -96,9 +117,12 @@ pub mod apt {
 
 		/// Iterator Creators
 		pub unsafe fn pkg_list(cache: *mut PCache) -> Vec<PackagePtr>;
-
-		pub unsafe fn ver_file(version: &VersionPtr) -> *mut VerFileIterator;
-		pub unsafe fn ver_file_clone(iterator: *mut VerFileIterator) -> *mut VerFileIterator;
+		pub unsafe fn pkg_file_list(pcache: *mut PCache, ver: &VersionPtr) -> Vec<PackageFile>;
+		pub unsafe fn pkg_provides_list(
+			cache: *mut PCache,
+			iterator: &PackagePtr,
+			cand_only: bool,
+		) -> Vec<PackagePtr>;
 
 		pub unsafe fn pkg_current_version(iterator: &PackagePtr) -> VersionPtr;
 		pub unsafe fn pkg_candidate_version(
@@ -106,13 +130,6 @@ pub mod apt {
 			iterator: &PackagePtr,
 		) -> VersionPtr;
 		pub unsafe fn pkg_version_list(pkg: &PackagePtr) -> Vec<VersionPtr>;
-
-		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
-		pub unsafe fn ver_desc_file(version: &VersionPtr) -> *mut DescIterator;
-		pub unsafe fn pkg_index_file(
-			pcache: *mut PCache,
-			pkg_file: *mut PkgFileIterator,
-		) -> *mut PkgIndexFile;
 
 		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: String) -> PackagePtr;
 		pub unsafe fn pkg_cache_find_name_arch(
@@ -122,13 +139,6 @@ pub mod apt {
 		) -> PackagePtr;
 
 		/// Iterator Manipulation
-		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
-		pub unsafe fn ver_file_end(iterator: *mut VerFileIterator) -> bool;
-		pub unsafe fn ver_file_release(iterator: *mut VerFileIterator);
-
-		pub unsafe fn pkg_index_file_release(iterator: *mut PkgIndexFile);
-		pub unsafe fn pkg_file_release(iterator: *mut PkgFileIterator);
-		pub unsafe fn ver_desc_release(iterator: *mut DescIterator);
 		pub unsafe fn dep_release(iterator: *mut DepIterator);
 
 		/// Information Accessors
@@ -155,11 +165,6 @@ pub mod apt {
 		pub unsafe fn pkg_is_installed(iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: &PackagePtr) -> bool;
-		pub unsafe fn pkg_provides_list(
-			cache: *mut PCache,
-			iterator: &PackagePtr,
-			cand_only: bool,
-		) -> Vec<PackagePtr>;
 		pub fn get_fullname(iterator: &PackagePtr, pretty: bool) -> String;
 		// pub unsafe fn pkg_name(iterator: &PackagePtr) -> String;
 		pub unsafe fn pkg_arch(iterator: &PackagePtr) -> String;
@@ -186,12 +191,16 @@ pub mod apt {
 		pub unsafe fn ver_installed(version: &VersionPtr) -> bool;
 
 		/// Package Records Management
-		pub unsafe fn ver_file_lookup(records: *mut PkgRecords, iterator: *mut VerFileIterator);
-		pub unsafe fn desc_file_lookup(records: *mut PkgRecords, iterator: *mut DescIterator);
-		pub unsafe fn ver_uri(records: *mut PkgRecords, index_file: *mut PkgIndexFile) -> String;
-		pub unsafe fn long_desc(records: *mut PkgRecords) -> String;
-		pub unsafe fn short_desc(records: *mut PkgRecords) -> String;
-		pub unsafe fn hash_find(records: *mut PkgRecords, hash_type: String) -> String;
+		pub unsafe fn ver_file_lookup(records: &mut Records, pkg_file: &PackageFile);
+		pub unsafe fn desc_file_lookup(records: &mut Records, desc: &UniquePtr<DescIterator>);
+		pub unsafe fn ver_uri(
+			records: &Records,
+			pcache: *mut PCache,
+			pkg_file: &PackageFile,
+		) -> String;
+		pub unsafe fn long_desc(records: &Records) -> String;
+		pub unsafe fn short_desc(records: &Records) -> String;
+		pub unsafe fn hash_find(records: &Records, hash_type: String) -> String;
 
 		pub unsafe fn dep_all_targets(iterator: *mut DepIterator) -> Vec<VersionPtr>;
 		// pub unsafe fn long_desc(

@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use cxx::UniquePtr;
 use once_cell::unsync::OnceCell;
 
 use crate::package::Package;
@@ -47,17 +48,10 @@ impl PackageSort {
 	}
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Lookup {
-	Desc(*mut apt::DescIterator),
-	VerFile(*mut apt::VerFileIterator),
-}
-
 #[derive(Debug)]
 pub struct Records {
-	pub(crate) ptr: *mut apt::PkgRecords,
+	pub(crate) ptr: apt::Records,
 	pub(crate) pcache: *mut apt::PCache,
-	last: RefCell<Option<Lookup>>,
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -66,52 +60,36 @@ impl Records {
 		Records {
 			ptr: unsafe { apt::pkg_records_create(pcache) },
 			pcache,
-			last: RefCell::new(None),
 		}
 	}
 
-	pub fn lookup(&self, record: Lookup) {
-		// Check if what we're looking up is currently looked up.
-		if let Some(last) = self.last.borrow().as_ref() {
-			if last == &record {
-				return;
-			}
-		}
-
-		// Call the correct binding depending on what we're looking up.
+	pub fn lookup_desc(&mut self, desc: &UniquePtr<apt::DescIterator>) {
 		unsafe {
-			match &record {
-				Lookup::Desc(desc) => {
-					apt::desc_file_lookup(self.ptr, *desc);
-				},
-				Lookup::VerFile(ver_file) => {
-					apt::ver_file_lookup(self.ptr, *ver_file);
-				},
-			}
+			apt::desc_file_lookup(&mut self.ptr, desc);
 		}
-		// Finally replace the stored value for the next lookup
-		self.last.replace(Some(record));
 	}
 
-	pub fn description(&self) -> String { unsafe { apt::long_desc(self.ptr) } }
+	pub fn lookup_ver(&mut self, ver_file: &apt::PackageFile) {
+		unsafe {
+			apt::ver_file_lookup(&mut self.ptr, ver_file);
+		}
+	}
 
-	pub fn summary(&self) -> String { unsafe { apt::short_desc(self.ptr) } }
+	pub fn description(&self) -> String { unsafe { apt::long_desc(&self.ptr) } }
+
+	pub fn summary(&self) -> String { unsafe { apt::short_desc(&self.ptr) } }
+
+	pub fn uri(&self, pkg_file: &apt::PackageFile) -> String {
+		unsafe { apt::ver_uri(&self.ptr, self.pcache, pkg_file) }
+	}
 
 	pub fn hash_find(&self, hash_type: &str) -> Option<String> {
 		unsafe {
-			let hash = apt::hash_find(self.ptr, hash_type.to_string());
+			let hash = apt::hash_find(&self.ptr, hash_type.to_string());
 			if hash == "KeyError" {
 				return None;
 			}
 			Some(hash)
-		}
-	}
-}
-
-impl Drop for Records {
-	fn drop(&mut self) {
-		unsafe {
-			apt::pkg_records_release(self.ptr);
 		}
 	}
 }

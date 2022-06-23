@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
 
-use crate::cache::{unit_str, Cache, DepCache, Lookup, Records};
+use crate::cache::{unit_str, Cache, DepCache, Records};
 use crate::raw::apt;
 
 #[derive(Debug)]
@@ -67,7 +67,7 @@ impl<'a> Package<'a> {
 	///    // Prints "apt:amd64"
 	///    println!("{}", pkg.get_fullname(false));
 	/// };
-	//
+	///
 	/// if let Some(pkg) = cache.get("apt:i386") {
 	///    // Prints "apt:i386" for the i386 package
 	///    println!("{}", pkg.get_fullname(true));
@@ -172,10 +172,9 @@ impl<'a> fmt::Display for Package<'a> {
 pub struct Version<'a> {
 	//_parent: RefCell<Package<'a>>,
 	_lifetime: &'a PhantomData<Cache>,
-	desc_ptr: *mut apt::DescIterator,
 	ptr: apt::VersionPtr,
 	records: Rc<RefCell<Records>>,
-	file_list: OnceCell<Vec<PackageFile>>,
+	file_list: OnceCell<Vec<apt::PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
 	pub pkgname: String,
 	pub version: String,
@@ -195,7 +194,6 @@ impl<'a> Version<'a> {
 			let ver_priority = apt::ver_priority(records.borrow_mut().pcache, &ver_ptr);
 			Self {
 				_lifetime: &PhantomData,
-				desc_ptr: apt::ver_desc_file(&ver_ptr),
 				records,
 				file_list: OnceCell::new(),
 				depends_list: OnceCell::new(),
@@ -215,31 +213,8 @@ impl<'a> Version<'a> {
 	}
 
 	/// Internal Method for Generating the PackageFiles
-	fn gen_file_list(&self) -> Vec<PackageFile> {
-		let mut package_files = Vec::new();
-		unsafe {
-			let ver_file = apt::ver_file(&self.ptr);
-			let mut first = true;
-
-			loop {
-				if !first {
-					apt::ver_file_next(ver_file);
-				}
-
-				first = false;
-				if apt::ver_file_end(ver_file) {
-					break;
-				}
-				let pkg_file = apt::ver_pkg_file(ver_file);
-				package_files.push(PackageFile {
-					ver_file: apt::ver_file_clone(ver_file),
-					pkg_file,
-					index: apt::pkg_index_file(self.records.borrow_mut().pcache, pkg_file),
-				});
-			}
-			apt::ver_file_release(ver_file);
-		}
-		package_files
+	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
+		unsafe { apt::pkg_file_list(self.records.borrow_mut().pcache, &self.ptr) }
 	}
 
 	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
@@ -279,15 +254,15 @@ impl<'a> Version<'a> {
 	/// Returns a reference to the Dependency Map owned by the Version
 	/// ```
 	/// let keys = [
-	/// 	"Depends",
-	/// 	"PreDepends",
-	/// 	"Suggests",
-	/// 	"Recommends",
-	/// 	"Conflicts",
-	/// 	"Replaces",
-	/// 	"Obsoletes",
-	/// 	"Breaks",
-	/// 	"Enhances",
+	///    "Depends",
+	///    "PreDepends",
+	///    "Suggests",
+	///    "Recommends",
+	///    "Conflicts",
+	///    "Replaces",
+	///    "Obsoletes",
+	///    "Breaks",
+	///    "Enhances",
 	/// ];
 	/// ```
 	/// Dependencies are in a `Vec<Dependency>`
@@ -302,14 +277,14 @@ impl<'a> Version<'a> {
 	/// let cache = Cache::new();
 	/// let version = cache.get("apt").unwrap().candidate().unwrap();
 	/// for dep in version.depends_map().get("Depends").unwrap() {
-	/// 	if dep.is_or() {
-	/// 		for base_dep in &dep.base_deps {
-	/// 			println!("{}", base_dep.name)
-	/// 		}
-	/// 	} else {
-	/// 		// is_or is false so there is only one BaseDep
-	/// 		println!("{}", dep.first().name)
-	/// 	}
+	///    if dep.is_or() {
+	///        for base_dep in &dep.base_deps {
+	///            println!("{}", base_dep.name)
+	///        }
+	///    } else {
+	///        // is_or is false so there is only one BaseDep
+	///        println!("{}", dep.first().name)
+	///    }
 	/// }
 	/// ```
 	pub fn depends_map(&self) -> &HashMap<String, Vec<Dependency>> {
@@ -360,15 +335,15 @@ impl<'a> Version<'a> {
 
 	/// Get the translated long description
 	pub fn description(&self) -> String {
-		let records = self.records.borrow_mut();
-		records.lookup(Lookup::Desc(self.desc_ptr));
+		let mut records = self.records.borrow_mut();
+		records.lookup_desc(&self.ptr.desc);
 		records.description()
 	}
 
 	/// Get the translated short description
 	pub fn summary(&self) -> String {
-		let records = self.records.borrow_mut();
-		records.lookup(Lookup::Desc(self.desc_ptr));
+		let mut records = self.records.borrow_mut();
+		records.lookup_desc(&self.ptr.desc);
 		records.summary()
 	}
 
@@ -386,8 +361,8 @@ impl<'a> Version<'a> {
 		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
 
 		if let Some(pkg_file) = package_files.iter().next() {
-			let records = self.records.borrow_mut();
-			records.lookup(Lookup::VerFile(pkg_file.ver_file));
+			let mut records = self.records.borrow_mut();
+			records.lookup_ver(pkg_file);
 			return records.hash_find(hash_type);
 		}
 		None
@@ -399,10 +374,10 @@ impl<'a> Version<'a> {
 			.get_or_init(|| self.gen_file_list())
 			.iter()
 			.filter_map(|package_file| {
-				let records = self.records.borrow_mut();
-				records.lookup(Lookup::VerFile(package_file.ver_file));
+				let mut records = self.records.borrow_mut();
+				records.lookup_ver(package_file);
 
-				let uri = unsafe { apt::ver_uri(records.ptr, package_file.index) };
+				let uri = records.uri(package_file);
 				if !uri.starts_with("file:") {
 					Some(uri)
 				} else {
@@ -410,11 +385,6 @@ impl<'a> Version<'a> {
 				}
 			})
 	}
-}
-
-// We must release the pointer on drop
-impl<'a> Drop for Version<'a> {
-	fn drop(&mut self) { unsafe { apt::ver_desc_release(self.desc_ptr) } }
 }
 
 impl<'a> fmt::Display for Version<'a> {
@@ -512,26 +482,26 @@ impl fmt::Display for Dependency {
 	}
 }
 
-#[derive(Debug)]
-struct PackageFile {
-	ver_file: *mut apt::VerFileIterator,
-	pkg_file: *mut apt::PkgFileIterator,
-	index: *mut apt::PkgIndexFile,
-}
+// #[derive(Debug)]
+// struct PackageFile {
+// 	ver_file: *mut apt::VerFileIterator,
+// 	pkg_file: *mut apt::PkgFileIterator,
+// 	index: *mut apt::PkgIndexFile,
+// }
 
-impl Drop for PackageFile {
-	fn drop(&mut self) {
-		unsafe {
-			apt::ver_file_release(self.ver_file);
-			apt::pkg_file_release(self.pkg_file);
-			apt::pkg_index_file_release(self.index);
-		}
-	}
-}
+// impl Drop for PackageFile {
+// 	fn drop(&mut self) {
+// 		unsafe {
+// 			apt::ver_file_release(self.ver_file);
+// 			apt::pkg_file_release(self.pkg_file);
+// 			apt::pkg_index_file_release(self.index);
+// 		}
+// 	}
+// }
 
-impl fmt::Display for PackageFile {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "package file: {:?}", self.pkg_file)?;
-		Ok(())
-	}
-}
+// impl fmt::Display for PackageFile {
+// 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+// 		write!(f, "package file: {:?}", self.pkg_file)?;
+// 		Ok(())
+// 	}
+// }

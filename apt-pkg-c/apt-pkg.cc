@@ -43,29 +43,6 @@ struct PCache {
 	pkgSourceList *source;
 };
 
-struct PkgIndexFile {
-	// Owned by us.
-	pkgIndexFile *index;
-};
-
-struct PkgRecords {
-	pkgRecords *records;
-
-	pkgRecords::Parser *parser;
-};
-
-struct VerFileIterator {
-	pkgCache::VerFileIterator iterator;
-};
-
-struct DescIterator {
-	pkgCache::DescIterator iterator;
-};
-
-struct PkgFileIterator {
-	pkgCache::PkgFileIterator iterator;
-};
-
 struct DepIterator {
 	pkgCache::DepIterator iterator;
 };
@@ -87,10 +64,13 @@ static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 
 static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 	if (ver.end()) {
-		return VersionPtr { NULL };
+		return VersionPtr { NULL, NULL };
 	}
 
-	return VersionPtr { std::make_unique<pkgCache::VerIterator>(ver) };
+	return VersionPtr {
+		std::make_unique<pkgCache::VerIterator>(ver),
+		std::make_unique<pkgCache::DescIterator>(ver.TranslatedDescription()),
+	};
 }
 
 /// Main Initializers for APT
@@ -111,12 +91,10 @@ PCache *pkg_cache_create() {
 	return ret;
 }
 
-PkgRecords *pkg_records_create(PCache *pcache) {
-	PkgRecords *records = new PkgRecords();
-	records->records = new pkgRecords(*pcache->cache);
-	// Can't populate the parser until we need it.
-	records->parser = NULL;
-	return records;
+Records pkg_records_create(PCache *pcache) {
+	return Records {
+		std::make_unique<PkgRecords>(pcache->cache),
+	};
 }
 
 pkgDepCache *depcache_create(PCache *pcache) {
@@ -129,15 +107,6 @@ void pkg_cache_release(PCache *cache) {
 	// pkgCache and pkgDepCache are cleaned up with cache_file.
 	delete cache->cache_file;
 	delete cache;
-}
-
-void pkg_index_file_release(PkgIndexFile *wrapper) {
-	delete wrapper;
-}
-
-void pkg_records_release(PkgRecords *records) {
-	delete records -> records;
-	delete records;
 }
 
 rust::Vec<SourceFile> source_uris(PCache *pcache) {
@@ -195,16 +164,22 @@ rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bo
 	return list;
 }
 
-VerFileIterator *ver_file(const VersionPtr &ver) {
-	VerFileIterator *new_wrapper = new VerFileIterator();
-	new_wrapper->iterator = ver.ptr->FileList();
-	return new_wrapper;
-}
+rust::vec<PackageFile> pkg_file_list(PCache *pcache, const VersionPtr &ver) {
+	rust::vec<PackageFile> list;
+	pkgCache::VerFileIterator v_file = ver.ptr->FileList();
 
-VerFileIterator *ver_file_clone(VerFileIterator *iterator) {
-	VerFileIterator *wrapper = new VerFileIterator();
-	wrapper->iterator = iterator->iterator;
-	return wrapper;
+	for (; v_file.end() == false; v_file++) {
+	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
+	pkgIndexFile *Index;
+	if (SrcList->FindIndex(v_file.File(), Index) == false) { _system->FindIndex(v_file.File(), Index);}
+		list.push_back(
+			PackageFile{
+				std::make_unique<pkgCache::VerFileIterator>(v_file),
+				std::make_unique<pkgCache::PkgFileIterator>(v_file.File()),
+			}
+		);
+	}
+	return list;
 }
 
 VersionPtr pkg_current_version(const PackagePtr &pkg) {
@@ -226,27 +201,6 @@ rust::Vec<VersionPtr> pkg_version_list(const PackagePtr &pkg) {
 	return list;
 }
 
-PkgFileIterator *ver_pkg_file(VerFileIterator *wrapper) {
-	PkgFileIterator *new_wrapper = new PkgFileIterator();
-	new_wrapper->iterator = wrapper->iterator.File();
-	return new_wrapper;
-}
-
-DescIterator *ver_desc_file(const VersionPtr &ver) {
-	DescIterator *new_wrapper = new DescIterator();
-	new_wrapper->iterator = ver.ptr->TranslatedDescription();
-	return new_wrapper;
-}
-
-PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
-	PkgIndexFile *wrapper = new PkgIndexFile();
-	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
-	pkgIndexFile *Index;
-	if (SrcList->FindIndex(pkg_file->iterator, Index) == false) { _system->FindIndex(pkg_file->iterator, Index);}
-	wrapper->index = Index;
-	return wrapper;
-}
-
 // These two are how we get a specific package by name.
 PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name) {
 	return wrap_package(pcache->cache->FindPkg(name.c_str()));
@@ -258,26 +212,6 @@ PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::str
 
 /// Iterator Manipulation
 ///
-void ver_file_next(VerFileIterator *wrapper) {
-	++wrapper->iterator;
-}
-
-bool ver_file_end(VerFileIterator *wrapper) {
-	return wrapper->iterator.end();
-}
-
-void ver_file_release(VerFileIterator *wrapper) {
-	delete wrapper;
-}
-
-void pkg_file_release(PkgFileIterator *wrapper) {
-	delete wrapper;
-}
-
-void ver_desc_release(DescIterator *wrapper) {
-	delete wrapper;
-}
-
 void dep_release(DepIterator *wrapper) {
 	delete wrapper;
 }
@@ -434,7 +368,9 @@ rust::string ver_str(const VersionPtr &ver) {
 }
 
 rust::string ver_section(const VersionPtr &ver) {
-   return ver.ptr->Section();
+	// Some packages, such as msft teams, doesn't have a section.
+	if (ver.ptr->Section() == 0) { return "None"; }
+	return ver.ptr->Section();
 }
 
 rust::string ver_priority_str(const VersionPtr &ver) {
@@ -480,28 +416,43 @@ int32_t ver_priority(PCache *pcache, const VersionPtr &ver) {
 /// Package Record Management
 ///
 // Moves the Records into the correct place
-void ver_file_lookup(PkgRecords *records, VerFileIterator *wrapper) {
-	records->parser = &records->records->Lookup(wrapper->iterator);
+void ver_file_lookup(Records &records, const PackageFile &pkg_file) {
+	auto Index = pkg_file.ver_file->Index();
+	if (records.records->last == Index) { return; }
+
+	records.records->last = Index;
+	records.records->parser = &records.records->records.Lookup(*pkg_file.ver_file);
 }
 
-void desc_file_lookup(PkgRecords *records, DescIterator *wrapper) {
-	records->parser = &records->records->Lookup(wrapper->iterator.FileList());
+void desc_file_lookup(Records &records, const std::unique_ptr<DescIterator> &desc) {
+	auto Index = desc->FileList().Index();
+	if (records.records->last == Index) { return; }
+
+	records.records->last = Index;
+	records.records->parser = &records.records->records.Lookup(desc->FileList());
+
 }
 
-rust::string ver_uri(PkgRecords *records, PkgIndexFile *index_file) {
-	return index_file->index->ArchiveURI(records->parser->FileName());
+rust::string ver_uri(const Records &records, PCache *pcache, const PackageFile &pkg_file) {
+	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
+	pkgIndexFile *Index;
+
+	if (SrcList->FindIndex(pkg_file.ver_file->File(), Index) == false) {
+		_system->FindIndex(pkg_file.ver_file->File(), Index);
+	}
+	return Index->ArchiveURI(records.records->parser->FileName());
 }
 
-rust::string long_desc(PkgRecords *records) {
-	return records->parser->LongDesc();
+rust::string long_desc(const Records &records) {
+	return records.records->parser->LongDesc();
 }
 
-rust::string short_desc(PkgRecords *records) {
-	return records->parser->ShortDesc();
+rust::string short_desc(const Records &records) {
+	return records.records->parser->ShortDesc();
 }
 
-rust::string hash_find(PkgRecords *records, rust::string hash_type) {
-	auto hashes = records->parser->Hashes();
+rust::string hash_find(const Records &records, rust::string hash_type) {
+	auto hashes = records.records->parser->Hashes();
 	auto hash = hashes.find(hash_type.c_str());
 	if (hash == NULL) { return "KeyError"; }
 	return hash->HashValue();
