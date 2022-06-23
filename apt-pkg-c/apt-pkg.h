@@ -8,7 +8,6 @@
 
 // C++ owned structs
 struct PCache;
-struct PkgIterator;
 struct PkgFileIterator;
 struct VerFileIterator;
 struct DepIterator;
@@ -18,6 +17,7 @@ struct PkgIndexFile;
 struct DescIterator;
 
 // Rust Shared Structs
+struct PackagePtr;
 struct VersionPtr;
 struct DepIterator;
 struct DepContainer;
@@ -27,6 +27,7 @@ struct Provider;
 // Apt Aliases
 using PkgDepCache = pkgDepCache;
 using VerIterator = pkgCache::VerIterator;
+using PkgIterator = pkgCache::PkgIterator;
 // From Rust to C++
 //
 // CXX Test Function
@@ -49,27 +50,22 @@ rust::Vec<SourceFile> source_uris(PCache *pcache);
 int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right);
 
 /// Iterator Creators
-PkgIterator *pkg_begin(PCache *cache);
-PkgIterator *pkg_clone(PkgIterator *iterator);
+rust::Vec<PackagePtr> pkg_list(PCache *cache);
 VerFileIterator *ver_file(const VersionPtr &ver);
 VerFileIterator *ver_file_clone(VerFileIterator *iterator);
 
-VersionPtr pkg_current_version(PkgIterator *iterator);
-VersionPtr pkg_candidate_version(PCache *cache, PkgIterator *iterator);
-rust::vec<VersionPtr> pkg_version_list(PkgIterator *iterator);
+VersionPtr pkg_current_version(const PackagePtr &pkg);
+VersionPtr pkg_candidate_version(PCache *cache, const PackagePtr &pkg);
+rust::vec<VersionPtr> pkg_version_list(const PackagePtr &pkg);
 
 PkgFileIterator *ver_pkg_file(VerFileIterator *iterator);
 DescIterator *ver_desc_file(const VersionPtr &ver);
 PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file);
 
-PkgIterator *pkg_cache_find_name(PCache *pcache, rust::string name);
-PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch);
+PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name);
+PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch);
 
 /// Iterator Manipulation
-void pkg_next(PkgIterator *iterator);
-bool pkg_end(PkgIterator *iterator);
-void pkg_release(PkgIterator *iterator);
-
 void ver_file_next(VerFileIterator *iterator);
 bool ver_file_end(VerFileIterator *iterator);
 void ver_file_release(VerFileIterator *iterator);
@@ -80,29 +76,29 @@ void ver_desc_release(DescIterator *wrapper);
 void dep_release(DepIterator *wrapper);
 
 /// Information Accessors
-bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_is_auto_installed(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_is_garbage(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_install(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_upgrade(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_delete(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_keep(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_downgrade(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_marked_reinstall(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_is_now_broken(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_is_inst_broken(pkgDepCache *depcache, PkgIterator *wrapper);
-bool pkg_is_installed(PkgIterator *wrapper);
-bool pkg_has_versions(PkgIterator *wrapper);
-bool pkg_has_provides(PkgIterator *wrapper);
-rust::Vec<Provider> pkg_provides_list(PCache *cache, PkgIterator *wrapper, bool cand_only);
-rust::string get_fullname(PkgIterator *iterator, bool pretty);
-rust::string pkg_name(PkgIterator *iterator);
-rust::string pkg_arch(PkgIterator *iterator);
-int32_t pkg_id(PkgIterator *wrapper);
-int32_t pkg_current_state(PkgIterator *wrapper);
-int32_t pkg_inst_state(PkgIterator *wrapper);
-int32_t pkg_selected_state(PkgIterator *wrapper);
-bool pkg_essential(PkgIterator *wrapper);
+bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_auto_installed(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_garbage(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_install(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_upgrade(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_delete(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_keep(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_downgrade(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_marked_reinstall(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_now_broken(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_inst_broken(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_installed(const PackagePtr &pkg);
+bool pkg_has_versions(const PackagePtr &pkg);
+bool pkg_has_provides(const PackagePtr &pkg);
+rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bool cand_only);
+rust::string get_fullname(const PackagePtr &pkg, bool pretty);
+rust::string pkg_name(const PackagePtr &pkg);
+rust::string pkg_arch(const PackagePtr &pkg);
+int32_t pkg_id(const PackagePtr &pkg);
+int32_t pkg_current_state(const PackagePtr &pkg);
+int32_t pkg_inst_state(const PackagePtr &pkg);
+int32_t pkg_selected_state(const PackagePtr &pkg);
+bool pkg_essential(const PackagePtr &pkg);
 
 rust::Vec<DepContainer> dep_list(const VersionPtr &ver);
 rust::string ver_arch(const VersionPtr &ver);

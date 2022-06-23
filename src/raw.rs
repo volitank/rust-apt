@@ -1,10 +1,20 @@
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
-use std::hash::{Hash, Hasher};
 
 impl fmt::Debug for apt::VersionPtr {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "VersionPtr")?;
+		write!(
+			f,
+			"VersionPtr: {}:{}",
+			apt::ver_name(self),
+			apt::ver_str(self)
+		)?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for apt::PackagePtr {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PackagePtr: {}", apt::get_fullname(self, false))?;
 		Ok(())
 	}
 }
@@ -13,14 +23,6 @@ impl fmt::Display for apt::SourceFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "Source< Uri: {}, Filename: {}>", self.uri, self.filename)?;
 		Ok(())
-	}
-}
-
-impl apt::Provider {
-	pub fn hash(&self) -> u64 {
-		let mut s = DefaultHasher::new();
-		self.name.hash(&mut s);
-		s.finish()
 	}
 }
 
@@ -39,13 +41,6 @@ pub mod apt {
 	}
 
 	#[derive(Debug)]
-	// Simple struct for getting provider list
-	struct Provider {
-		name: String,
-		ptr: *mut PkgIterator,
-	}
-
-	#[derive(Debug)]
 	struct BaseDep {
 		name: String,
 		version: String,
@@ -58,6 +53,10 @@ pub mod apt {
 	struct DepContainer {
 		dep_type: String,
 		dep_list: Vec<BaseDep>,
+	}
+
+	struct PackagePtr {
+		ptr: UniquePtr<PkgIterator>,
 	}
 
 	struct VersionPtr {
@@ -96,18 +95,17 @@ pub mod apt {
 		// ) -> i32;
 
 		/// Iterator Creators
-		pub unsafe fn pkg_begin(cache: *mut PCache) -> *mut PkgIterator;
-		pub unsafe fn pkg_clone(iterator: *mut PkgIterator) -> *mut PkgIterator;
+		pub unsafe fn pkg_list(cache: *mut PCache) -> Vec<PackagePtr>;
 
 		pub unsafe fn ver_file(version: &VersionPtr) -> *mut VerFileIterator;
 		pub unsafe fn ver_file_clone(iterator: *mut VerFileIterator) -> *mut VerFileIterator;
 
-		pub unsafe fn pkg_current_version(iterator: *mut PkgIterator) -> VersionPtr;
+		pub unsafe fn pkg_current_version(iterator: &PackagePtr) -> VersionPtr;
 		pub unsafe fn pkg_candidate_version(
 			cache: *mut PCache,
-			iterator: *mut PkgIterator,
+			iterator: &PackagePtr,
 		) -> VersionPtr;
-		pub unsafe fn pkg_version_list(pkg: *mut PkgIterator) -> Vec<VersionPtr>;
+		pub unsafe fn pkg_version_list(pkg: &PackagePtr) -> Vec<VersionPtr>;
 
 		pub unsafe fn ver_pkg_file(iterator: *mut VerFileIterator) -> *mut PkgFileIterator;
 		pub unsafe fn ver_desc_file(version: &VersionPtr) -> *mut DescIterator;
@@ -116,18 +114,14 @@ pub mod apt {
 			pkg_file: *mut PkgFileIterator,
 		) -> *mut PkgIndexFile;
 
-		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: String) -> *mut PkgIterator;
+		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: String) -> PackagePtr;
 		pub unsafe fn pkg_cache_find_name_arch(
 			cache: *mut PCache,
 			name: String,
 			arch: String,
-		) -> *mut PkgIterator;
+		) -> PackagePtr;
 
 		/// Iterator Manipulation
-		pub unsafe fn pkg_next(iterator: *mut PkgIterator);
-		pub unsafe fn pkg_end(iterator: *mut PkgIterator) -> bool;
-		pub unsafe fn pkg_release(iterator: *mut PkgIterator);
-
 		pub unsafe fn ver_file_next(iterator: *mut VerFileIterator);
 		pub unsafe fn ver_file_end(iterator: *mut VerFileIterator) -> bool;
 		pub unsafe fn ver_file_release(iterator: *mut VerFileIterator);
@@ -138,75 +132,53 @@ pub mod apt {
 		pub unsafe fn dep_release(iterator: *mut DepIterator);
 
 		/// Information Accessors
-		pub unsafe fn pkg_is_upgradable(
-			depcache: *mut PkgDepCache,
-			iterator: *mut PkgIterator,
-		) -> bool;
+		pub unsafe fn pkg_is_upgradable(depcache: *mut PkgDepCache, iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_is_auto_installed(
 			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
+			wrapper: &PackagePtr,
 		) -> bool;
-		pub unsafe fn pkg_is_garbage(depcache: *mut PkgDepCache, wrapper: *mut PkgIterator)
-			-> bool;
-		pub unsafe fn pkg_marked_install(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
-		pub unsafe fn pkg_marked_upgrade(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
-		pub unsafe fn pkg_marked_delete(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
-		pub unsafe fn pkg_marked_keep(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
+		pub unsafe fn pkg_is_garbage(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_install(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_upgrade(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_delete(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_keep(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
 		pub unsafe fn pkg_marked_downgrade(
 			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
+			wrapper: &PackagePtr,
 		) -> bool;
 		pub unsafe fn pkg_marked_reinstall(
 			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
+			wrapper: &PackagePtr,
 		) -> bool;
-		pub unsafe fn pkg_is_now_broken(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
-		pub unsafe fn pkg_is_inst_broken(
-			depcache: *mut PkgDepCache,
-			wrapper: *mut PkgIterator,
-		) -> bool;
-		pub unsafe fn pkg_is_installed(iterator: *mut PkgIterator) -> bool;
-		pub unsafe fn pkg_has_versions(iterator: *mut PkgIterator) -> bool;
-		pub unsafe fn pkg_has_provides(iterator: *mut PkgIterator) -> bool;
+		pub unsafe fn pkg_is_now_broken(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_inst_broken(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_installed(iterator: &PackagePtr) -> bool;
+		pub unsafe fn pkg_has_versions(iterator: &PackagePtr) -> bool;
+		pub unsafe fn pkg_has_provides(iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_provides_list(
 			cache: *mut PCache,
-			iterator: *mut PkgIterator,
+			iterator: &PackagePtr,
 			cand_only: bool,
-		) -> Vec<Provider>;
-		pub unsafe fn get_fullname(iterator: *mut PkgIterator, pretty: bool) -> String;
-		// pub unsafe fn pkg_name(iterator: *mut PkgIterator) -> String;
-		pub unsafe fn pkg_arch(iterator: *mut PkgIterator) -> String;
-		pub unsafe fn pkg_id(iterator: *mut PkgIterator) -> i32;
-		pub unsafe fn pkg_current_state(iterator: *mut PkgIterator) -> i32;
-		pub unsafe fn pkg_inst_state(iterator: *mut PkgIterator) -> i32;
-		pub unsafe fn pkg_selected_state(iterator: *mut PkgIterator) -> i32;
-		pub unsafe fn pkg_essential(iterator: *mut PkgIterator) -> bool;
+		) -> Vec<PackagePtr>;
+		pub fn get_fullname(iterator: &PackagePtr, pretty: bool) -> String;
+		// pub unsafe fn pkg_name(iterator: &PackagePtr) -> String;
+		pub unsafe fn pkg_arch(iterator: &PackagePtr) -> String;
+		pub unsafe fn pkg_id(iterator: &PackagePtr) -> i32;
+		pub unsafe fn pkg_current_state(iterator: &PackagePtr) -> i32;
+		pub unsafe fn pkg_inst_state(iterator: &PackagePtr) -> i32;
+		pub unsafe fn pkg_selected_state(iterator: &PackagePtr) -> i32;
+		pub unsafe fn pkg_essential(iterator: &PackagePtr) -> bool;
 
 		pub unsafe fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
 		pub unsafe fn ver_arch(version: &VersionPtr) -> String;
-		pub unsafe fn ver_str(version: &VersionPtr) -> String;
+		pub fn ver_str(version: &VersionPtr) -> String;
 		pub unsafe fn ver_section(version: &VersionPtr) -> String;
 		pub unsafe fn ver_priority_str(version: &VersionPtr) -> String;
 		pub unsafe fn ver_priority(cache: *mut PCache, version: &VersionPtr) -> i32;
 		// pub unsafe fn ver_source_package(version: VersionPtr) -> *const
 		// c_char; pub unsafe fn ver_source_version(version: VersionPtr) ->
 		// *const c_char;
-		pub unsafe fn ver_name(version: &VersionPtr) -> String;
+		pub fn ver_name(version: &VersionPtr) -> String;
 		pub unsafe fn ver_size(version: &VersionPtr) -> i32;
 		pub unsafe fn ver_installed_size(version: &VersionPtr) -> i32;
 		pub unsafe fn ver_downloadable(version: &VersionPtr) -> bool;
@@ -225,7 +197,7 @@ pub mod apt {
 		// pub unsafe fn long_desc(
 		// 	cache: *mut PCache,
 		// 	records: *mut PkgRecords,
-		// 	iterator: *mut PkgIterator,
+		// 	iterator: &PackagePtr,
 		// ) -> String;
 
 		// Unused Functions
@@ -237,7 +209,7 @@ pub mod apt {
 		// pub unsafe fn dep_iter_next(iterator: *mut DepIterator);
 		// pub unsafe fn dep_iter_end(iterator: *mut DepIterator) -> bool;
 
-		// pub fn dep_iter_target_pkg(iterator: *mut DepIterator) -> *mut PkgIterator;
+		// pub fn dep_iter_target_pkg(iterator: *mut DepIterator) -> &PackagePtr;
 		// pub fn dep_iter_target_ver(iterator: *mut DepIterator) -> *const c_char;
 		// pub fn dep_iter_comp_type(iterator: *mut DepIterator) -> *const c_char;
 		// pub fn dep_iter_dep_type(iterator: *mut DepIterator) -> *const c_char;

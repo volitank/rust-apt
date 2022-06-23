@@ -15,7 +15,7 @@ pub struct Package<'a> {
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
-	pub(crate) ptr: *mut apt::PkgIterator,
+	pub(crate) ptr: apt::PackagePtr,
 	pub name: String,
 	pub arch: String,
 	pub id: i32,
@@ -31,23 +31,23 @@ impl<'a> Package<'a> {
 	pub fn new(
 		records: Rc<RefCell<Records>>,
 		depcache: Rc<RefCell<DepCache>>,
-		pkg_ptr: *mut apt::PkgIterator,
+		pkg_ptr: apt::PackagePtr,
 	) -> Package<'a> {
 		unsafe {
 			Package {
 				_lifetime: &PhantomData,
-				ptr: pkg_ptr,
 				records,
 				depcache,
-				name: apt::get_fullname(pkg_ptr, true),
-				arch: apt::pkg_arch(pkg_ptr),
-				id: apt::pkg_id(pkg_ptr),
-				essential: apt::pkg_essential(pkg_ptr),
-				current_state: apt::pkg_current_state(pkg_ptr),
-				inst_state: apt::pkg_inst_state(pkg_ptr),
-				selected_state: apt::pkg_selected_state(pkg_ptr),
-				has_versions: apt::pkg_has_versions(pkg_ptr),
-				has_provides: apt::pkg_has_provides(pkg_ptr),
+				name: apt::get_fullname(&pkg_ptr, true),
+				arch: apt::pkg_arch(&pkg_ptr),
+				id: apt::pkg_id(&pkg_ptr),
+				essential: apt::pkg_essential(&pkg_ptr),
+				current_state: apt::pkg_current_state(&pkg_ptr),
+				inst_state: apt::pkg_inst_state(&pkg_ptr),
+				selected_state: apt::pkg_selected_state(&pkg_ptr),
+				has_versions: apt::pkg_has_versions(&pkg_ptr),
+				has_provides: apt::pkg_has_provides(&pkg_ptr),
+				ptr: pkg_ptr,
 			}
 		}
 	}
@@ -62,27 +62,25 @@ impl<'a> Package<'a> {
 	/// use rust_apt::cache::Cache;
 	/// let cache = Cache::new();
 	/// if let Some(pkg) = cache.get("apt") {
-	/// 	// Prints just "apt"
-	/// 	println!("{}", pkg.get_fullname(true));
-	/// 	// Prints "apt:amd64"
-	/// 	println!("{}", pkg.get_fullname(false));
+	///    // Prints just "apt"
+	///    println!("{}", pkg.get_fullname(true));
+	///    // Prints "apt:amd64"
+	///    println!("{}", pkg.get_fullname(false));
 	/// };
-	///
+	//
 	/// if let Some(pkg) = cache.get("apt:i386") {
-	/// 	// Prints "apt:i386" for the i386 package
-	/// 	println!("{}", pkg.get_fullname(true));
+	///    // Prints "apt:i386" for the i386 package
+	///    println!("{}", pkg.get_fullname(true));
 	/// };
 	/// ```
-	pub fn get_fullname(&self, pretty: bool) -> String {
-		unsafe { apt::get_fullname(self.ptr, pretty) }
-	}
+	pub fn get_fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
 
 	/// Returns the version object of the candidate.
 	///
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
 		unsafe {
-			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, self.ptr);
+			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, &self.ptr);
 			if ver.ptr.is_null() {
 				return None;
 			}
@@ -95,7 +93,7 @@ impl<'a> Package<'a> {
 	/// If there isn't an installed version, returns None
 	pub fn installed(&self) -> Option<Version<'a>> {
 		unsafe {
-			let ver = apt::pkg_current_version(self.ptr);
+			let ver = apt::pkg_current_version(&self.ptr);
 			if ver.ptr.is_null() {
 				return None;
 			}
@@ -104,57 +102,48 @@ impl<'a> Package<'a> {
 	}
 
 	/// Check if the package is installed.
-	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(self.ptr) } }
+	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(&self.ptr) } }
 
 	/// Check if the package is upgradable.
-	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(self.ptr) }
+	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(&self.ptr) }
 
 	/// Check if the package is auto installed. (Not installed by the user)
-	pub fn is_auto_installed(&self) -> bool { self.depcache.borrow().is_auto_installed(self.ptr) }
+	pub fn is_auto_installed(&self) -> bool { self.depcache.borrow().is_auto_installed(&self.ptr) }
 
 	/// Check if the package is auto removable
-	pub fn is_auto_removable(&self) -> bool { self.depcache.borrow().is_auto_removable(self.ptr) }
+	pub fn is_auto_removable(&self) -> bool { self.depcache.borrow().is_auto_removable(&self.ptr) }
 
 	/// Check if the package is now broken
-	pub fn is_now_broken(&self) -> bool { self.depcache.borrow().is_now_broken(self.ptr) }
+	pub fn is_now_broken(&self) -> bool { self.depcache.borrow().is_now_broken(&self.ptr) }
 
 	/// Check if the package package installed is broken
-	pub fn is_inst_broken(&self) -> bool { self.depcache.borrow().is_inst_broken(self.ptr) }
+	pub fn is_inst_broken(&self) -> bool { self.depcache.borrow().is_inst_broken(&self.ptr) }
 
 	/// Check if the package is marked install
-	pub fn marked_install(&self) -> bool { self.depcache.borrow().marked_install(self.ptr) }
+	pub fn marked_install(&self) -> bool { self.depcache.borrow().marked_install(&self.ptr) }
 
 	/// Check if the package is marked upgrade
-	pub fn marked_upgrade(&self) -> bool { self.depcache.borrow().marked_upgrade(self.ptr) }
+	pub fn marked_upgrade(&self) -> bool { self.depcache.borrow().marked_upgrade(&self.ptr) }
 
 	/// Check if the package is marked delete
-	pub fn marked_delete(&self) -> bool { self.depcache.borrow().marked_delete(self.ptr) }
+	pub fn marked_delete(&self) -> bool { self.depcache.borrow().marked_delete(&self.ptr) }
 
 	/// Check if the package is marked keep
-	pub fn marked_keep(&self) -> bool { self.depcache.borrow().marked_keep(self.ptr) }
+	pub fn marked_keep(&self) -> bool { self.depcache.borrow().marked_keep(&self.ptr) }
 
 	/// Check if the package is marked downgrade
-	pub fn marked_downgrade(&self) -> bool { self.depcache.borrow().marked_downgrade(self.ptr) }
+	pub fn marked_downgrade(&self) -> bool { self.depcache.borrow().marked_downgrade(&self.ptr) }
 
 	/// Check if the package is marked reinstall
-	pub fn marked_reinstall(&self) -> bool { self.depcache.borrow().marked_reinstall(self.ptr) }
+	pub fn marked_reinstall(&self) -> bool { self.depcache.borrow().marked_reinstall(&self.ptr) }
 
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
 	pub fn versions(&self) -> impl Iterator<Item = Version<'a>> + '_ {
 		unsafe {
-			apt::pkg_version_list(self.ptr)
+			apt::pkg_version_list(&self.ptr)
 				.into_iter()
-				.filter_map(|ver_ptr| Some(Version::new(Rc::clone(&self.records), ver_ptr)))
-		}
-	}
-}
-
-// We must release the pointer on drop
-impl<'a> Drop for Package<'a> {
-	fn drop(&mut self) {
-		unsafe {
-			apt::pkg_release(self.ptr);
+				.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
 		}
 	}
 }
@@ -354,7 +343,7 @@ impl<'a> Version<'a> {
 				ret_vec.push(dep)
 			}
 		}
-		if ret_vec.len() == 0 {
+		if ret_vec.is_empty() {
 			return None;
 		}
 		Some(ret_vec)
@@ -396,7 +385,7 @@ impl<'a> Version<'a> {
 	pub fn hash(&self, hash_type: &str) -> Option<String> {
 		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
 
-		if let Some(pkg_file) = package_files.into_iter().next() {
+		if let Some(pkg_file) = package_files.iter().next() {
 			let records = self.records.borrow_mut();
 			records.lookup(Lookup::VerFile(pkg_file.ver_file));
 			return records.hash_find(hash_type);
@@ -408,7 +397,7 @@ impl<'a> Version<'a> {
 	pub fn uris(&'a self) -> impl Iterator<Item = String> + 'a {
 		self.file_list
 			.get_or_init(|| self.gen_file_list())
-			.into_iter()
+			.iter()
 			.filter_map(|package_file| {
 				let records = self.records.borrow_mut();
 				records.lookup(Lookup::VerFile(package_file.ver_file));
@@ -465,7 +454,7 @@ impl BaseDep {
 		unsafe {
 			apt::dep_all_targets(self.ptr)
 				.into_iter()
-				.filter_map(|ver_ptr| Some(Version::new(Rc::clone(&self.records), ver_ptr)))
+				.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
 		}
 	}
 }

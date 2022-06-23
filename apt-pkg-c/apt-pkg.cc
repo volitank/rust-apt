@@ -54,10 +54,6 @@ struct PkgRecords {
 	pkgRecords::Parser *parser;
 };
 
-struct PkgIterator {
-	pkgCache::PkgIterator iterator;
-};
-
 struct VerFileIterator {
 	pkgCache::VerFileIterator iterator;
 };
@@ -80,6 +76,14 @@ struct DepIterator {
 //   std::cout << "Hello, " << greetee << std::endl;
 //   return get_num();
 // }
+
+static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
+	if (pkg.end()) {
+		return PackagePtr { NULL };
+	}
+
+	return PackagePtr { std::make_unique<pkgCache::PkgIterator>(pkg) };
+}
 
 static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 	if (ver.end()) {
@@ -162,16 +166,33 @@ int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *
 /// Basic Iterator Management
 ///
 /// Iterator Creators
-PkgIterator *pkg_begin(PCache *pcache) {
-	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->PkgBegin();
-	return wrapper;
+rust::Vec<PackagePtr> pkg_list(PCache *cache) {
+	rust::vec<PackagePtr> list;
+	pkgCache::PkgIterator pkg;
+
+	for (pkg = cache->cache->PkgBegin(); pkg.end() == false; pkg++) {
+		list.push_back(wrap_package(pkg));
+	}
+	return list;
 }
 
-PkgIterator *pkg_clone(PkgIterator *iterator) {
-	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = iterator->iterator;
-	return wrapper;
+rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bool cand_only) {
+	pkgCache::PrvIterator provide = pkg.ptr->ProvidesList();
+	std::set<std::string> set;
+	rust::vec<PackagePtr> list;
+
+	for (; provide.end() == false; provide++) {
+		pkgCache::PkgIterator pkg = provide.OwnerPkg();
+		bool is_cand = (
+			provide.OwnerVer() == cache->cache_file->GetPolicy()->GetCandidateVer(pkg)
+		);
+		if (!cand_only || is_cand) {
+			if (!set.insert(pkg.FullName()).second) { continue; }
+
+			list.push_back(wrap_package(pkg));
+		}
+	}
+	return list;
 }
 
 VerFileIterator *ver_file(const VersionPtr &ver) {
@@ -186,20 +207,20 @@ VerFileIterator *ver_file_clone(VerFileIterator *iterator) {
 	return wrapper;
 }
 
-VersionPtr pkg_current_version(PkgIterator *wrapper) {
-	return wrap_version(wrapper->iterator.CurrentVer());
+VersionPtr pkg_current_version(const PackagePtr &pkg) {
+	return wrap_version(pkg.ptr->CurrentVer());
 }
 
-VersionPtr pkg_candidate_version(PCache *cache, PkgIterator *wrapper) {
+VersionPtr pkg_candidate_version(PCache *cache, const PackagePtr &pkg) {
 	return wrap_version(
-		cache->cache_file->GetPolicy()->GetCandidateVer(wrapper->iterator)
+		cache->cache_file->GetPolicy()->GetCandidateVer(*pkg.ptr)
 	);
 }
 
-rust::Vec<VersionPtr> pkg_version_list(PkgIterator *wrapper) {
+rust::Vec<VersionPtr> pkg_version_list(const PackagePtr &pkg) {
 	rust::Vec<VersionPtr> list;
 
-	for (pkgCache::VerIterator I = wrapper->iterator.VersionList(); I.end() == false; I++) {
+	for (pkgCache::VerIterator I = pkg.ptr->VersionList(); I.end() == false; I++) {
 		list.push_back(wrap_version(I));
 	}
 	return list;
@@ -227,32 +248,16 @@ PkgIndexFile *pkg_index_file(PCache *pcache, PkgFileIterator *pkg_file) {
 }
 
 // These two are how we get a specific package by name.
-PkgIterator *pkg_cache_find_name(PCache *pcache, rust::string name) {
-	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name.c_str());
-	return wrapper;
+PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name) {
+	return wrap_package(pcache->cache->FindPkg(name.c_str()));
 }
 
-PkgIterator *pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch) {
-	PkgIterator *wrapper = new PkgIterator();
-	wrapper->iterator = pcache->cache->FindPkg(name.c_str(), arch.c_str());
-	return wrapper;
+PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch) {
+	return wrap_package(pcache->cache->FindPkg(name.c_str(), arch.c_str()));
 }
 
 /// Iterator Manipulation
 ///
-void pkg_next(PkgIterator *wrapper) {
-	++wrapper->iterator;
-}
-
-bool pkg_end(PkgIterator *wrapper) {
-	return wrapper->iterator.end();
-}
-
-void pkg_release(PkgIterator *wrapper) {
-	delete wrapper;
-}
-
 void ver_file_next(VerFileIterator *wrapper) {
 	++wrapper->iterator;
 }
@@ -279,123 +284,94 @@ void dep_release(DepIterator *wrapper) {
 
 /// Information Accessors
 ///
-bool pkg_is_upgradable(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	if (pkg.CurrentVer() == 0) { return false; }
-	return (*depcache)[pkg].Upgradable();
+bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg) {
+	if (pkg.ptr->CurrentVer() == 0) { return false; }
+	return (*depcache)[*pkg.ptr].Upgradable();
+
 }
 
-bool pkg_is_auto_installed(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Flags & pkgCache::Flag::Auto;
+bool pkg_is_auto_installed(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Flags & pkgCache::Flag::Auto;
 }
 
-bool pkg_is_garbage(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Garbage;
+bool pkg_is_garbage(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Garbage;
 }
 
-bool pkg_marked_install(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].NewInstall();
+bool pkg_marked_install(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].NewInstall();
 }
 
-bool pkg_marked_upgrade(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Upgrade();
+bool pkg_marked_upgrade(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Upgrade();
 }
 
-bool pkg_marked_delete(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Delete();
+bool pkg_marked_delete(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Delete();
 }
 
-bool pkg_marked_keep(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Keep();
+bool pkg_marked_keep(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Keep();
 }
 
-bool pkg_marked_downgrade(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].Downgrade();
+bool pkg_marked_downgrade(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].Downgrade();
 }
 
-bool pkg_marked_reinstall(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].ReInstall();
+bool pkg_marked_reinstall(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].ReInstall();
 }
 
-bool pkg_is_now_broken(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].NowBroken();
+bool pkg_is_now_broken(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].NowBroken();
 }
 
-bool pkg_is_inst_broken(pkgDepCache *depcache, PkgIterator *wrapper) {
-	pkgCache::PkgIterator &pkg = wrapper->iterator;
-	return (*depcache)[pkg].InstBroken();
+bool pkg_is_inst_broken(pkgDepCache *depcache, const PackagePtr &pkg) {
+	return (*depcache)[*pkg.ptr].InstBroken();
 }
 
-bool pkg_is_installed(PkgIterator *wrapper) {
-	return !(wrapper->iterator.CurrentVer() == 0);
+bool pkg_is_installed(const PackagePtr &pkg) {
+	return !(pkg.ptr->CurrentVer() == 0);
 }
 
-bool pkg_has_versions(PkgIterator *wrapper) {
-	return wrapper->iterator.VersionList().end() == false;
+bool pkg_has_versions(const PackagePtr &pkg) {
+	return pkg.ptr->VersionList().end() == false;
 }
 
-bool pkg_has_provides(PkgIterator *wrapper) {
-	return wrapper->iterator.ProvidesList().end() == false;
+bool pkg_has_provides(const PackagePtr &pkg) {
+	return pkg.ptr->ProvidesList().end() == false;
 }
 
-rust::Vec<Provider> pkg_provides_list(PCache *cache, PkgIterator *wrapper, bool cand_only) {
-	pkgCache::PrvIterator provide = wrapper->iterator.ProvidesList();
-	rust::Vec<Provider> list;
-
-	for (; provide.end() == false; provide++) {
-		pkgCache::PkgIterator pkg = provide.OwnerPkg();
-		bool is_cand = (
-			provide.OwnerVer() == cache->cache_file->GetPolicy()->GetCandidateVer(pkg)
-		);
-		if (!cand_only || is_cand) {
-			PkgIterator *pkg_wrap = new PkgIterator();
-			pkg_wrap->iterator = pkg;
-
-			list.push_back( Provider { pkg.FullName(), pkg_wrap } );
-		}
-	}
-	return list;
+rust::string get_fullname(const PackagePtr &pkg, bool pretty) {
+	return pkg.ptr->FullName(pretty);
 }
 
-rust::string get_fullname(PkgIterator *wrapper, bool pretty) {
-	return wrapper->iterator.FullName(pretty);
+rust::string pkg_name(const PackagePtr &pkg) {
+	return pkg.ptr->Name();
 }
 
-rust::string pkg_name(PkgIterator *wrapper) {
-	return wrapper->iterator.Name();
+rust::string pkg_arch(const PackagePtr &pkg) {
+	return pkg.ptr->Arch();
 }
 
-rust::string pkg_arch(PkgIterator *wrapper) {
-	return wrapper->iterator.Arch();
+int32_t pkg_id(const PackagePtr &pkg) {
+	return (*pkg.ptr)->ID;
 }
 
-int32_t pkg_id(PkgIterator *wrapper) {
-	return wrapper->iterator->ID;
+int32_t pkg_current_state(const PackagePtr &pkg) {
+	return (*pkg.ptr)->CurrentState;
 }
 
-int32_t pkg_current_state(PkgIterator *wrapper) {
-	return wrapper->iterator->CurrentState;
+int32_t pkg_inst_state(const PackagePtr &pkg) {
+	return(*pkg.ptr)->InstState;
 }
 
-int32_t pkg_inst_state(PkgIterator *wrapper) {
-	return wrapper->iterator->InstState;
+int32_t pkg_selected_state(const PackagePtr &pkg) {
+	return (*pkg.ptr)->SelectedState;
 }
 
-int32_t pkg_selected_state(PkgIterator *wrapper) {
-	return wrapper->iterator->SelectedState;
-}
-
-bool pkg_essential(PkgIterator *wrapper) {
-	return (wrapper->iterator->Flags & pkgCache::Flag::Essential) != 0;
+bool pkg_essential(const PackagePtr &pkg) {
+	return ((*pkg.ptr)->Flags & pkgCache::Flag::Essential) != 0;
 }
 
 const char *UntranslatedDepTypes[] = {
@@ -554,19 +530,19 @@ rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
 // }
 
 // bool validate(VerIterator *wrapper, PCache *pcache) {
-// 	// if (wrapper->iterator.Cache() != &pcache->depcache->GetCache())
+// 	// if (pkg.ptr->Cache() != &pcache->depcache->GetCache())
 // 	// {return false;} else {return true;}
 // 	return _validate(wrapper->iterator, pcache->depcache);
 // }
 
 // bool validate(VerIterator *wrapper, PCache *pcache) {
-// 	if (wrapper->iterator.Cache() != &pcache->depcache->GetCache())
+// 	if (pkg.ptr->Cache() != &pcache->depcache->GetCache())
 // 	{return false;} else {return true;}
 // }
 
 // PDepIterator *ver_iter_dep_iter(VerIterator *wrapper) {
 // 	PDepIterator *new_wrapper = new PDepIterator();
-// 	new_wrapper->iterator = wrapper->iterator.DependsList();
+// 	new_wrapper->iterator = pkg.ptr->DependsList();
 // //	new_wrapper->cache = wrapper->cache;
 // 	return new_wrapper;
 // }
@@ -580,12 +556,12 @@ rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
 // }
 
 // bool dep_iter_end(PDepIterator *wrapper) {
-// 	return wrapper->iterator.end();
+// 	return pkg.ptr->end();
 // }
 
-// PkgIterator *dep_iter_target_pkg(PDepIterator *wrapper) {
-// 	PkgIterator *new_wrapper = new PkgIterator();
-// 	new_wrapper->iterator = wrapper->iterator.TargetPkg();
+// PackagePtr *dep_iter_target_pkg(PDepIterator *wrapper) {
+// 	PackagePtr *new_wrapper = new PackagePtr();
+// 	new_wrapper->iterator = pkg.ptr->TargetPkg();
 // //	new_wrapper->cache = wrapper->cache;
 // 	return new_wrapper;
 // }
@@ -608,45 +584,45 @@ rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
 // }
 
 // bool pkg_file_iter_end(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.end();
+// 	return pkg.ptr->end();
 // }
 
 // const char *pkg_file_iter_file_name(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.FileName();
+// 	return pkg.ptr->FileName();
 // }
 
 // const char *pkg_file_iter_archive(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Archive();
+// 	return pkg.ptr->Archive();
 // }
 
 // const char *pkg_file_iter_version(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Version();
+// 	return pkg.ptr->Version();
 // }
 
 // const char *pkg_file_iter_origin(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Origin();
+// 	return pkg.ptr->Origin();
 // }
 
 // const char *pkg_file_iter_codename(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Codename();
+// 	return pkg.ptr->Codename();
 // }
 
 // const char *pkg_file_iter_label(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Label();
+// 	return pkg.ptr->Label();
 // }
 
 // const char *pkg_file_iter_site(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Site();
+// 	return pkg.ptr->Site();
 // }
 
 // const char *pkg_file_iter_component(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Component();
+// 	return pkg.ptr->Component();
 // }
 
 // const char *pkg_file_iter_architecture(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.Architecture();
+// 	return pkg.ptr->Architecture();
 // }
 
 // const char *pkg_file_iter_index_type(PkgFileIterator *wrapper) {
-// 	return wrapper->iterator.IndexType();
+// 	return pkg.ptr->IndexType();
 // }
