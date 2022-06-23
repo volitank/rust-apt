@@ -8,14 +8,7 @@ use crate::package::Package;
 use crate::raw::apt;
 
 /// Struct for sorting packages.
-#[derive(Debug, Default, PartialEq)]
-pub struct PackageSort {
-	pub upgradable: bool,
-	pub virtual_pkgs: bool,
-	pub installed: bool,
-	pub auto_installed: bool,
-	pub auto_removable: bool,
-}
+pub type PackageSort = apt::PackageSort;
 
 impl PackageSort {
 	/// If true, only packages that are upgradable will be included
@@ -109,7 +102,7 @@ impl DepCache {
 
 	pub fn is_auto_removable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
 		let dep_ptr = &self.cache.borrow();
-		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(&dep_ptr, pkg_ptr))
+		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(dep_ptr, pkg_ptr))
 			&& apt::pkg_is_garbage(&self.cache.borrow(), pkg_ptr)
 	}
 
@@ -254,26 +247,9 @@ impl Cache {
 	///
 	/// Faster than the `cache.sorted` method.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		apt::pkg_list(&self.ptr.borrow())
+		apt::pkg_list(&self.ptr.borrow(), sort)
 			.into_iter()
-			.filter_map(move |pkg_ptr| self.sort_package(pkg_ptr, sort))
-	}
-
-	/// Internal method for sorting packages.
-	fn sort_package(&self, pkg_ptr: apt::PackagePtr, sort: &PackageSort) -> Option<Package> {
-		if (!sort.virtual_pkgs && !apt::pkg_has_versions(&pkg_ptr))
-			|| (sort.upgradable && !self.depcache.borrow().is_upgradable(&pkg_ptr))
-			|| (sort.installed && !apt::pkg_is_installed(&pkg_ptr))
-			|| (sort.auto_installed && !self.depcache.borrow().is_auto_installed(&pkg_ptr))
-			|| (sort.auto_removable && !self.depcache.borrow().is_auto_removable(&pkg_ptr))
-		{
-			return None;
-		}
-		Some(Package::new(
-			Rc::clone(&self.records),
-			Rc::clone(&self.depcache),
-			pkg_ptr,
-		))
+			.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
 	}
 }
 

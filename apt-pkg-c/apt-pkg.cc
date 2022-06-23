@@ -92,7 +92,6 @@ rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache) {
 int32_t pkg_cache_compare_versions(
 const std::unique_ptr<PkgCacheFile>& cache, const char* left, const char* right) {
 	// an int is returned here; presumably it will always be -1, 0 or 1.
-
 	return cache->GetPkgCache()->VS->DoCmpVersion(
 	left, left + strlen(left), right, right + strlen(right));
 }
@@ -101,11 +100,21 @@ const std::unique_ptr<PkgCacheFile>& cache, const char* left, const char* right)
 /// Package Functions:
 
 /// Returns a Vector of all the packages in the cache.
-rust::Vec<PackagePtr> pkg_list(const std::unique_ptr<PkgCacheFile>& cache) {
+rust::Vec<PackagePtr> pkg_list(
+const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 	rust::vec<PackagePtr> list;
 	pkgCache::PkgIterator pkg;
 
-	for (pkg = cache->GetPkgCache()->PkgBegin(); pkg.end() == false; pkg++) {
+	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
+
+		if ((sort.virtual_pkgs && !pkg.VersionList().end()) ||
+		(sort.upgradable &&
+		(pkg.CurrentVer() == 0 || !(*cache->GetDepCache())[pkg].Upgradable())) ||
+		(sort.installed && (pkg.CurrentVer() == 0)) ||
+		(sort.auto_installed && !((*cache->GetDepCache())[pkg].Flags & pkgCache::Flag::Auto)) ||
+		(sort.auto_removable && !(*cache->GetDepCache())[pkg].Garbage)) {
+			continue;
+		}
 		list.push_back(wrap_package(pkg));
 	}
 	return list;
@@ -119,7 +128,7 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool cand_onl
 	std::set<std::string> set;
 	rust::vec<PackagePtr> list;
 
-	for (; provide.end() == false; provide++) {
+	for (; !provide.end(); provide++) {
 		pkgCache::PkgIterator pkg = provide.OwnerPkg();
 		bool is_cand = (provide.OwnerVer() == cache->GetPolicy()->GetCandidateVer(pkg));
 		if (!cand_only || is_cand) {
@@ -153,7 +162,7 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
 rust::Vec<VersionPtr> pkg_version_list(const PackagePtr& pkg) {
 	rust::Vec<VersionPtr> list;
 
-	for (pkgCache::VerIterator I = pkg.ptr->VersionList(); I.end() == false; I++) {
+	for (pkgCache::VerIterator I = pkg.ptr->VersionList(); !I.end(); I++) {
 		list.push_back(wrap_version(I));
 	}
 	return list;
@@ -183,7 +192,7 @@ bool pkg_is_installed(const PackagePtr& pkg) {
 /// Check if the package has versions.
 /// If a package has no versions it is considered virtual.
 bool pkg_has_versions(const PackagePtr& pkg) {
-	return pkg.ptr->VersionList().end() == false;
+	return !pkg.ptr->VersionList().end();
 }
 
 
@@ -191,7 +200,7 @@ bool pkg_has_versions(const PackagePtr& pkg) {
 /// Virtual packages may provide a real package.
 /// This is how you would access the packages to satisfy it.
 bool pkg_has_provides(const PackagePtr& pkg) {
-	return pkg.ptr->ProvidesList().end() == false;
+	return !pkg.ptr->ProvidesList().end();
 }
 
 
@@ -244,10 +253,10 @@ const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver) {
 	rust::vec<PackageFile> list;
 	pkgCache::VerFileIterator v_file = ver.ptr->FileList();
 
-	for (; v_file.end() == false; v_file++) {
+	for (; !v_file.end(); v_file++) {
 		pkgSourceList* SrcList = cache->GetSourceList();
 		pkgIndexFile* Index;
-		if (SrcList->FindIndex(v_file.File(), Index) == false) {
+		if (!SrcList->FindIndex(v_file.File(), Index)) {
 			_system->FindIndex(v_file.File(), Index);
 		}
 		list.push_back(PackageFile{
@@ -264,7 +273,7 @@ rust::Vec<DepContainer> dep_list(const VersionPtr& ver) {
 	rust::Vec<DepContainer> depend_list;
 	auto& cache = *ver.ptr->Cache();
 
-	for (pkgCache::DepIterator dep = ver.ptr->DependsList(); dep.end() == false;) {
+	for (pkgCache::DepIterator dep = ver.ptr->DependsList(); !dep.end();) {
 		DepContainer depend = DepContainer();
 		pkgCache::DepIterator Start;
 		pkgCache::DepIterator End;
@@ -478,7 +487,7 @@ const PackageFile& pkg_file) {
 	pkgSourceList* SrcList = cache->GetSourceList();
 	pkgIndexFile* Index;
 
-	if (SrcList->FindIndex(pkg_file.ver_file->File(), Index) == false) {
+	if (!SrcList->FindIndex(pkg_file.ver_file->File(), Index)) {
 		_system->FindIndex(pkg_file.ver_file->File(), Index);
 	}
 	return Index->ArchiveURI(records.records->parser->FileName());

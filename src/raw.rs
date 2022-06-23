@@ -111,6 +111,16 @@ pub mod apt {
 		records: UniquePtr<PkgRecords>,
 	}
 
+	/// Struct for sorting packages.
+	#[derive(Debug, Default)]
+	pub struct PackageSort {
+		pub upgradable: bool,
+		pub virtual_pkgs: bool,
+		pub installed: bool,
+		pub auto_installed: bool,
+		pub auto_removable: bool,
+	}
+
 	unsafe extern "C++" {
 
 		type PkgCacheFile;
@@ -155,7 +165,7 @@ pub mod apt {
 		// Package Functions:
 
 		/// Returns a Vector of all the packages in the cache.
-		pub fn pkg_list(cache: &UniquePtr<PkgCacheFile>) -> Vec<PackagePtr>;
+		pub fn pkg_list(cache: &UniquePtr<PkgCacheFile>, sort: &PackageSort) -> Vec<PackagePtr>;
 
 		/// Return a Vector of all the packages that provide another. steam:i386
 		/// provides steam.
