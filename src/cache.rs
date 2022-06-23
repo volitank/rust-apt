@@ -56,41 +56,32 @@ pub struct Records {
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl Records {
 	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self {
-		let record = unsafe { apt::pkg_records_create(&cache.borrow()) };
-		Records {
-			ptr: record,
-			cache,
-		}
+		let record = apt::pkg_records_create(&cache.borrow());
+		Records { ptr: record, cache }
 	}
 
 	pub fn lookup_desc(&mut self, desc: &UniquePtr<apt::DescIterator>) {
-		unsafe {
-			apt::desc_file_lookup(&mut self.ptr, desc);
-		}
+		apt::desc_file_lookup(&mut self.ptr, desc);
 	}
 
 	pub fn lookup_ver(&mut self, ver_file: &apt::PackageFile) {
-		unsafe {
-			apt::ver_file_lookup(&mut self.ptr, ver_file);
-		}
+		apt::ver_file_lookup(&mut self.ptr, ver_file);
 	}
 
-	pub fn description(&self) -> String { unsafe { apt::long_desc(&self.ptr) } }
+	pub fn description(&self) -> String { apt::long_desc(&self.ptr) }
 
-	pub fn summary(&self) -> String { unsafe { apt::short_desc(&self.ptr) } }
+	pub fn summary(&self) -> String { apt::short_desc(&self.ptr) }
 
 	pub fn uri(&self, pkg_file: &apt::PackageFile) -> String {
-		unsafe { apt::ver_uri(&self.ptr, &self.cache.borrow(), pkg_file) }
+		apt::ver_uri(&self.ptr, &self.cache.borrow(), pkg_file)
 	}
 
 	pub fn hash_find(&self, hash_type: &str) -> Option<String> {
-		unsafe {
-			let hash = apt::hash_find(&self.ptr, hash_type.to_string());
-			if hash == "KeyError" {
-				return None;
-			}
-			Some(hash)
+		let hash = apt::hash_find(&self.ptr, hash_type.to_string());
+		if hash == "KeyError" {
+			return None;
 		}
+		Some(hash)
 	}
 }
 
@@ -100,69 +91,55 @@ pub struct DepCache {
 	cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
 }
 
-// DepCache does not have a drop because we don't need to free the pointer.
-// The pointer is freed when the cache is dropped
-// DepCache is not initialized with the cache as it slows down some operations
-// Instead we have this struct to lazily initialize when we need it.
 impl DepCache {
-	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self {
-		DepCache {
-			cache,
-		}
-	}
+	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self { DepCache { cache } }
 
-	pub fn clear(&self) {
-		unsafe {
-			apt::depcache_create(&self.cache.borrow());
-		}
-	}
+	pub fn clear(&self) { apt::depcache_create(&self.cache.borrow()); }
 
 	pub fn is_upgradable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_is_upgradable(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_is_upgradable(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn is_auto_installed(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_is_auto_installed(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_is_auto_installed(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn is_auto_removable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
 		let dep_ptr = &self.cache.borrow();
-		unsafe {
-			(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(&dep_ptr, pkg_ptr))
-				&& apt::pkg_is_garbage(&self.cache.borrow(), pkg_ptr)
-		}
+		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(&dep_ptr, pkg_ptr))
+			&& apt::pkg_is_garbage(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_install(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_install(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_install(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_upgrade(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_upgrade(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_upgrade(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_delete(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_delete(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_delete(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_keep(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_keep(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_keep(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_downgrade(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_downgrade(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_downgrade(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn marked_reinstall(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_marked_reinstall(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_marked_reinstall(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn is_now_broken(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_is_now_broken(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_is_now_broken(&self.cache.borrow(), pkg_ptr)
 	}
 
 	pub fn is_inst_broken(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		unsafe { apt::pkg_is_inst_broken(&self.cache.borrow(), pkg_ptr) }
+		apt::pkg_is_inst_broken(&self.cache.borrow(), pkg_ptr)
 	}
 }
 
@@ -183,7 +160,7 @@ impl Cache {
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
 		apt::init_config_system();
-		//let cache_ptr = apt::pkg_cache_create();
+		// let cache_ptr = apt::pkg_cache_create();
 		let cache_ptr = Rc::new(RefCell::new(apt::pkg_cache_create()));
 		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
@@ -201,7 +178,7 @@ impl Cache {
 	///
 	/// These are the files that `apt update` will fetch.
 	pub fn sources(&self) -> impl Iterator<Item = apt::SourceFile> + '_ {
-		unsafe { apt::source_uris(&self.ptr.borrow()).into_iter() }
+		apt::source_uris(&self.ptr.borrow()).into_iter()
 	}
 
 	/// Returns an iterator of Packages that provide the virtual package
@@ -210,17 +187,15 @@ impl Cache {
 		virt_pkg: &Package,
 		cand_only: bool,
 	) -> impl Iterator<Item = Package> + '_ {
-		unsafe {
-			apt::pkg_provides_list(&self.ptr.borrow(), &virt_pkg.ptr, cand_only)
-				.into_iter()
-				.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
-		}
+		apt::pkg_provides_list(&self.ptr.borrow(), &virt_pkg.ptr, cand_only)
+			.into_iter()
+			.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
 	}
 
 	// Disabled as it doesn't really work yet. Would likely need to
 	// Be on the objects them self and not the cache
 	// pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {
-	// 	unsafe { apt::validate(ver, self._cache) }
+	// 	apt::validate(ver, self._cache)
 	// }
 
 	/// Get a single package.
@@ -252,12 +227,14 @@ impl Cache {
 	/// The returned iterator will either be at the end, or at a matching
 	/// package.
 	fn find_by_name(&self, name: &str, arch: &str) -> apt::PackagePtr {
-		unsafe {
-			if !arch.is_empty() {
-				return apt::pkg_cache_find_name_arch(&self.ptr.borrow(), name.to_owned(), arch.to_owned());
-			}
-			apt::pkg_cache_find_name(&self.ptr.borrow(), name.to_owned())
+		if !arch.is_empty() {
+			return apt::pkg_cache_find_name_arch(
+				&self.ptr.borrow(),
+				name.to_owned(),
+				arch.to_owned(),
+			);
 		}
+		apt::pkg_cache_find_name(&self.ptr.borrow(), name.to_owned())
 	}
 
 	/// An iterator of packages sorted by package name.
@@ -273,24 +250,20 @@ impl Cache {
 	///
 	/// Faster than the `cache.sorted` method.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		unsafe {
-			apt::pkg_list(&self.ptr.borrow())
-				.into_iter()
-				.filter_map(move |pkg_ptr| self.sort_package(pkg_ptr, sort))
-		}
+		apt::pkg_list(&self.ptr.borrow())
+			.into_iter()
+			.filter_map(move |pkg_ptr| self.sort_package(pkg_ptr, sort))
 	}
 
 	/// Internal method for sorting packages.
 	fn sort_package(&self, pkg_ptr: apt::PackagePtr, sort: &PackageSort) -> Option<Package> {
-		unsafe {
-			if (!sort.virtual_pkgs && !apt::pkg_has_versions(&pkg_ptr))
-				|| (sort.upgradable && !self.depcache.borrow().is_upgradable(&pkg_ptr))
-				|| (sort.installed && !apt::pkg_is_installed(&pkg_ptr))
-				|| (sort.auto_installed && !self.depcache.borrow().is_auto_installed(&pkg_ptr))
-				|| (sort.auto_removable && !self.depcache.borrow().is_auto_removable(&pkg_ptr))
-			{
-				return None;
-			}
+		if (!sort.virtual_pkgs && !apt::pkg_has_versions(&pkg_ptr))
+			|| (sort.upgradable && !self.depcache.borrow().is_upgradable(&pkg_ptr))
+			|| (sort.installed && !apt::pkg_is_installed(&pkg_ptr))
+			|| (sort.auto_installed && !self.depcache.borrow().is_auto_installed(&pkg_ptr))
+			|| (sort.auto_removable && !self.depcache.borrow().is_auto_removable(&pkg_ptr))
+		{
+			return None;
 		}
 		Some(Package::new(
 			Rc::clone(&self.records),

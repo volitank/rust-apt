@@ -11,7 +11,6 @@ use crate::raw::apt;
 
 #[derive(Debug)]
 pub struct Package<'a> {
-	// Commented fields are to be implemented
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
@@ -33,22 +32,20 @@ impl<'a> Package<'a> {
 		depcache: Rc<RefCell<DepCache>>,
 		pkg_ptr: apt::PackagePtr,
 	) -> Package<'a> {
-		unsafe {
-			Package {
-				_lifetime: &PhantomData,
-				records,
-				depcache,
-				name: apt::get_fullname(&pkg_ptr, true),
-				arch: apt::pkg_arch(&pkg_ptr),
-				id: apt::pkg_id(&pkg_ptr),
-				essential: apt::pkg_essential(&pkg_ptr),
-				current_state: apt::pkg_current_state(&pkg_ptr),
-				inst_state: apt::pkg_inst_state(&pkg_ptr),
-				selected_state: apt::pkg_selected_state(&pkg_ptr),
-				has_versions: apt::pkg_has_versions(&pkg_ptr),
-				has_provides: apt::pkg_has_provides(&pkg_ptr),
-				ptr: pkg_ptr,
-			}
+		Package {
+			_lifetime: &PhantomData,
+			records,
+			depcache,
+			name: apt::get_fullname(&pkg_ptr, true),
+			arch: apt::pkg_arch(&pkg_ptr),
+			id: apt::pkg_id(&pkg_ptr),
+			essential: apt::pkg_essential(&pkg_ptr),
+			current_state: apt::pkg_current_state(&pkg_ptr),
+			inst_state: apt::pkg_inst_state(&pkg_ptr),
+			selected_state: apt::pkg_selected_state(&pkg_ptr),
+			has_versions: apt::pkg_has_versions(&pkg_ptr),
+			has_provides: apt::pkg_has_provides(&pkg_ptr),
+			ptr: pkg_ptr,
 		}
 	}
 
@@ -79,30 +76,26 @@ impl<'a> Package<'a> {
 	///
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
-		unsafe {
-			let ver = apt::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr);
-			if ver.ptr.is_null() {
-				return None;
-			}
-			Some(Version::new(Rc::clone(&self.records), ver))
+		let ver = apt::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr);
+		if ver.ptr.is_null() {
+			return None;
 		}
+		Some(Version::new(Rc::clone(&self.records), ver))
 	}
 
 	/// Returns the version object of the installed version.
 	///
 	/// If there isn't an installed version, returns None
 	pub fn installed(&self) -> Option<Version<'a>> {
-		unsafe {
-			let ver = apt::pkg_current_version(&self.ptr);
-			if ver.ptr.is_null() {
-				return None;
-			}
-			Some(Version::new(Rc::clone(&self.records), ver))
+		let ver = apt::pkg_current_version(&self.ptr);
+		if ver.ptr.is_null() {
+			return None;
 		}
+		Some(Version::new(Rc::clone(&self.records), ver))
 	}
 
 	/// Check if the package is installed.
-	pub fn is_installed(&self) -> bool { unsafe { apt::pkg_is_installed(&self.ptr) } }
+	pub fn is_installed(&self) -> bool { apt::pkg_is_installed(&self.ptr) }
 
 	/// Check if the package is upgradable.
 	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(&self.ptr) }
@@ -140,11 +133,9 @@ impl<'a> Package<'a> {
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
 	pub fn versions(&self) -> impl Iterator<Item = Version<'a>> + '_ {
-		unsafe {
-			apt::pkg_version_list(&self.ptr)
-				.into_iter()
-				.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
-		}
+		apt::pkg_version_list(&self.ptr)
+			.into_iter()
+			.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
 	}
 }
 
@@ -170,7 +161,6 @@ impl<'a> fmt::Display for Package<'a> {
 
 #[derive(Debug)]
 pub struct Version<'a> {
-	//_parent: RefCell<Package<'a>>,
 	_lifetime: &'a PhantomData<Cache>,
 	ptr: apt::VersionPtr,
 	records: Rc<RefCell<Records>>,
@@ -190,31 +180,29 @@ pub struct Version<'a> {
 
 impl<'a> Version<'a> {
 	fn new(records: Rc<RefCell<Records>>, ver_ptr: apt::VersionPtr) -> Self {
-		unsafe {
-			let ver_priority = apt::ver_priority(&records.borrow().cache.borrow(), &ver_ptr);
-			Self {
-				_lifetime: &PhantomData,
-				records,
-				file_list: OnceCell::new(),
-				depends_list: OnceCell::new(),
-				pkgname: apt::ver_name(&ver_ptr),
-				priority: ver_priority,
-				version: apt::ver_str(&ver_ptr),
-				size: apt::ver_size(&ver_ptr),
-				installed_size: apt::ver_installed_size(&ver_ptr),
-				arch: apt::ver_arch(&ver_ptr),
-				downloadable: apt::ver_downloadable(&ver_ptr),
-				id: apt::ver_id(&ver_ptr),
-				section: apt::ver_section(&ver_ptr),
-				priority_str: apt::ver_priority_str(&ver_ptr),
-				ptr: ver_ptr,
-			}
+		let ver_priority = apt::ver_priority(&records.borrow().cache.borrow(), &ver_ptr);
+		Self {
+			_lifetime: &PhantomData,
+			records,
+			file_list: OnceCell::new(),
+			depends_list: OnceCell::new(),
+			pkgname: apt::ver_name(&ver_ptr),
+			priority: ver_priority,
+			version: apt::ver_str(&ver_ptr),
+			size: apt::ver_size(&ver_ptr),
+			installed_size: apt::ver_installed_size(&ver_ptr),
+			arch: apt::ver_arch(&ver_ptr),
+			downloadable: apt::ver_downloadable(&ver_ptr),
+			id: apt::ver_id(&ver_ptr),
+			section: apt::ver_section(&ver_ptr),
+			priority_str: apt::ver_priority_str(&ver_ptr),
+			ptr: ver_ptr,
 		}
 	}
 
 	/// Internal Method for Generating the PackageFiles
 	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
-		unsafe { apt::pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr) }
+		apt::pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr)
 	}
 
 	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
@@ -234,13 +222,11 @@ impl<'a> Version<'a> {
 	/// Internal Method for Generating the Dependency HashMap
 	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
 		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
-		unsafe {
-			for dep in apt::dep_list(&self.ptr) {
-				if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
-					vec.push(self.convert_depends(dep))
-				} else {
-					dependencies.insert(dep.dep_type.to_owned(), vec![self.convert_depends(dep)]);
-				}
+		for dep in apt::dep_list(&self.ptr) {
+			if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
+				vec.push(self.convert_depends(dep))
+			} else {
+				dependencies.insert(dep.dep_type.to_owned(), vec![self.convert_depends(dep)]);
 			}
 		}
 		dependencies
@@ -326,7 +312,7 @@ impl<'a> Version<'a> {
 	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends("Suggests") }
 
 	/// Check if the version is installed
-	pub fn is_installed(&self) -> bool { unsafe { apt::ver_installed(&self.ptr) } }
+	pub fn is_installed(&self) -> bool { apt::ver_installed(&self.ptr) }
 
 	/// Get the translated long description
 	pub fn description(&self) -> String {
@@ -423,11 +409,9 @@ impl BaseDep {
 	pub fn dep_type(&self) -> &String { &self.apt_dep.dep_type }
 
 	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
-		unsafe {
-			apt::dep_all_targets(&self.apt_dep)
-				.into_iter()
-				.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
-		}
+		apt::dep_all_targets(&self.apt_dep)
+			.into_iter()
+			.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
 	}
 }
 

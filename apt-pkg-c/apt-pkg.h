@@ -1,25 +1,9 @@
 #pragma once
-//#include "apt-pkg.cc"
-// For Development Typing
-#include "cxx-typing.h"
 #include "rust/cxx.h"
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/depcache.h>
 #include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/indexfile.h>
-//#include <memory>
 
-// C++ owned structs
-// Couldn't get this to work without wrappers.
-// struct PCache {
-// 	// Owned by us.
-// 	pkgCacheFile *cache_file;
-
-// 	// Borrowed from cache_file.
-// 	pkgCache *cache;
-
-// 	pkgSourceList *source;
-// };
 struct PkgRecords {
 
 	pkgRecords records;
@@ -32,11 +16,9 @@ struct PkgRecords {
 };
 
 // Rust Shared Structs
-struct Cache;
 struct Records;
 struct PackagePtr;
 struct VersionPtr;
-struct VerFilePtr;
 struct PackageFile;
 struct DepContainer;
 struct BaseDep;
@@ -54,14 +36,8 @@ using DepIterator = pkgCache::DepIterator;
 using PkgCacheFile = pkgCacheFile;
 using PkgCache = pkgCache;
 using PkgSourceList = pkgSourceList;
-// From Rust to C++
-//
-// CXX Test Function
-// int greet(rust::Str greetee);
 
 
-// From C++ to Rust
-//
 /// Main Initializers for APT
 void init_config_system();
 
@@ -131,45 +107,3 @@ rust::string short_desc(const Records &records);
 rust::string hash_find(const Records &records, rust::string hash_type);
 
 rust::Vec<VersionPtr> dep_all_targets(const BaseDep &dep);
-
-/// Unused Functions
-/// They may be used in the future
-///
-// dep_iter creation and deletion
-// DepIterator *ver_iter_dep_iter(VerIterator *iterator);
-// void dep_iter_release(DepIterator *iterator);
-
-// // dep_iter mutation
-// void dep_iter_next(DepIterator *iterator);
-// bool dep_iter_end(DepIterator *iterator);
-
-// // dep_iter access
-// PkgIterator *dep_iter_target_pkg(DepIterator *iterator);
-// const char *dep_iter_target_ver(DepIterator *iterator);
-// const char *dep_iter_comp_type(DepIterator *iterator);
-// const char *dep_iter_dep_type(DepIterator *iterator);
-
-// //template<typename Iterator>
-// bool validate(VerIterator *iterator, const std::unique_ptr<PkgCacheFile> &cache);
-
-// // ver_file_parser access
-// const char *ver_file_parser_short_desc(VerFileParser *parser);
-// const char *ver_file_parser_long_desc(VerFileParser *parser);
-
-// const char *ver_file_parser_maintainer(VerFileParser *parser);
-// const char *ver_file_parser_homepage(VerFileParser *parser);
-// // pkg_file_iter mutation
-// void pkg_file_iter_next(PkgFileIterator *iterator);
-// bool pkg_file_iter_end(PkgFileIterator *iterator);
-
-// // pkg_file_iter access
-// const char *pkg_file_iter_file_name(PkgFileIterator *iterator);
-// const char *pkg_file_iter_archive(PkgFileIterator *iterator);
-// const char *pkg_file_iter_version(PkgFileIterator *iterator);
-// const char *pkg_file_iter_origin(PkgFileIterator *iterator);
-// const char *pkg_file_iter_codename(PkgFileIterator *iterator);
-// const char *pkg_file_iter_label(PkgFileIterator *iterator);
-// const char *pkg_file_iter_site(PkgFileIterator *iterator);
-// const char *pkg_file_iter_component(PkgFileIterator *iterator);
-// const char *pkg_file_iter_architecture(PkgFileIterator *iterator);
-// const char *pkg_file_iter_index_type(PkgFileIterator *iterator);
