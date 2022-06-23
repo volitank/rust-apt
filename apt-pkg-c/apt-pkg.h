@@ -10,7 +10,6 @@
 
 // C++ owned structs
 struct PCache;
-struct DepIterator;
 struct PkgRecords {
 
 	pkgRecords records;
@@ -21,7 +20,6 @@ struct PkgRecords {
 
 	PkgRecords(pkgCache *cache) : records(*cache), last(0) {};
 };
-//struct PkgRecords;
 
 // Rust Shared Structs
 struct Records;
@@ -29,8 +27,8 @@ struct PackagePtr;
 struct VersionPtr;
 struct VerFilePtr;
 struct PackageFile;
-struct DepIterator;
 struct DepContainer;
+struct BaseDep;
 struct SourceFile;
 
 // Apt Aliases
@@ -40,7 +38,7 @@ using PkgIterator = pkgCache::PkgIterator;
 using VerFileIterator = pkgCache::VerFileIterator;
 using PkgFileIterator = pkgCache::PkgFileIterator;
 using DescIterator = pkgCache::DescIterator;
-
+using DepIterator = pkgCache::DepIterator;
 // From Rust to C++
 //
 // CXX Test Function
@@ -71,9 +69,6 @@ VersionPtr pkg_candidate_version(PCache *cache, const PackagePtr &pkg);
 rust::vec<VersionPtr> pkg_version_list(const PackagePtr &pkg);
 PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name);
 PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch);
-
-/// Iterator Manipulation
-void dep_release(DepIterator *wrapper);
 
 /// Information Accessors
 bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg);
@@ -123,7 +118,7 @@ rust::string long_desc(const Records &records);
 rust::string short_desc(const Records &records);
 rust::string hash_find(const Records &records, rust::string hash_type);
 
-rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper);
+rust::Vec<VersionPtr> dep_all_targets(const BaseDep &dep);
 
 /// Unused Functions
 /// They may be used in the future

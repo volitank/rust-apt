@@ -63,17 +63,17 @@ impl<'a> Package<'a> {
 	/// let cache = Cache::new();
 	/// if let Some(pkg) = cache.get("apt") {
 	///    // Prints just "apt"
-	///    println!("{}", pkg.get_fullname(true));
+	///    println!("{}", pkg.fullname(true));
 	///    // Prints "apt:amd64"
-	///    println!("{}", pkg.get_fullname(false));
+	///    println!("{}", pkg.fullname(false));
 	/// };
 	///
 	/// if let Some(pkg) = cache.get("apt:i386") {
 	///    // Prints "apt:i386" for the i386 package
-	///    println!("{}", pkg.get_fullname(true));
+	///    println!("{}", pkg.fullname(true));
 	/// };
 	/// ```
-	pub fn get_fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
+	pub fn fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
 
 	/// Returns the version object of the candidate.
 	///
@@ -221,16 +221,12 @@ impl<'a> Version<'a> {
 		let mut base_vec = Vec::new();
 		for base_dep in apt_deps.dep_list {
 			base_vec.push(BaseDep {
-				name: base_dep.name,
-				version: base_dep.version,
-				comp: base_dep.comp,
-				dep_type: base_dep.dep_type,
-				ptr: base_dep.ptr,
 				records: Rc::clone(&self.records),
+				apt_dep: base_dep,
 			})
 		}
 		Dependency {
-			dep_type: base_vec[0].name.to_owned(),
+			dep_type: apt_deps.dep_type,
 			base_deps: base_vec,
 		}
 	}
@@ -238,7 +234,6 @@ impl<'a> Version<'a> {
 	/// Internal Method for Generating the Dependency HashMap
 	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
 		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
-
 		unsafe {
 			for dep in apt::dep_list(&self.ptr) {
 				if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
@@ -279,11 +274,11 @@ impl<'a> Version<'a> {
 	/// for dep in version.depends_map().get("Depends").unwrap() {
 	///    if dep.is_or() {
 	///        for base_dep in &dep.base_deps {
-	///            println!("{}", base_dep.name)
+	///            println!("{}", base_dep.name())
 	///        }
 	///    } else {
 	///        // is_or is false so there is only one BaseDep
-	///        println!("{}", dep.first().name)
+	///        println!("{}", dep.first().name())
 	///    }
 	/// }
 	/// ```
@@ -411,18 +406,25 @@ impl<'a> fmt::Display for Version<'a> {
 /// A struct representing a Base Dependency
 #[derive(Debug)]
 pub struct BaseDep {
-	pub name: String,
-	pub version: String,
-	pub comp: String,
-	pub dep_type: String,
-	ptr: *mut apt::DepIterator,
+	apt_dep: apt::BaseDep,
 	records: Rc<RefCell<Records>>,
 }
 
 impl BaseDep {
+	pub fn name(&self) -> &String { &self.apt_dep.name }
+
+	pub fn version(&self) -> &String { &self.apt_dep.version }
+
+	pub fn comp(&self) -> &String {
+		&self.apt_dep.comp
+		// self.apt_dep.Comp_Type()
+	}
+
+	pub fn dep_type(&self) -> &String { &self.apt_dep.dep_type }
+
 	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
 		unsafe {
-			apt::dep_all_targets(self.ptr)
+			apt::dep_all_targets(&self.apt_dep)
 				.into_iter()
 				.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
 		}
@@ -434,17 +436,12 @@ impl fmt::Display for BaseDep {
 		write!(
 			f,
 			"BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>",
-			self.name, self.version, self.comp, self.dep_type,
+			self.name(),
+			self.version(),
+			self.comp(),
+			self.dep_type(),
 		)?;
 		Ok(())
-	}
-}
-
-impl Drop for BaseDep {
-	fn drop(&mut self) {
-		unsafe {
-			apt::dep_release(self.ptr);
-		}
 	}
 }
 
@@ -474,7 +471,10 @@ impl fmt::Display for Dependency {
 			write!(
 				f,
 				"\n    BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>,",
-				dep.name, dep.version, dep.comp, dep.dep_type,
+				dep.name(),
+				dep.version(),
+				dep.comp(),
+				dep.dep_type(),
 			)?;
 		}
 		write!(f, "\n]")?;

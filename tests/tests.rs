@@ -191,11 +191,11 @@ mod tests {
 			for dep in cand.depends_map().get("Depends").unwrap() {
 				if dep.is_or() {
 					for base_dep in &dep.base_deps {
-						println!("{}", base_dep.name)
+						println!("{}", base_dep.name())
 					}
 				} else {
 					// is_or is false so there is only one BaseDep
-					println!("{}", dep.first().name)
+					println!("{}", dep.first().name())
 				}
 			}
 		};

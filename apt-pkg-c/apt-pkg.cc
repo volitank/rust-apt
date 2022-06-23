@@ -43,10 +43,6 @@ struct PCache {
 	pkgSourceList *source;
 };
 
-struct DepIterator {
-	pkgCache::DepIterator iterator;
-};
-
 /// CXX Test Function
 ///
 // int greet(rust::Str greetee) {
@@ -210,12 +206,6 @@ PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::str
 	return wrap_package(pcache->cache->FindPkg(name.c_str(), arch.c_str()));
 }
 
-/// Iterator Manipulation
-///
-void dep_release(DepIterator *wrapper) {
-	delete wrapper;
-}
-
 /// Information Accessors
 ///
 bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg) {
@@ -316,6 +306,7 @@ const char *UntranslatedDepTypes[] = {
 
 rust::Vec<DepContainer> dep_list(const VersionPtr &ver) {
 	rust::Vec<DepContainer> depend_list;
+	auto &cache = *ver.ptr->Cache();
 
 	for (pkgCache::DepIterator dep = ver.ptr->DependsList(); dep.end() == false;) {
 		DepContainer depend = DepContainer();
@@ -327,9 +318,6 @@ rust::Vec<DepContainer> dep_list(const VersionPtr &ver) {
 		rust::Vec<BaseDep> list;
 
 		while (true) {
-			DepIterator *dep_wrapper = new DepIterator();
-			dep_wrapper->iterator = Start;
-
 			rust::string version;
 			if (Start->Version == 0) {
 				version = "";
@@ -343,7 +331,7 @@ rust::Vec<DepContainer> dep_list(const VersionPtr &ver) {
 					version,
 					Start.CompType(),
 					UntranslatedDepTypes[Start->Type],
-					dep_wrapper
+					std::make_shared<DepIterator>(cache, Start),
 				}
 			);
 
@@ -458,13 +446,13 @@ rust::string hash_find(const Records &records, rust::string hash_type) {
 	return hash->HashValue();
 }
 
-rust::Vec<VersionPtr> dep_all_targets(DepIterator *wrapper) {
-	rust::Vec<VersionPtr> list;
+rust::vec<VersionPtr> dep_all_targets(const BaseDep &dep) {
+	rust::vec<VersionPtr> list;
 
-	std::unique_ptr<pkgCache::Version *[]> versions(wrapper->iterator.AllTargets());
+	std::unique_ptr<pkgCache::Version *[]> versions(dep.ptr->AllTargets());
 	for (pkgCache::Version **I = versions.get(); *I != 0; I++) {
 		list.push_back(
-			wrap_version(pkgCache::VerIterator(*wrapper->iterator.Cache(), *I))
+			wrap_version(pkgCache::VerIterator(*dep.ptr->Cache(), *I))
 		);
 	}
 	return list;

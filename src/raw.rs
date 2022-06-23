@@ -12,6 +12,17 @@ impl fmt::Debug for apt::VersionPtr {
 	}
 }
 
+impl fmt::Debug for apt::BaseDep {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>",
+			self.name, self.version, self.comp, self.dep_type,
+		)?;
+		Ok(())
+	}
+}
+
 impl fmt::Debug for apt::Records {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "package file: {{ To Be Implemented }}")?;
@@ -54,16 +65,14 @@ pub mod apt {
 		filename: String,
 	}
 
-	#[derive(Debug)]
 	struct BaseDep {
 		name: String,
 		version: String,
 		comp: String,
 		dep_type: String,
-		ptr: *mut DepIterator,
+		ptr: SharedPtr<DepIterator>,
 	}
 
-	#[derive(Debug)]
 	struct DepContainer {
 		dep_type: String,
 		dep_list: Vec<BaseDep>,
@@ -138,9 +147,6 @@ pub mod apt {
 			arch: String,
 		) -> PackagePtr;
 
-		/// Iterator Manipulation
-		pub unsafe fn dep_release(iterator: *mut DepIterator);
-
 		/// Information Accessors
 		pub unsafe fn pkg_is_upgradable(depcache: *mut PkgDepCache, iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_is_auto_installed(
@@ -168,12 +174,14 @@ pub mod apt {
 		pub fn get_fullname(iterator: &PackagePtr, pretty: bool) -> String;
 		// pub unsafe fn pkg_name(iterator: &PackagePtr) -> String;
 		pub unsafe fn pkg_arch(iterator: &PackagePtr) -> String;
+		pub unsafe fn Arch(self: &PackagePtr) -> String;
 		pub unsafe fn pkg_id(iterator: &PackagePtr) -> i32;
 		pub unsafe fn pkg_current_state(iterator: &PackagePtr) -> i32;
 		pub unsafe fn pkg_inst_state(iterator: &PackagePtr) -> i32;
 		pub unsafe fn pkg_selected_state(iterator: &PackagePtr) -> i32;
 		pub unsafe fn pkg_essential(iterator: &PackagePtr) -> bool;
 
+		// pub unsafe fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
 		pub unsafe fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
 		pub unsafe fn ver_arch(version: &VersionPtr) -> String;
 		pub fn ver_str(version: &VersionPtr) -> String;
@@ -202,7 +210,7 @@ pub mod apt {
 		pub unsafe fn short_desc(records: &Records) -> String;
 		pub unsafe fn hash_find(records: &Records, hash_type: String) -> String;
 
-		pub unsafe fn dep_all_targets(iterator: *mut DepIterator) -> Vec<VersionPtr>;
+		pub unsafe fn dep_all_targets(dep: &BaseDep) -> Vec<VersionPtr>;
 		// pub unsafe fn long_desc(
 		// 	cache: *mut PCache,
 		// 	records: *mut PkgRecords,
