@@ -3,13 +3,23 @@
 // For Development Typing
 #include "cxx-typing.h"
 #include "rust/cxx.h"
+#include <apt-pkg/cachefile.h>
 #include <apt-pkg/depcache.h>
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/indexfile.h>
 //#include <memory>
 
 // C++ owned structs
-struct PCache;
+// Couldn't get this to work without wrappers.
+// struct PCache {
+// 	// Owned by us.
+// 	pkgCacheFile *cache_file;
+
+// 	// Borrowed from cache_file.
+// 	pkgCache *cache;
+
+// 	pkgSourceList *source;
+// };
 struct PkgRecords {
 
 	pkgRecords records;
@@ -22,6 +32,7 @@ struct PkgRecords {
 };
 
 // Rust Shared Structs
+struct Cache;
 struct Records;
 struct PackagePtr;
 struct VersionPtr;
@@ -39,6 +50,10 @@ using VerFileIterator = pkgCache::VerFileIterator;
 using PkgFileIterator = pkgCache::PkgFileIterator;
 using DescIterator = pkgCache::DescIterator;
 using DepIterator = pkgCache::DepIterator;
+
+using PkgCacheFile = pkgCacheFile;
+using PkgCache = pkgCache;
+using PkgSourceList = pkgSourceList;
 // From Rust to C++
 //
 // CXX Test Function
@@ -50,42 +65,39 @@ using DepIterator = pkgCache::DepIterator;
 /// Main Initializers for APT
 void init_config_system();
 
-PCache *pkg_cache_create();
-Records pkg_records_create(PCache *pcache);
-pkgDepCache *depcache_create(PCache *pcache);
+std::unique_ptr<PkgCacheFile> pkg_cache_create();
+Records pkg_records_create(const std::unique_ptr<PkgCacheFile> &cache);
+std::unique_ptr<PkgDepCache> depcache_create(const std::unique_ptr<PkgCacheFile> &cache);
 
-void pkg_cache_release(PCache *cache);
-void pkg_records_release(PkgRecords *records);
-
-rust::Vec<SourceFile> source_uris(PCache *pcache);
-int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right);
+rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile> &cache);
+int32_t pkg_cache_compare_versions(const std::unique_ptr<PkgCacheFile> &cache, const char *left, const char *right);
 
 /// Iterator Creators
-rust::Vec<PackagePtr> pkg_list(PCache *cache);
-rust::vec<PackageFile> pkg_file_list(PCache *pcache, const VersionPtr &ver);
+rust::Vec<PackagePtr> pkg_list(const std::unique_ptr<PkgCacheFile> &cache);
+rust::vec<PackageFile> pkg_file_list(const std::unique_ptr<PkgCacheFile> &cache, const VersionPtr &ver);
 
 VersionPtr pkg_current_version(const PackagePtr &pkg);
-VersionPtr pkg_candidate_version(PCache *cache, const PackagePtr &pkg);
+VersionPtr pkg_candidate_version(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
 rust::vec<VersionPtr> pkg_version_list(const PackagePtr &pkg);
-PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name);
-PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch);
+PackagePtr pkg_cache_find_name(const std::unique_ptr<PkgCacheFile> &cache, rust::string name);
+PackagePtr pkg_cache_find_name_arch(const std::unique_ptr<PkgCacheFile> &cache, rust::string name, rust::string arch);
 
 /// Information Accessors
-bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_is_auto_installed(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_is_garbage(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_install(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_upgrade(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_delete(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_keep(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_downgrade(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_marked_reinstall(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_is_now_broken(pkgDepCache *depcache, const PackagePtr &pkg);
-bool pkg_is_inst_broken(pkgDepCache *depcache, const PackagePtr &pkg);
+bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_is_auto_installed(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_is_garbage(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_install(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_upgrade(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_delete(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_keep(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_downgrade(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_marked_reinstall(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_is_now_broken(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
+bool pkg_is_inst_broken(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg);
 bool pkg_is_installed(const PackagePtr &pkg);
 bool pkg_has_versions(const PackagePtr &pkg);
 bool pkg_has_provides(const PackagePtr &pkg);
-rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bool cand_only);
+rust::Vec<PackagePtr> pkg_provides_list(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg, bool cand_only);
 rust::string get_fullname(const PackagePtr &pkg, bool pretty);
 rust::string pkg_name(const PackagePtr &pkg);
 rust::string pkg_arch(const PackagePtr &pkg);
@@ -108,12 +120,12 @@ int32_t ver_installed_size(const VersionPtr &ver);
 bool ver_downloadable(const VersionPtr &ver);
 int32_t ver_id(const VersionPtr &ver);
 bool ver_installed(const VersionPtr &ver);
-int32_t ver_priority(PCache *pcache, const VersionPtr &ver);
+int32_t ver_priority(const std::unique_ptr<PkgCacheFile> &cache, const VersionPtr &ver);
 
 /// Package Record Management
 void ver_file_lookup(Records &records, const PackageFile &pkg_file);
 void desc_file_lookup(Records &records, const std::unique_ptr<DescIterator> &desc);
-rust::string ver_uri(const Records &records, PCache *pcache, const PackageFile &pkg_file);
+rust::string ver_uri(const Records &records, const std::unique_ptr<PkgCacheFile> &cache, const PackageFile &pkg_file);
 rust::string long_desc(const Records &records);
 rust::string short_desc(const Records &records);
 rust::string hash_find(const Records &records, rust::string hash_type);
@@ -138,7 +150,7 @@ rust::Vec<VersionPtr> dep_all_targets(const BaseDep &dep);
 // const char *dep_iter_dep_type(DepIterator *iterator);
 
 // //template<typename Iterator>
-// bool validate(VerIterator *iterator, PCache *pcache);
+// bool validate(VerIterator *iterator, const std::unique_ptr<PkgCacheFile> &cache);
 
 // // ver_file_parser access
 // const char *ver_file_parser_short_desc(VerFileParser *parser);

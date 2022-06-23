@@ -32,17 +32,6 @@
 #include "rust-apt/src/raw.rs"
 #include "apt-pkg.h"
 
-// Couldn't get this to work without wrappers.
-struct PCache {
-	// Owned by us.
-	pkgCacheFile *cache_file;
-
-	// Borrowed from cache_file.
-	pkgCache *cache;
-
-	pkgSourceList *source;
-};
-
 /// CXX Test Function
 ///
 // int greet(rust::Str greetee) {
@@ -76,40 +65,29 @@ void init_config_system() {
 	pkgInitSystem(*_config, _system);
 }
 
-PCache *pkg_cache_create() {
-	pkgCacheFile *cache_file = new pkgCacheFile();
-	PCache *ret = new PCache();
-	cache_file->BuildSourceList();
-
-	ret->cache_file = cache_file;
-	ret->cache = cache_file->GetPkgCache();
-	ret->source = cache_file->GetSourceList();
-	return ret;
+std::unique_ptr<PkgCacheFile> pkg_cache_create() {
+	// ret->cache = cache_file->GetPkgCache();
+	// ret->source = cache_file->GetSourceList();
+	return std::make_unique<PkgCacheFile>();
 }
 
-Records pkg_records_create(PCache *pcache) {
+Records pkg_records_create(const std::unique_ptr<PkgCacheFile> &cache) {
 	return Records {
-		std::make_unique<PkgRecords>(pcache->cache),
+		std::make_unique<PkgRecords>(cache->GetPkgCache()),
 	};
 }
 
-pkgDepCache *depcache_create(PCache *pcache) {
-	pkgDepCache *depcache = pcache->cache_file->GetDepCache();
-//	pkgApplyStatus(*depcache);
-	return depcache;
+std::unique_ptr<PkgDepCache> depcache_create(const std::unique_ptr<PkgCacheFile> &cache) {
+	//const std::unique_ptr<PkgCacheFile> &cache = cache->GetDepCache();
+//	pkgApplyStatus(*cache->GetDepCache());
+	return std::make_unique<pkgDepCache>(*cache->GetDepCache());
 }
 
-void pkg_cache_release(PCache *cache) {
-	// pkgCache and pkgDepCache are cleaned up with cache_file.
-	delete cache->cache_file;
-	delete cache;
-}
-
-rust::Vec<SourceFile> source_uris(PCache *pcache) {
+rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile> &cache) {
 	pkgAcquire fetcher;
 	rust::Vec<SourceFile> list;
 
-	pcache->source->GetIndexes(&fetcher, true);
+	cache->GetSourceList()->GetIndexes(&fetcher, true);
 	pkgAcquire::UriIterator I = fetcher.UriBegin();
 
 	for (; I != fetcher.UriEnd(); ++I) {
@@ -123,25 +101,26 @@ rust::Vec<SourceFile> source_uris(PCache *pcache) {
 	return list;
 }
 
-int32_t pkg_cache_compare_versions(PCache *cache, const char *left, const char *right) {
+int32_t pkg_cache_compare_versions(const std::unique_ptr<PkgCacheFile> &cache, const char *left, const char *right) {
 	// an int is returned here; presumably it will always be -1, 0 or 1.
-	return cache->cache->VS->DoCmpVersion(left, left+strlen(left), right, right+strlen(right));
+
+	return cache->GetPkgCache()->VS->DoCmpVersion(left, left+strlen(left), right, right+strlen(right));
 }
 
 /// Basic Iterator Management
 ///
 /// Iterator Creators
-rust::Vec<PackagePtr> pkg_list(PCache *cache) {
+rust::Vec<PackagePtr> pkg_list(const std::unique_ptr<PkgCacheFile> &cache) {
 	rust::vec<PackagePtr> list;
 	pkgCache::PkgIterator pkg;
 
-	for (pkg = cache->cache->PkgBegin(); pkg.end() == false; pkg++) {
+	for (pkg = cache->GetPkgCache()->PkgBegin(); pkg.end() == false; pkg++) {
 		list.push_back(wrap_package(pkg));
 	}
 	return list;
 }
 
-rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bool cand_only) {
+rust::Vec<PackagePtr> pkg_provides_list(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg, bool cand_only) {
 	pkgCache::PrvIterator provide = pkg.ptr->ProvidesList();
 	std::set<std::string> set;
 	rust::vec<PackagePtr> list;
@@ -149,7 +128,7 @@ rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bo
 	for (; provide.end() == false; provide++) {
 		pkgCache::PkgIterator pkg = provide.OwnerPkg();
 		bool is_cand = (
-			provide.OwnerVer() == cache->cache_file->GetPolicy()->GetCandidateVer(pkg)
+			provide.OwnerVer() == cache->GetPolicy()->GetCandidateVer(pkg)
 		);
 		if (!cand_only || is_cand) {
 			if (!set.insert(pkg.FullName()).second) { continue; }
@@ -160,12 +139,12 @@ rust::Vec<PackagePtr> pkg_provides_list(PCache *cache, const PackagePtr &pkg, bo
 	return list;
 }
 
-rust::vec<PackageFile> pkg_file_list(PCache *pcache, const VersionPtr &ver) {
+rust::vec<PackageFile> pkg_file_list(const std::unique_ptr<PkgCacheFile> &cache, const VersionPtr &ver) {
 	rust::vec<PackageFile> list;
 	pkgCache::VerFileIterator v_file = ver.ptr->FileList();
 
 	for (; v_file.end() == false; v_file++) {
-	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
+	pkgSourceList *SrcList = cache->GetSourceList();
 	pkgIndexFile *Index;
 	if (SrcList->FindIndex(v_file.File(), Index) == false) { _system->FindIndex(v_file.File(), Index);}
 		list.push_back(
@@ -182,9 +161,9 @@ VersionPtr pkg_current_version(const PackagePtr &pkg) {
 	return wrap_version(pkg.ptr->CurrentVer());
 }
 
-VersionPtr pkg_candidate_version(PCache *cache, const PackagePtr &pkg) {
+VersionPtr pkg_candidate_version(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
 	return wrap_version(
-		cache->cache_file->GetPolicy()->GetCandidateVer(*pkg.ptr)
+		cache->GetPolicy()->GetCandidateVer(*pkg.ptr)
 	);
 }
 
@@ -198,60 +177,60 @@ rust::Vec<VersionPtr> pkg_version_list(const PackagePtr &pkg) {
 }
 
 // These two are how we get a specific package by name.
-PackagePtr pkg_cache_find_name(PCache *pcache, rust::string name) {
-	return wrap_package(pcache->cache->FindPkg(name.c_str()));
+PackagePtr pkg_cache_find_name(const std::unique_ptr<PkgCacheFile> &cache, rust::string name) {
+	return wrap_package(cache->GetPkgCache()->FindPkg(name.c_str()));
 }
 
-PackagePtr pkg_cache_find_name_arch(PCache *pcache, rust::string name, rust::string arch) {
-	return wrap_package(pcache->cache->FindPkg(name.c_str(), arch.c_str()));
+PackagePtr pkg_cache_find_name_arch(const std::unique_ptr<PkgCacheFile> &cache, rust::string name, rust::string arch) {
+	return wrap_package(cache->GetPkgCache()->FindPkg(name.c_str(), arch.c_str()));
 }
 
 /// Information Accessors
 ///
-bool pkg_is_upgradable(pkgDepCache *depcache, const PackagePtr &pkg) {
+bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
 	if (pkg.ptr->CurrentVer() == 0) { return false; }
-	return (*depcache)[*pkg.ptr].Upgradable();
+	return (*cache->GetDepCache())[*pkg.ptr].Upgradable();
 
 }
 
-bool pkg_is_auto_installed(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Flags & pkgCache::Flag::Auto;
+bool pkg_is_auto_installed(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Flags & pkgCache::Flag::Auto;
 }
 
-bool pkg_is_garbage(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Garbage;
+bool pkg_is_garbage(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Garbage;
 }
 
-bool pkg_marked_install(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].NewInstall();
+bool pkg_marked_install(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].NewInstall();
 }
 
-bool pkg_marked_upgrade(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Upgrade();
+bool pkg_marked_upgrade(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Upgrade();
 }
 
-bool pkg_marked_delete(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Delete();
+bool pkg_marked_delete(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Delete();
 }
 
-bool pkg_marked_keep(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Keep();
+bool pkg_marked_keep(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Keep();
 }
 
-bool pkg_marked_downgrade(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].Downgrade();
+bool pkg_marked_downgrade(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].Downgrade();
 }
 
-bool pkg_marked_reinstall(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].ReInstall();
+bool pkg_marked_reinstall(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].ReInstall();
 }
 
-bool pkg_is_now_broken(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].NowBroken();
+bool pkg_is_now_broken(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].NowBroken();
 }
 
-bool pkg_is_inst_broken(pkgDepCache *depcache, const PackagePtr &pkg) {
-	return (*depcache)[*pkg.ptr].InstBroken();
+bool pkg_is_inst_broken(const std::unique_ptr<PkgCacheFile> &cache, const PackagePtr &pkg) {
+	return (*cache->GetDepCache())[*pkg.ptr].InstBroken();
 }
 
 bool pkg_is_installed(const PackagePtr &pkg) {
@@ -397,8 +376,8 @@ bool ver_installed(const VersionPtr &ver) {
 	return (*ver.ptr).ParentPkg().CurrentVer() == (*ver.ptr);
 }
 
-int32_t ver_priority(PCache *pcache, const VersionPtr &ver) {
-	return pcache->cache_file->GetPolicy()->GetPriority(*ver.ptr);
+int32_t ver_priority(const std::unique_ptr<PkgCacheFile> &cache, const VersionPtr &ver) {
+	return cache->GetPolicy()->GetPriority(*ver.ptr);
 }
 
 /// Package Record Management
@@ -421,8 +400,8 @@ void desc_file_lookup(Records &records, const std::unique_ptr<DescIterator> &des
 
 }
 
-rust::string ver_uri(const Records &records, PCache *pcache, const PackageFile &pkg_file) {
-	pkgSourceList *SrcList = pcache->cache_file->GetSourceList();
+rust::string ver_uri(const Records &records, const std::unique_ptr<PkgCacheFile> &cache, const PackageFile &pkg_file) {
+	pkgSourceList *SrcList = cache->GetSourceList();
 	pkgIndexFile *Index;
 
 	if (SrcList->FindIndex(pkg_file.ver_file->File(), Index) == false) {
@@ -463,18 +442,18 @@ rust::vec<VersionPtr> dep_all_targets(const BaseDep &dep) {
 // 	return(true); }
 
 // template<typename Iterator>
-// static bool _validate(Iterator iter, pkgDepCache *depcache) {
+// static bool _validate(Iterator iter, const std::unique_ptr<PkgCacheFile> &cache) {
 // 	if (iter.Cache() != &depcache->GetCache())
 // 	{return false;} else {return true;}
 // }
 
-// bool validate(VerIterator *wrapper, PCache *pcache) {
+// bool validate(VerIterator *wrapper, const std::unique_ptr<PkgCacheFile> &cache) {
 // 	// if (pkg.ptr->Cache() != &pcache->depcache->GetCache())
 // 	// {return false;} else {return true;}
 // 	return _validate(wrapper->iterator, pcache->depcache);
 // }
 
-// bool validate(VerIterator *wrapper, PCache *pcache) {
+// bool validate(VerIterator *wrapper, const std::unique_ptr<PkgCacheFile> &cache) {
 // 	if (pkg.ptr->Cache() != &pcache->depcache->GetCache())
 // 	{return false;} else {return true;}
 // }

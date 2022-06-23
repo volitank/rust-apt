@@ -30,6 +30,20 @@ impl fmt::Debug for apt::Records {
 	}
 }
 
+impl fmt::Debug for apt::PkgCacheFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PkgCacheFile: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for apt::PkgDepCache {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PkgDepCache: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
 impl fmt::Debug for apt::PackagePtr {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "PackagePtr: {}", apt::get_fullname(self, false))?;
@@ -65,6 +79,12 @@ pub mod apt {
 		filename: String,
 	}
 
+	// struct Cache {
+	// 	cache_file: UniquePtr<PkgCacheFile>,
+	// //	cache: UniquePtr<PkgCache>,
+	// //	source: UniquePtr<PkgSourceList>,
+	// }
+
 	struct BaseDep {
 		name: String,
 		version: String,
@@ -97,7 +117,11 @@ pub mod apt {
 	}
 
 	unsafe extern "C++" {
-		type PCache;
+
+		type PkgCacheFile;
+		type PkgCache;
+		type PkgSourceList;
+
 		type PkgIterator;
 		type PkgFileIterator;
 		type VerIterator;
@@ -111,63 +135,61 @@ pub mod apt {
 		/// Main Initializers for APT
 		pub fn init_config_system();
 
-		pub fn pkg_cache_create() -> *mut PCache;
-		pub unsafe fn pkg_records_create(pcache: *mut PCache) -> Records;
-		pub unsafe fn depcache_create(pcache: *mut PCache) -> *mut PkgDepCache;
+		pub fn pkg_cache_create() -> UniquePtr<PkgCacheFile>;
+		pub unsafe fn pkg_records_create(pcache: &UniquePtr<PkgCacheFile>) -> Records;
+		pub unsafe fn depcache_create(pcache: &UniquePtr<PkgCacheFile>) -> UniquePtr<PkgDepCache>;
 
-		pub unsafe fn pkg_cache_release(cache: *mut PCache);
-
-		pub unsafe fn source_uris(pcache: *mut PCache) -> Vec<SourceFile>;
+		pub unsafe fn source_uris(pcache: &UniquePtr<PkgCacheFile>) -> Vec<SourceFile>;
 		// pub unsafe fn pkg_cache_compare_versions(
-		// 	cache: *mut PCache,
+		// 	cache: &UniquePtr<PkgCacheFile>,
 		// 	left: *const c_char,
 		// 	right: *const c_char,
 		// ) -> i32;
 
 		/// Iterator Creators
-		pub unsafe fn pkg_list(cache: *mut PCache) -> Vec<PackagePtr>;
-		pub unsafe fn pkg_file_list(pcache: *mut PCache, ver: &VersionPtr) -> Vec<PackageFile>;
+		pub unsafe fn pkg_list(cache: &UniquePtr<PkgCacheFile>) -> Vec<PackagePtr>;
+		pub unsafe fn pkg_file_list(pcache: &UniquePtr<PkgCacheFile>, ver: &VersionPtr) -> Vec<PackageFile>;
 		pub unsafe fn pkg_provides_list(
-			cache: *mut PCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			iterator: &PackagePtr,
 			cand_only: bool,
 		) -> Vec<PackagePtr>;
 
 		pub unsafe fn pkg_current_version(iterator: &PackagePtr) -> VersionPtr;
 		pub unsafe fn pkg_candidate_version(
-			cache: *mut PCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			iterator: &PackagePtr,
 		) -> VersionPtr;
 		pub unsafe fn pkg_version_list(pkg: &PackagePtr) -> Vec<VersionPtr>;
 
-		pub unsafe fn pkg_cache_find_name(cache: *mut PCache, name: String) -> PackagePtr;
+		pub unsafe fn pkg_cache_find_name(cache: &UniquePtr<PkgCacheFile>, name: String) -> PackagePtr;
 		pub unsafe fn pkg_cache_find_name_arch(
-			cache: *mut PCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			name: String,
 			arch: String,
 		) -> PackagePtr;
 
 		/// Information Accessors
-		pub unsafe fn pkg_is_upgradable(depcache: *mut PkgDepCache, iterator: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_upgradable(cache: &UniquePtr<PkgCacheFile>, iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_is_auto_installed(
-			depcache: *mut PkgDepCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			wrapper: &PackagePtr,
 		) -> bool;
-		pub unsafe fn pkg_is_garbage(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
-		pub unsafe fn pkg_marked_install(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
-		pub unsafe fn pkg_marked_upgrade(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
-		pub unsafe fn pkg_marked_delete(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
-		pub unsafe fn pkg_marked_keep(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_garbage(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_install(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_upgrade(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_delete(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_marked_keep(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
 		pub unsafe fn pkg_marked_downgrade(
-			depcache: *mut PkgDepCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			wrapper: &PackagePtr,
 		) -> bool;
 		pub unsafe fn pkg_marked_reinstall(
-			depcache: *mut PkgDepCache,
+			cache: &UniquePtr<PkgCacheFile>,
 			wrapper: &PackagePtr,
 		) -> bool;
-		pub unsafe fn pkg_is_now_broken(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
-		pub unsafe fn pkg_is_inst_broken(depcache: *mut PkgDepCache, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_now_broken(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
+		pub unsafe fn pkg_is_inst_broken(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
 		pub unsafe fn pkg_is_installed(iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_has_versions(iterator: &PackagePtr) -> bool;
 		pub unsafe fn pkg_has_provides(iterator: &PackagePtr) -> bool;
@@ -187,7 +209,7 @@ pub mod apt {
 		pub fn ver_str(version: &VersionPtr) -> String;
 		pub unsafe fn ver_section(version: &VersionPtr) -> String;
 		pub unsafe fn ver_priority_str(version: &VersionPtr) -> String;
-		pub unsafe fn ver_priority(cache: *mut PCache, version: &VersionPtr) -> i32;
+		pub unsafe fn ver_priority(cache: &UniquePtr<PkgCacheFile>, version: &VersionPtr) -> i32;
 		// pub unsafe fn ver_source_package(version: VersionPtr) -> *const
 		// c_char; pub unsafe fn ver_source_version(version: VersionPtr) ->
 		// *const c_char;
@@ -203,7 +225,7 @@ pub mod apt {
 		pub unsafe fn desc_file_lookup(records: &mut Records, desc: &UniquePtr<DescIterator>);
 		pub unsafe fn ver_uri(
 			records: &Records,
-			pcache: *mut PCache,
+			pcache: &UniquePtr<PkgCacheFile>,
 			pkg_file: &PackageFile,
 		) -> String;
 		pub unsafe fn long_desc(records: &Records) -> String;
@@ -212,14 +234,14 @@ pub mod apt {
 
 		pub unsafe fn dep_all_targets(dep: &BaseDep) -> Vec<VersionPtr>;
 		// pub unsafe fn long_desc(
-		// 	cache: *mut PCache,
+		// 	cache: &UniquePtr<PkgCacheFile>,
 		// 	records: *mut PkgRecords,
 		// 	iterator: &PackagePtr,
 		// ) -> String;
 
 		// Unused Functions
 		// They may be used in the future
-		// pub unsafe fn validate(version: VersionPtr, depcache: *mut PCache) ->
+		// pub unsafe fn validate(version: VersionPtr, depcache: &UniquePtr<PkgCacheFile>) ->
 		// bool; pub unsafe fn ver_iter_dep_iter(version: VersionPtr) -> *mut
 		// DepIterator; pub unsafe fn dep_iter_release(iterator: *mut DepIterator);
 

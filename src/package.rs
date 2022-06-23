@@ -80,7 +80,7 @@ impl<'a> Package<'a> {
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
 		unsafe {
-			let ver = apt::pkg_candidate_version(self.records.borrow_mut().pcache, &self.ptr);
+			let ver = apt::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr);
 			if ver.ptr.is_null() {
 				return None;
 			}
@@ -191,7 +191,7 @@ pub struct Version<'a> {
 impl<'a> Version<'a> {
 	fn new(records: Rc<RefCell<Records>>, ver_ptr: apt::VersionPtr) -> Self {
 		unsafe {
-			let ver_priority = apt::ver_priority(records.borrow_mut().pcache, &ver_ptr);
+			let ver_priority = apt::ver_priority(&records.borrow().cache.borrow(), &ver_ptr);
 			Self {
 				_lifetime: &PhantomData,
 				records,
@@ -214,7 +214,7 @@ impl<'a> Version<'a> {
 
 	/// Internal Method for Generating the PackageFiles
 	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
-		unsafe { apt::pkg_file_list(self.records.borrow_mut().pcache, &self.ptr) }
+		unsafe { apt::pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr) }
 	}
 
 	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
