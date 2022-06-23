@@ -225,16 +225,16 @@ pub mod apt {
 		pub fn pkg_arch(iterator: &PackagePtr) -> String;
 
 		/// Get the ID of a package.
-		pub fn pkg_id(iterator: &PackagePtr) -> i32;
+		pub fn pkg_id(iterator: &PackagePtr) -> u32;
 
 		/// Get the current state of a package.
-		pub fn pkg_current_state(iterator: &PackagePtr) -> i32;
+		pub fn pkg_current_state(iterator: &PackagePtr) -> u8;
 
 		/// Get the installed state of a package.
-		pub fn pkg_inst_state(iterator: &PackagePtr) -> i32;
+		pub fn pkg_inst_state(iterator: &PackagePtr) -> u8;
 
 		/// Get the selected state of a package.
-		pub fn pkg_selected_state(iterator: &PackagePtr) -> i32;
+		pub fn pkg_selected_state(iterator: &PackagePtr) -> u8;
 
 		/// Version Functions:
 
@@ -272,13 +272,13 @@ pub mod apt {
 		pub fn ver_priority(cache: &UniquePtr<PkgCacheFile>, version: &VersionPtr) -> i32;
 
 		/// The size of the .deb file.
-		pub fn ver_size(version: &VersionPtr) -> i32;
+		pub fn ver_size(version: &VersionPtr) -> u64;
 
 		/// The uncompressed size of the .deb file.
-		pub fn ver_installed_size(version: &VersionPtr) -> i32;
+		pub fn ver_installed_size(version: &VersionPtr) -> u64;
 
 		/// The ID of the version.
-		pub fn ver_id(version: &VersionPtr) -> i32;
+		pub fn ver_id(version: &VersionPtr) -> u32;
 
 		/// If the version is able to be downloaded.
 		pub fn ver_downloadable(version: &VersionPtr) -> bool;

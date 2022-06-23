@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
 
-use crate::cache::{unit_str, Cache, DepCache, Records};
+use crate::cache::{unit_str, Cache, DepCache, NumSys, Records};
 use crate::raw::apt;
 
 /// A struct representing an `apt` Package
@@ -41,16 +41,16 @@ impl<'a> Package<'a> {
 	pub fn arch(&self) -> String { apt::pkg_arch(&self.ptr) }
 
 	/// Get the ID of the package.
-	pub fn id(&self) -> i32 { apt::pkg_id(&self.ptr) }
+	pub fn id(&self) -> u32 { apt::pkg_id(&self.ptr) }
 
 	/// The current state of the package.
-	pub fn current_state(&self) -> i32 { apt::pkg_current_state(&self.ptr) }
+	pub fn current_state(&self) -> u8 { apt::pkg_current_state(&self.ptr) }
 
 	/// The installed state of the package.
-	pub fn inst_state(&self) -> i32 { apt::pkg_inst_state(&self.ptr) }
+	pub fn inst_state(&self) -> u8 { apt::pkg_inst_state(&self.ptr) }
 
 	/// The selected state of the package.
-	pub fn selected_state(&self) -> i32 { apt::pkg_selected_state(&self.ptr) }
+	pub fn selected_state(&self) -> u8 { apt::pkg_selected_state(&self.ptr) }
 
 	/// Check if the package is essnetial or not.
 	pub fn essential(&self) -> bool { apt::pkg_essential(&self.ptr) }
@@ -219,13 +219,13 @@ impl<'a> Version<'a> {
 	}
 
 	/// The size of the .deb file.
-	pub fn size(&self) -> i32 { apt::ver_size(&self.ptr) }
+	pub fn size(&self) -> u64 { apt::ver_size(&self.ptr) }
 
 	/// The uncompressed size of the .deb file.
-	pub fn installed_size(&self) -> i32 { apt::ver_installed_size(&self.ptr) }
+	pub fn installed_size(&self) -> u64 { apt::ver_installed_size(&self.ptr) }
 
 	/// The ID of the version.
-	pub fn id(&self) -> i32 { apt::ver_id(&self.ptr) }
+	pub fn id(&self) -> u32 { apt::ver_id(&self.ptr) }
 
 	/// If the version is able to be downloaded.
 	pub fn downloadable(&self) -> bool { apt::ver_downloadable(&self.ptr) }
@@ -409,8 +409,8 @@ impl<'a> fmt::Display for Version<'a> {
 			self.version(),
 			self.id(),
 			self.arch(),
-			unit_str(self.size()),
-			unit_str(self.installed_size()),
+			unit_str(self.size(), NumSys::Decimal),
+			unit_str(self.installed_size(), NumSys::Decimal),
 			self.section(),
 			self.priority_str(),
 			self.priority(),

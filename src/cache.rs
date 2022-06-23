@@ -252,19 +252,41 @@ impl Cache {
 	}
 }
 
+/// Numeral System for unit conversion.
+pub enum NumSys {
+	/// Base 2 | 1024 | KibiByte (KiB)
+	Binary,
+	/// Base 10 | 1000 | KiloByte (KB)
+	Decimal,
+}
+
 /// Converts bytes into human readable output.
 ///
-/// `println!("{}", unit_str(version.size))`
-pub fn unit_str(val: i32) -> String {
-	let num: i32 = 1000;
+/// ```
+/// use rust_apt::cache::{unit_str, Cache, NumSys};
+/// let cache = Cache::new();
+/// let version = cache.get("apt").unwrap().candidate().unwrap();
+///
+/// println!("{}", unit_str(version.size(), NumSys::Decimal));
+/// ```
+pub fn unit_str(val: u64, base: NumSys) -> String {
+	let num: u64;
+	match base {
+		NumSys::Binary => num = 1024,
+		NumSys::Decimal => num = 1000,
+	}
 
+	if val > num.pow(4) {
+		return format!("{:.2} TB", val as f64 / num.pow(4) as f64);
+	}
 	if val > num.pow(3) {
-		return format!("{:.2} GB", val as f32 / num.pow(3) as f32);
+		return format!("{:.2} GB", val as f64 / num.pow(3) as f64);
 	}
 	if val > num.pow(2) {
-		return format!("{:.2} MB", val as f32 / num.pow(2) as f32);
-	} else if val > num {
-		return format!("{:.2} kB", val as f32 / num as f32);
+		return format!("{:.2} MB", val as f64 / num.pow(2) as f64);
+	}
+	if val > num {
+		return format!("{:.2} KB", val as f64 / num as f64);
 	}
 	return format!("{val} B");
 }

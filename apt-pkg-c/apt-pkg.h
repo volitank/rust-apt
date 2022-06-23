@@ -72,10 +72,10 @@ bool pkg_essential(const PackagePtr& pkg);
 rust::string get_fullname(const PackagePtr& pkg, bool pretty);
 rust::string pkg_name(const PackagePtr& pkg);
 rust::string pkg_arch(const PackagePtr& pkg);
-int32_t pkg_id(const PackagePtr& pkg);
-int32_t pkg_current_state(const PackagePtr& pkg);
-int32_t pkg_inst_state(const PackagePtr& pkg);
-int32_t pkg_selected_state(const PackagePtr& pkg);
+u_int32_t pkg_id(const PackagePtr& pkg);
+u_int8_t pkg_current_state(const PackagePtr& pkg);
+u_int8_t pkg_inst_state(const PackagePtr& pkg);
+u_int8_t pkg_selected_state(const PackagePtr& pkg);
 
 /// Version Functions:
 
@@ -91,9 +91,9 @@ rust::string ver_source_name(const VersionPtr& ver);
 rust::string ver_source_version(const VersionPtr& ver);
 rust::string ver_name(const VersionPtr& ver);
 int32_t ver_priority(const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver);
-int32_t ver_size(const VersionPtr& ver);
-int32_t ver_installed_size(const VersionPtr& ver);
-int32_t ver_id(const VersionPtr& ver);
+u_int64_t ver_size(const VersionPtr& ver);
+u_int64_t ver_installed_size(const VersionPtr& ver);
+u_int32_t ver_id(const VersionPtr& ver);
 bool ver_downloadable(const VersionPtr& ver);
 bool ver_installed(const VersionPtr& ver);
 

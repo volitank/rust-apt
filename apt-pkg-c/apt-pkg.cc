@@ -219,21 +219,21 @@ rust::string pkg_arch(const PackagePtr& pkg) { return pkg.ptr->Arch(); }
 
 
 /// Get the ID of a package.
-int32_t pkg_id(const PackagePtr& pkg) { return (*pkg.ptr)->ID; }
+u_int32_t pkg_id(const PackagePtr& pkg) { return (*pkg.ptr)->ID; }
 
 
 /// Get the current state of a package.
-int32_t pkg_current_state(const PackagePtr& pkg) {
+u_int8_t pkg_current_state(const PackagePtr& pkg) {
 	return (*pkg.ptr)->CurrentState;
 }
 
 
 /// Get the installed state of a package.
-int32_t pkg_inst_state(const PackagePtr& pkg) { return (*pkg.ptr)->InstState; }
+u_int8_t pkg_inst_state(const PackagePtr& pkg) { return (*pkg.ptr)->InstState; }
 
 
 /// Get the selected state of a package.
-int32_t pkg_selected_state(const PackagePtr& pkg) {
+u_int8_t pkg_selected_state(const PackagePtr& pkg) {
 	return (*pkg.ptr)->SelectedState;
 }
 
@@ -352,17 +352,17 @@ int32_t ver_priority(const std::unique_ptr<PkgCacheFile>& cache, const VersionPt
 
 
 /// The size of the .deb file.
-int32_t ver_size(const VersionPtr& ver) { return (*ver.ptr)->Size; }
+u_int64_t ver_size(const VersionPtr& ver) { return (*ver.ptr)->Size; }
 
 
 /// The uncompressed size of the .deb file.
-int32_t ver_installed_size(const VersionPtr& ver) {
+u_int64_t ver_installed_size(const VersionPtr& ver) {
 	return (*ver.ptr)->InstalledSize;
 }
 
 
 /// The ID of the version.
-int32_t ver_id(const VersionPtr& ver) { return (*ver.ptr)->ID; }
+u_int32_t ver_id(const VersionPtr& ver) { return (*ver.ptr)->ID; }
 
 
 /// If the version is able to be downloaded.
