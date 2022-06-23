@@ -192,13 +192,13 @@ impl<'a> Version<'a> {
 		}
 	}
 
-	/// Get the name of the versions Parent Package.
+	/// The name of the versions Parent Package.
 	pub fn pkgname(&self) -> String { apt::ver_name(&self.ptr) }
 
 	/// The architecture of the version.
 	pub fn arch(&self) -> String { apt::ver_arch(&self.ptr) }
 
-	/// The version string of the version.
+	/// The version string of the version. "1.4.10"
 	pub fn version(&self) -> String { apt::ver_str(&self.ptr) }
 
 	/// The section of the version as shown in `apt show`.
@@ -206,6 +206,12 @@ impl<'a> Version<'a> {
 
 	/// The priority string as shown in `apt show`.
 	pub fn priority_str(&self) -> String { apt::ver_priority_str(&self.ptr) }
+
+	/// The name of the source package the version was built from.
+	pub fn source_name(&self) -> String { apt::ver_source_name(&self.ptr) }
+
+	/// The version of the source package.
+	pub fn source_version(&self) -> String { apt::ver_source_version(&self.ptr) }
 
 	/// The priority of the package as shown in `apt policy`.
 	pub fn priority(&self) -> i32 {
@@ -224,36 +230,12 @@ impl<'a> Version<'a> {
 	/// If the version is able to be downloaded.
 	pub fn downloadable(&self) -> bool { apt::ver_downloadable(&self.ptr) }
 
+	/// Check if the version is installed
+	pub fn is_installed(&self) -> bool { apt::ver_installed(&self.ptr) }
+
 	/// Internal Method for Generating the PackageFiles
 	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
 		apt::pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr)
-	}
-
-	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
-		let mut base_vec = Vec::new();
-		for base_dep in apt_deps.dep_list {
-			base_vec.push(BaseDep {
-				records: Rc::clone(&self.records),
-				apt_dep: base_dep,
-			})
-		}
-		Dependency {
-			dep_type: apt_deps.dep_type,
-			base_deps: base_vec,
-		}
-	}
-
-	/// Internal Method for Generating the Dependency HashMap
-	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
-		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
-		for dep in apt::dep_list(&self.ptr) {
-			if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
-				vec.push(self.convert_depends(dep))
-			} else {
-				dependencies.insert(dep.dep_type.to_owned(), vec![self.convert_depends(dep)]);
-			}
-		}
-		dependencies
 	}
 
 	/// Returns a reference to the Dependency Map owned by the Version
@@ -335,9 +317,6 @@ impl<'a> Version<'a> {
 	/// Returns a Reference Vector, if it exists, for "suggests".
 	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends("Suggests") }
 
-	/// Check if the version is installed
-	pub fn is_installed(&self) -> bool { apt::ver_installed(&self.ptr) }
-
 	/// Get the translated long description
 	pub fn description(&self) -> String {
 		let mut records = self.records.borrow_mut();
@@ -389,6 +368,34 @@ impl<'a> Version<'a> {
 					None
 				}
 			})
+	}
+
+	/// Internal Method for converting apt::deps into rust-apt deps
+	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
+		let mut base_vec = Vec::new();
+		for base_dep in apt_deps.dep_list {
+			base_vec.push(BaseDep {
+				records: Rc::clone(&self.records),
+				apt_dep: base_dep,
+			})
+		}
+		Dependency {
+			dep_type: apt_deps.dep_type,
+			base_deps: base_vec,
+		}
+	}
+
+	/// Internal Method for Generating the Dependency HashMap
+	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
+		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
+		for dep in apt::dep_list(&self.ptr) {
+			if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
+				vec.push(self.convert_depends(dep))
+			} else {
+				dependencies.insert(dep.dep_type.to_owned(), vec![self.convert_depends(dep)]);
+			}
+		}
+		dependencies
 	}
 }
 
