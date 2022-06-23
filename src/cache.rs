@@ -11,6 +11,12 @@ use crate::raw::apt;
 pub type PackageSort = apt::PackageSort;
 
 impl PackageSort {
+	/// If true, packages will be sorted by their names a -> z
+	pub fn names(mut self, switch: bool) -> Self {
+		self.names = switch;
+		self
+	}
+
 	/// If true, only packages that are upgradable will be included
 	pub fn upgradable(mut self, switch: bool) -> Self {
 		self.upgradable = switch;
@@ -234,20 +240,13 @@ impl Cache {
 		apt::pkg_cache_find_name(&self.ptr.borrow(), name.to_owned())
 	}
 
-	/// An iterator of packages sorted by package name.
-	///
-	/// Slower than the `cache.packages` method.
-	pub fn sorted<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		let mut pkgs = self.packages(sort).collect::<Vec<Package>>();
-		pkgs.sort_by_cached_key(|pkg| pkg.name());
-		pkgs.into_iter()
-	}
-
-	/// An iterator of packages not sorted by name.
-	///
-	/// Faster than the `cache.sorted` method.
+	/// An iterator of packages in the cache.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		apt::pkg_list(&self.ptr.borrow(), sort)
+		let mut pkg_list = apt::pkg_list(&self.ptr.borrow(), sort);
+		if sort.names {
+			pkg_list.sort_by_cached_key(|pkg| apt::get_fullname(pkg, true));
+		}
+		pkg_list
 			.into_iter()
 			.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
 	}

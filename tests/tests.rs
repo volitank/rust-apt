@@ -35,9 +35,9 @@ mod tests {
 	#[test]
 	fn test_upgradable() {
 		let cache = Cache::new();
-		let sort = PackageSort::default().upgradable(true);
+		let sort = PackageSort::default().upgradable(true).names(true);
 
-		for pkg in cache.sorted(&sort) {
+		for pkg in cache.packages(&sort) {
 			println!(
 				"Package is Upgradable! {} ({}) -> ({})",
 				pkg.name(),
@@ -50,9 +50,9 @@ mod tests {
 	#[test]
 	fn test_installed() {
 		let cache = Cache::new();
-		let sort = PackageSort::default().installed(true);
+		let sort = PackageSort::default().installed(true).names(true);
 
-		for pkg in cache.sorted(&sort) {
+		for pkg in cache.packages(&sort) {
 			println!(
 				"Package is Installed! {} ({})",
 				pkg.name(),

@@ -114,6 +114,7 @@ pub mod apt {
 	/// Struct for sorting packages.
 	#[derive(Debug, Default)]
 	pub struct PackageSort {
+		pub names: bool,
 		pub upgradable: bool,
 		pub virtual_pkgs: bool,
 		pub installed: bool,
