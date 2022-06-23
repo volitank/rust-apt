@@ -252,15 +252,19 @@ impl Cache {
 	}
 }
 
-/// Converts a version's size into human readable output.
+/// Converts bytes into human readable output.
 ///
 /// `println!("{}", unit_str(version.size))`
 pub fn unit_str(val: i32) -> String {
 	let num: i32 = 1000;
+
+	if val > num.pow(3) {
+		return format!("{:.2} GB", val as f32 / num.pow(3) as f32);
+	}
 	if val > num.pow(2) {
-		return format!("{:.2} MB", val as f32 / 1000.0 / 1000.0);
+		return format!("{:.2} MB", val as f32 / num.pow(2) as f32);
 	} else if val > num {
-		return format!("{:.2} kB", val as f32 / 1000.0);
+		return format!("{:.2} kB", val as f32 / num as f32);
 	}
 	return format!("{val} B");
 }
