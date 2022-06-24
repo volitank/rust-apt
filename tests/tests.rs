@@ -207,4 +207,21 @@ mod tests {
 			println!("uri: {}, filename: {}", source.uri, source.filename);
 		}
 	}
+
+	#[test]
+	fn test_unit_str() {
+		let testcase = [
+			(1649267441664_u64, "1.50 TiB", "1.65 TB"),
+			(1610612736_u64, "1.50 GiB", "1.61 GB"),
+			(1572864_u64, "1.50 MiB", "1.57 MB"),
+			(1536_u64, "1.50 KiB", "1.54 KB"),
+			(1024_u64, "1024 B", "1.02 KB"),
+			(1_u64, "1 B", "1 B"),
+		];
+
+		for (num, binary, decimal) in testcase {
+			assert_eq!(binary, unit_str(num, NumSys::Binary));
+			assert_eq!(decimal, unit_str(num, NumSys::Decimal));
+		}
+	}
 }

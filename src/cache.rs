@@ -270,23 +270,23 @@ pub enum NumSys {
 /// println!("{}", unit_str(version.size(), NumSys::Decimal));
 /// ```
 pub fn unit_str(val: u64, base: NumSys) -> String {
-	let num: u64;
-	match base {
-		NumSys::Binary => num = 1024,
-		NumSys::Decimal => num = 1000,
-	}
+	let val = val as f64;
+	let (num, tera, giga, mega, kilo) = match base {
+		NumSys::Binary => (1024.0_f64, "TiB", "GiB", "MiB", "KiB"),
+		NumSys::Decimal => (1000.0_f64, "TB", "GB", "MB", "KB"),
+	};
 
-	if val > num.pow(4) {
-		return format!("{:.2} TB", val as f64 / num.pow(4) as f64);
-	}
-	if val > num.pow(3) {
-		return format!("{:.2} GB", val as f64 / num.pow(3) as f64);
-	}
-	if val > num.pow(2) {
-		return format!("{:.2} MB", val as f64 / num.pow(2) as f64);
-	}
-	if val > num {
-		return format!("{:.2} KB", val as f64 / num as f64);
+	let powers = [
+		(num.powi(4), tera),
+		(num.powi(3), giga),
+		(num.powi(2), mega),
+		(num, kilo),
+	];
+
+	for (divisor, unit) in powers {
+		if val > divisor {
+			return format!("{:.2} {unit}", val / divisor);
+		}
 	}
 	return format!("{val} B");
 }
