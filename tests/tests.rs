@@ -209,6 +209,22 @@ mod tests {
 	}
 
 	#[test]
+	fn test_cache_count() {
+		let cache = Cache::new();
+		match cache.disk_size() {
+			DiskSpace::Require(num) => {
+				println!("\nDisk Space Required: {}", unit_str(num, NumSys::Decimal))
+			},
+			DiskSpace::Free(num) => {
+				println!(
+					"\nDisk Space To Be Freed: {}",
+					unit_str(num, NumSys::Decimal),
+				)
+			},
+		}
+	}
+
+	#[test]
 	fn test_unit_str() {
 		let testcase = [
 			(1649267441664_u64, "1.50 TiB", "1.65 TB"),

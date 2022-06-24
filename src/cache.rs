@@ -250,6 +250,41 @@ impl Cache {
 			.into_iter()
 			.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
 	}
+
+	/// The number of packages marked for installation.
+	pub fn install_count(&self) -> u32 { apt::install_count(&self.ptr.borrow()) }
+
+	/// The number of packages marked for removal.
+	pub fn delete_count(&self) -> u32 { apt::delete_count(&self.ptr.borrow()) }
+
+	/// The number of packages marked for keep.
+	pub fn keep_count(&self) -> u32 { apt::keep_count(&self.ptr.borrow()) }
+
+	/// The number of packages with broken dependencies in the cache.
+	pub fn broken_count(&self) -> u32 { apt::broken_count(&self.ptr.borrow()) }
+
+	/// The size of all packages to be downloaded.
+	pub fn download_size(&self) -> u64 { apt::download_size(&self.ptr.borrow()) }
+
+	/// The amount of space required for installing/removing the packages,"
+	///
+	/// i.e. the Installed-Size of all packages marked for installation"
+	/// minus the Installed-Size of all packages for removal."
+	pub fn disk_size(&self) -> DiskSpace {
+		let size = apt::disk_size(&self.ptr.borrow());
+		if size < 0 {
+			return DiskSpace::Free(-size as u64);
+		}
+		return DiskSpace::Require(size as u64);
+	}
+}
+
+/// Disk Space that `apt` will use for a transaction.
+pub enum DiskSpace {
+	/// Additional Disk Space required.
+	Require(u64),
+	/// Disk Space that will be freed
+	Free(u64),
 }
 
 /// Numeral System for unit conversion.

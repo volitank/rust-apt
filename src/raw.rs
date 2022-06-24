@@ -323,6 +323,27 @@ pub mod apt {
 		/// Is the Package to be installed broken?
 		pub fn pkg_is_inst_broken(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr) -> bool;
 
+		/// The number of packages marked for installation.
+		pub fn install_count(cache: &UniquePtr<PkgCacheFile>) -> u32;
+
+		/// The number of packages marked for removal.
+		pub fn delete_count(cache: &UniquePtr<PkgCacheFile>) -> u32;
+
+		/// The number of packages marked for keep.
+		pub fn keep_count(cache: &UniquePtr<PkgCacheFile>) -> u32;
+
+		/// The number of packages with broken dependencies in the cache.
+		pub fn broken_count(cache: &UniquePtr<PkgCacheFile>) -> u32;
+
+		/// The size of all packages to be downloaded.
+		pub fn download_size(cache: &UniquePtr<PkgCacheFile>) -> u64;
+
+		/// The amount of space required for installing/removing the packages,"
+		///
+		/// i.e. the Installed-Size of all packages marked for installation"
+		/// minus the Installed-Size of all packages for removal."
+		pub fn disk_size(cache: &UniquePtr<PkgCacheFile>) -> i64;
+
 		/// Package Record Management:
 
 		/// Moves the Records into the correct place.

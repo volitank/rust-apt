@@ -446,6 +446,45 @@ bool pkg_is_inst_broken(const std::unique_ptr<PkgCacheFile>& cache, const Packag
 }
 
 
+/// The number of packages marked for installation.
+u_int32_t install_count(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->InstCount();
+}
+
+
+/// The number of packages marked for removal.
+u_int32_t delete_count(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->DelCount();
+}
+
+
+/// The number of packages marked for keep.
+u_int32_t keep_count(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->KeepCount();
+}
+
+
+/// The number of packages with broken dependencies in the cache.
+u_int32_t broken_count(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->BrokenCount();
+}
+
+
+/// The size of all packages to be downloaded.
+u_int64_t download_size(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->DebSize();
+}
+
+
+/// The amount of space required for installing/removing the packages,"
+///
+/// i.e. the Installed-Size of all packages marked for installation"
+/// minus the Installed-Size of all packages for removal."
+int64_t disk_size(const std::unique_ptr<PkgCacheFile>& cache) {
+	return cache->GetDepCache()->UsrSize();
+}
+
+
 /// Package Record Management:
 
 /// Moves the Records into the correct place.

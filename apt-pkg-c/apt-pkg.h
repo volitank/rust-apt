@@ -111,6 +111,13 @@ bool pkg_marked_reinstall(const std::unique_ptr<PkgCacheFile>& cache, const Pack
 bool pkg_is_now_broken(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
 bool pkg_is_inst_broken(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
 
+u_int32_t install_count(const std::unique_ptr<PkgCacheFile>& cache);
+u_int32_t delete_count(const std::unique_ptr<PkgCacheFile>& cache);
+u_int32_t keep_count(const std::unique_ptr<PkgCacheFile>& cache);
+u_int32_t broken_count(const std::unique_ptr<PkgCacheFile>& cache);
+u_int64_t download_size(const std::unique_ptr<PkgCacheFile>& cache);
+int64_t disk_size(const std::unique_ptr<PkgCacheFile>& cache);
+
 /// Package Record Management:
 
 void ver_file_lookup(Records& records, const PackageFile& pkg_file);
