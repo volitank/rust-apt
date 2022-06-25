@@ -17,7 +17,7 @@ impl PackageSort {
 		self
 	}
 
-	/// Packages that are upgradable will be included.
+	/// Only packages that are upgradable will be included.
 	pub fn upgradable(mut self) -> Self {
 		self.upgradable = true;
 		self
@@ -29,19 +29,19 @@ impl PackageSort {
 		self
 	}
 
-	/// Packages that are installed will be included.
+	/// Only packages that are installed will be included.
 	pub fn installed(mut self) -> Self {
 		self.installed = true;
 		self
 	}
 
-	/// Packages that are auto installed will be included.
+	/// Only packages that are auto installed will be included.
 	pub fn auto_installed(mut self) -> Self {
 		self.auto_installed = true;
 		self
 	}
 
-	/// Packages that are auto removable will be included.
+	/// Only packages that are auto removable will be included.
 	pub fn auto_removable(mut self) -> Self {
 		self.auto_removable = true;
 		self

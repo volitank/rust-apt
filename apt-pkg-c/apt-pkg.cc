@@ -37,6 +37,32 @@ static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 }
 
 
+static bool is_upgradable(
+const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
+	pkgCache::VerIterator inst = pkg.CurrentVer();
+	if (!inst) return false;
+
+	pkgCache::VerIterator cand = cache->GetPolicy()->GetCandidateVer(pkg);
+	if (!cand) return false;
+
+	return inst != cand;
+}
+
+
+static bool is_auto_removable(
+const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
+	pkgDepCache::StateCache state = (*cache->GetDepCache())[pkg];
+	return ((pkg.CurrentVer() || state.NewInstall()) && state.Garbage);
+}
+
+
+static bool is_auto_installed(
+const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
+	pkgDepCache::StateCache state = (*cache->GetDepCache())[pkg];
+	return state.Flags & pkgCache::Flag::Auto;
+}
+
+
 /// Dependency types.
 /// They must be duplicated here as getting them from apt would be translated.
 const char* UntranslatedDepTypes[] = { "", "Depends", "PreDepends", "Suggests",
@@ -106,12 +132,13 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 	pkgCache::PkgIterator pkg;
 
 	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
-
-		if ((sort.virtual_pkgs && pkg.VersionList()) ||
-		(sort.upgradable && (!pkg.CurrentVer() || !(*cache->GetDepCache())[pkg].Upgradable())) ||
-		(sort.installed && (!pkg.CurrentVer())) ||
-		(sort.auto_installed && !((*cache->GetDepCache())[pkg].Flags & pkgCache::Flag::Auto)) ||
-		(sort.auto_removable && !(*cache->GetDepCache())[pkg].Garbage)) {
+		if ((!sort.virtual_pkgs && !pkg.VersionList()) ||
+		(sort.upgradable && !is_upgradable(cache, pkg)) ||
+		(sort.installed && !pkg.CurrentVer()) ||
+		// DepCache checks should always be last.
+		// Don't init the DepCache unless necessary.
+		(sort.auto_installed && !is_auto_installed(cache, pkg)) ||
+		(sort.auto_removable && !is_auto_removable(cache, pkg))) {
 			continue;
 		}
 		list.push_back(wrap_package(pkg));
@@ -130,7 +157,9 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool cand_onl
 	for (; !provide.end(); provide++) {
 		pkgCache::PkgIterator pkg = provide.OwnerPkg();
 		bool is_cand = (provide.OwnerVer() == cache->GetPolicy()->GetCandidateVer(pkg));
+		// If cand_only is true, then we check if ithe package is candidate.
 		if (!cand_only || is_cand) {
+			// Make sure we do not have duplicate packags.
 			if (!set.insert(pkg.FullName()).second) {
 				continue;
 			}
@@ -388,7 +417,7 @@ bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile>& cache, const Package
 
 /// Is the Package auto installed? Packages marked as auto installed are usually depenencies.
 bool pkg_is_auto_installed(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
-	return (*cache->GetDepCache())[*pkg.ptr].Flags & pkgCache::Flag::Auto;
+	return is_auto_installed(cache, *pkg.ptr);
 }
 
 
