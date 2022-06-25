@@ -98,8 +98,8 @@ impl DepCache {
 
 	pub fn clear(&self) { apt::depcache_create(&self.cache.borrow()); }
 
-	pub fn is_upgradable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_is_upgradable(&self.cache.borrow(), pkg_ptr)
+	pub fn is_upgradable(&self, pkg_ptr: &apt::PackagePtr, skip_depcache: bool) -> bool {
+		apt::pkg_is_upgradable(&self.cache.borrow(), pkg_ptr, skip_depcache)
 	}
 
 	pub fn is_auto_installed(&self, pkg_ptr: &apt::PackagePtr) -> bool {
@@ -107,8 +107,7 @@ impl DepCache {
 	}
 
 	pub fn is_auto_removable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		let dep_ptr = &self.cache.borrow();
-		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(dep_ptr, pkg_ptr))
+		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(&self.cache.borrow(), pkg_ptr))
 			&& apt::pkg_is_garbage(&self.cache.borrow(), pkg_ptr)
 	}
 
@@ -275,7 +274,7 @@ impl Cache {
 		if size < 0 {
 			return DiskSpace::Free(-size as u64);
 		}
-		return DiskSpace::Require(size as u64);
+		DiskSpace::Require(size as u64)
 	}
 }
 
@@ -323,5 +322,5 @@ pub fn unit_str(val: u64, base: NumSys) -> String {
 			return format!("{:.2} {unit}", val / divisor);
 		}
 	}
-	return format!("{val} B");
+	format!("{val} B")
 }

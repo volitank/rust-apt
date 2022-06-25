@@ -249,7 +249,10 @@ mod sort {
 
 		let sort = PackageSort::default().upgradable();
 		for pkg in cache.packages(&sort) {
-			assert!(pkg.is_upgradable())
+			// Sorting by upgradable skips the pkgDepCache same as `.is_upgradable(true)`
+			// Here we check is_upgradable with the pkgDepCache to make sure there is
+			// consistency
+			assert!(pkg.is_upgradable(false))
 		}
 	}
 

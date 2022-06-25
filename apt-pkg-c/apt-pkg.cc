@@ -407,10 +407,16 @@ bool ver_installed(const VersionPtr& ver) {
 /// DepCache Information Accessors:
 
 /// Is the Package upgradable?
-bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
+///
+/// `skip_depcache = true` increases performance by skipping the pkgDepCache
+/// Skipping the depcache is very unnecessary if it's already been initialized
+/// If you're not sure, set `skip_depcache = false`
+bool pkg_is_upgradable(
+const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool skip_depcache) {
 	if (!pkg.ptr->CurrentVer()) {
 		return false;
 	}
+	if (skip_depcache) return is_upgradable(cache, *pkg.ptr);
 	return (*cache->GetDepCache())[*pkg.ptr].Upgradable();
 }
 

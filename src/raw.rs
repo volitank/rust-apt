@@ -289,7 +289,16 @@ pub mod apt {
 		/// DepCache Information Accessors:
 
 		/// Is the Package upgradable?
-		pub fn pkg_is_upgradable(cache: &UniquePtr<PkgCacheFile>, iterator: &PackagePtr) -> bool;
+		///
+		/// `skip_depcache = true` increases performance by skipping the
+		/// pkgDepCache Skipping the depcache is very unnecessary if it's
+		/// already been initialized If you're not sure, set `skip_depcache =
+		/// false`
+		pub fn pkg_is_upgradable(
+			cache: &UniquePtr<PkgCacheFile>,
+			iterator: &PackagePtr,
+			skip_depcache: bool,
+		) -> bool;
 
 		/// Is the Package auto installed? Packages marked as auto installed are
 		/// usually depenencies.

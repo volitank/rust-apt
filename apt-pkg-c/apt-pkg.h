@@ -99,7 +99,8 @@ bool ver_installed(const VersionPtr& ver);
 
 /// DepCache Information Accessors:
 
-bool pkg_is_upgradable(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
+bool pkg_is_upgradable(
+const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool skip_depcache);
 bool pkg_is_auto_installed(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
 bool pkg_is_garbage(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
 bool pkg_marked_install(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);

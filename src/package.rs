@@ -110,7 +110,15 @@ impl<'a> Package<'a> {
 	pub fn is_installed(&self) -> bool { apt::pkg_is_installed(&self.ptr) }
 
 	/// Check if the package is upgradable.
-	pub fn is_upgradable(&self) -> bool { self.depcache.borrow().is_upgradable(&self.ptr) }
+	///
+	/// `skip_depcache = true` increases performance by skipping the pkgDepCache
+	/// Skipping the depcache is very unnecessary if it's already been
+	/// initialized If you're not sure, set `skip_depcache = false`
+	pub fn is_upgradable(&self, skip_depcache: bool) -> bool {
+		self.depcache
+			.borrow()
+			.is_upgradable(&self.ptr, skip_depcache)
+	}
 
 	/// Check if the package is auto installed. (Not installed by the user)
 	pub fn is_auto_installed(&self) -> bool { self.depcache.borrow().is_auto_installed(&self.ptr) }
