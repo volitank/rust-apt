@@ -225,8 +225,7 @@ mod sort {
 	fn virtual_pkgs() {
 		let cache = Cache::new();
 
-		// Test defaults and ensure there are no virtual packages.
-		// And that we have any packages at all.
+		// Check that we have virtual and real packages after sorting.
 		let mut real_pkgs = Vec::new();
 		let mut virtual_pkgs = Vec::new();
 
