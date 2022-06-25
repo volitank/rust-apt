@@ -55,7 +55,6 @@ pub struct Records {
 	pub(crate) cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
 }
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl Records {
 	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self {
 		let record = apt::pkg_records_create(&cache.borrow());
