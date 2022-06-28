@@ -9,6 +9,20 @@ use crate::raw::apt;
 
 /// Struct for sorting packages.
 pub type PackageSort = apt::PackageSort;
+pub type Sort = apt::Sort;
+
+impl Default for PackageSort {
+	fn default() -> PackageSort {
+		PackageSort {
+			names: false,
+			upgradable: Sort::Disable,
+			virtual_pkgs: Sort::Disable,
+			installed: Sort::Disable,
+			auto_installed: Sort::Disable,
+			auto_removable: Sort::Disable,
+		}
+	}
+}
 
 impl PackageSort {
 	/// Packages will be sorted by their names a -> z.
@@ -19,31 +33,61 @@ impl PackageSort {
 
 	/// Only packages that are upgradable will be included.
 	pub fn upgradable(mut self) -> Self {
-		self.upgradable = true;
+		self.upgradable = Sort::Enable;
 		self
 	}
 
-	/// Virtual pkgs will be included.
-	pub fn virtual_pkgs(mut self) -> Self {
-		self.virtual_pkgs = true;
+	/// Only packages that are NOT upgradable will be included.
+	pub fn not_upgradable(mut self) -> Self {
+		self.upgradable = Sort::Reverse;
+		self
+	}
+
+	/// Virtual packages will be included.
+	pub fn include_virtual(mut self) -> Self {
+		self.virtual_pkgs = Sort::Enable;
+		self
+	}
+
+	/// Only Virtual packages will be included.
+	pub fn only_virtual(mut self) -> Self {
+		self.virtual_pkgs = Sort::Reverse;
 		self
 	}
 
 	/// Only packages that are installed will be included.
 	pub fn installed(mut self) -> Self {
-		self.installed = true;
+		self.installed = Sort::Enable;
+		self
+	}
+
+	/// Only packages that are NOT installed will be included.
+	pub fn not_installed(mut self) -> Self {
+		self.installed = Sort::Reverse;
 		self
 	}
 
 	/// Only packages that are auto installed will be included.
 	pub fn auto_installed(mut self) -> Self {
-		self.auto_installed = true;
+		self.auto_installed = Sort::Enable;
+		self
+	}
+
+	/// Only packages that are manually installed will be included.
+	pub fn manually_installed(mut self) -> Self {
+		self.auto_installed = Sort::Reverse;
 		self
 	}
 
 	/// Only packages that are auto removable will be included.
 	pub fn auto_removable(mut self) -> Self {
-		self.auto_removable = true;
+		self.auto_removable = Sort::Enable;
+		self
+	}
+
+	/// Only packages that are NOT auto removable will be included.
+	pub fn not_auto_removable(mut self) -> Self {
+		self.auto_removable = Sort::Reverse;
 		self
 	}
 }

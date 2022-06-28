@@ -202,6 +202,8 @@ mod sort {
 	#[test]
 	fn defaults() {
 		let cache = Cache::new();
+		let mut installed = false;
+		let mut auto_installed = false;
 
 		// Test defaults and ensure there are no virtual packages.
 		// And that we have any packages at all.
@@ -211,6 +213,13 @@ mod sort {
 		let sort = PackageSort::default();
 
 		for pkg in cache.packages(&sort) {
+			if pkg.is_auto_installed() {
+				auto_installed = true;
+			}
+			if pkg.is_installed() {
+				installed = true;
+			}
+
 			if pkg.has_versions() {
 				real_pkgs.push(pkg);
 				continue;
@@ -219,17 +228,19 @@ mod sort {
 		}
 		assert!(!real_pkgs.is_empty());
 		assert!(virtual_pkgs.is_empty());
+		assert!(auto_installed);
+		assert!(installed)
 	}
 
 	#[test]
-	fn virtual_pkgs() {
+	fn include_virtual() {
 		let cache = Cache::new();
 
 		// Check that we have virtual and real packages after sorting.
 		let mut real_pkgs = Vec::new();
 		let mut virtual_pkgs = Vec::new();
 
-		let sort = PackageSort::default().virtual_pkgs();
+		let sort = PackageSort::default().include_virtual();
 
 		for pkg in cache.packages(&sort) {
 			if pkg.has_versions() {
@@ -239,6 +250,27 @@ mod sort {
 			virtual_pkgs.push(pkg);
 		}
 		assert!(!real_pkgs.is_empty());
+		assert!(!virtual_pkgs.is_empty());
+	}
+
+	#[test]
+	fn only_virtual() {
+		let cache = Cache::new();
+
+		// Check that we have only virtual packages.
+		let mut real_pkgs = Vec::new();
+		let mut virtual_pkgs = Vec::new();
+
+		let sort = PackageSort::default().only_virtual();
+
+		for pkg in cache.packages(&sort) {
+			if pkg.has_versions() {
+				real_pkgs.push(pkg);
+				continue;
+			}
+			virtual_pkgs.push(pkg);
+		}
+		assert!(real_pkgs.is_empty());
 		assert!(!virtual_pkgs.is_empty());
 	}
 
@@ -253,6 +285,11 @@ mod sort {
 			// consistency
 			assert!(pkg.is_upgradable(false))
 		}
+
+		let sort = PackageSort::default().not_upgradable();
+		for pkg in cache.packages(&sort) {
+			assert!(!pkg.is_upgradable(false))
+		}
 	}
 
 	#[test]
@@ -262,6 +299,11 @@ mod sort {
 		let sort = PackageSort::default().installed();
 		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_installed())
+		}
+
+		let sort = PackageSort::default().not_installed();
+		for pkg in cache.packages(&sort) {
+			assert!(!pkg.is_installed())
 		}
 	}
 
@@ -273,6 +315,11 @@ mod sort {
 		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_auto_installed())
 		}
+
+		let sort = PackageSort::default().manually_installed();
+		for pkg in cache.packages(&sort) {
+			assert!(!pkg.is_auto_installed());
+		}
 	}
 
 	#[test]
@@ -282,6 +329,11 @@ mod sort {
 		let sort = PackageSort::default().auto_removable();
 		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_auto_removable())
+		}
+
+		let sort = PackageSort::default().not_auto_removable();
+		for pkg in cache.packages(&sort) {
+			assert!(!pkg.is_auto_removable())
 		}
 	}
 }

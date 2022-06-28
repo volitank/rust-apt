@@ -132,15 +132,37 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 	pkgCache::PkgIterator pkg;
 
 	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
-		if ((!sort.virtual_pkgs && !pkg.VersionList()) ||
-		(sort.upgradable && !is_upgradable(cache, pkg)) ||
-		(sort.installed && !pkg.CurrentVer()) ||
-		// DepCache checks should always be last.
-		// Don't init the DepCache unless necessary.
-		(sort.auto_installed && !is_auto_installed(cache, pkg)) ||
-		(sort.auto_removable && !is_auto_removable(cache, pkg))) {
+
+		if ((sort.virtual_pkgs != Sort::Enable) &&
+		((sort.virtual_pkgs == Sort::Disable && !pkg.VersionList()) ||
+		(sort.virtual_pkgs == Sort::Reverse && pkg.VersionList()))) {
 			continue;
 		}
+
+		if ((sort.upgradable != Sort::Disable) &&
+		((sort.upgradable == Sort::Enable && !is_upgradable(cache, pkg)) ||
+		(sort.upgradable == Sort::Reverse && is_upgradable(cache, pkg)))) {
+			continue;
+		}
+
+		if ((sort.installed != Sort::Disable) &&
+		((sort.installed == Sort::Enable && !pkg.CurrentVer()) ||
+		(sort.installed == Sort::Reverse && pkg.CurrentVer()))) {
+			continue;
+		}
+
+		if ((sort.auto_installed != Sort::Disable) &&
+		((sort.auto_installed == Sort::Enable && !is_auto_installed(cache, pkg)) ||
+		(sort.auto_installed == Sort::Reverse && is_auto_installed(cache, pkg)))) {
+			continue;
+		}
+
+		if ((sort.auto_removable != Sort::Disable) &&
+		((sort.auto_removable == Sort::Enable && !is_auto_removable(cache, pkg)) ||
+		(sort.auto_removable == Sort::Reverse && is_auto_removable(cache, pkg)))) {
+			continue;
+		}
+
 		list.push_back(wrap_package(pkg));
 	}
 	return list;

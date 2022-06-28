@@ -111,15 +111,22 @@ pub mod apt {
 		records: UniquePtr<PkgRecords>,
 	}
 
+	#[derive(Debug)]
+	pub enum Sort {
+		Disable,
+		Enable,
+		Reverse,
+	}
+
 	/// Struct for sorting packages.
-	#[derive(Debug, Default)]
+	#[derive(Debug)]
 	pub struct PackageSort {
 		pub names: bool,
-		pub upgradable: bool,
-		pub virtual_pkgs: bool,
-		pub installed: bool,
-		pub auto_installed: bool,
-		pub auto_removable: bool,
+		pub upgradable: Sort,
+		pub virtual_pkgs: Sort,
+		pub installed: Sort,
+		pub auto_installed: Sort,
+		pub auto_removable: Sort,
 	}
 
 	unsafe extern "C++" {
