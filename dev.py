@@ -53,6 +53,11 @@ test_parser.add_argument(
 	action="store_true",
 	help="Display the output for the tests.",
 )
+test_parser.add_argument(
+	"--no-root",
+	action="store_true",
+	help="Do not run tests that require root such as 'apt update'.",
+)
 
 # Parser for the format subcommand
 format_parser = sub_parser.add_parser(
@@ -138,7 +143,7 @@ if args.command == "format":
 	# Format rust code.
 	run_cmd("cargo +nightly fmt")
 	# Format c++ code.
-	run_cmd("clang-format -i apt-pkg-c/apt-pkg.cc apt-pkg-c/apt-pkg.h")
+	run_cmd(f"clang-format -i {' '.join(map(str, Path('./apt-pkg-c').iterdir()))}")
 
 if args.command == "setup":
 	cargo = install_cargo()
@@ -162,26 +167,35 @@ if args.command == "test":
 		"--nocapture --test-threads 1" if args.show_output else "--test-threads 1"
 	)
 
-	if args.leaks:
-		# Compile the test binary and regex it's path
-		binary = re.findall(
-			r"^  Executable tests/tests.rs.\((.*?)\)$",
-			run(
-				"cargo test --no-run".split(),
-				capture_output=True,
-				text=True,
-				check=True,
-			).stderr,
-			re.MULTILINE,
-		)[0]
+	# Some tests such as updating the package list require root.
+	if args.no_root:
+		prefix = ""
+		cargo_footer += " --skip root"
+	else:
+		prefix = f"sudo -E env PATH={os.environ['PATH']}"
 
-		# Run valgrind against the test binary
-		run(f"valgrind --leak-check=full -- {binary} {cargo_footer}".split())
-		sys.exit()
+	print("Compiling Test Binary...")
+	# Compile the test binary and regex it's path
+	command = re.findall(
+		r"^  Executable tests/tests.rs.\((.*?)\)$",
+		run(
+			"cargo test --no-run".split(),
+			capture_output=True,
+			text=True,
+			check=True,
+		).stderr,
+		re.MULTILINE,
+	)[0]
+
+	if not args.no_root and os.geteuid():
+		print("Root permissions are required to run some tests.")
+
+	if args.leaks:
+		command = f"{prefix} valgrind --leak-check=full -- {command}"
 
 	if not args.functions:
-		run_cmd(f"cargo test -- {cargo_footer}")
+		run_cmd(f"{prefix} {command} {cargo_footer}")
 		sys.exit()
 
 	for arg in args.functions:
-		run_cmd(f"cargo test {arg} -- {cargo_footer}")
+		run_cmd(f"{prefix} {command} {arg} {cargo_footer}")

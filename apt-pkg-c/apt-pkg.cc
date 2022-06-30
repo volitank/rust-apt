@@ -1,19 +1,37 @@
 #include <apt-pkg/acquire-item.h>
-#include <apt-pkg/acquire.h>
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/fileutl.h>
-#include <apt-pkg/sourcelist.h>
-#include <apt-pkg/version.h>
-
-#include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/policy.h>
-#include <string>
+#include <apt-pkg/sourcelist.h>
+#include <apt-pkg/update.h>
+#include <apt-pkg/version.h>
+
 // Headers for the cxx bridge
 #include "apt-pkg.h"
 #include "rust-apt/src/raw.rs"
 
 /// Helper Functions:
+
+/// Handle any apt errors and return result to rust.
+static void handle_errors() {
+	std::string err_str;
+	while (!_error->empty()) {
+		std::string msg;
+		bool Type = _error->PopMessage(msg);
+		err_str.append(Type == true ? "E:" : "W:");
+		err_str.append(msg);
+		err_str.append(";");
+	}
+
+	// Throwing runtime_error returns result to rust.
+	// Remove the last ";" in the string before sending it.
+	if (err_str.length()) {
+		err_str.pop_back();
+		throw std::runtime_error(err_str);
+	}
+}
+
 
 /// Wrap the PkgIterator into our PackagePtr Struct.
 static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
@@ -23,6 +41,7 @@ static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 
 	return PackagePtr{ std::make_unique<pkgCache::PkgIterator>(pkg) };
 }
+
 
 /// Wrap the VerIterator into our VersionPtr Struct.
 static VersionPtr wrap_version(pkgCache::VerIterator ver) {
@@ -81,6 +100,15 @@ void init_config_system() {
 /// Create the CacheFile.
 std::unique_ptr<PkgCacheFile> pkg_cache_create() {
 	return std::make_unique<PkgCacheFile>();
+}
+
+
+/// Update the package lists, handle errors and return a Result.
+void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynUpdateProgress& callback) {
+	AcqTextStatus progress(callback);
+
+	ListUpdate(progress, *cache->GetSourceList(), pulse_interval(callback));
+	handle_errors();
 }
 
 

@@ -2,13 +2,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use cxx::UniquePtr;
+use cxx::{Exception, UniquePtr};
 
 use crate::package::Package;
+use crate::progress::UpdateProgress;
 use crate::raw::apt;
 
 /// Struct for sorting packages.
 pub type PackageSort = apt::PackageSort;
+/// Enum for the Package Sorter.
 pub type Sort = apt::Sort;
 
 impl Default for PackageSort {
@@ -205,7 +207,6 @@ impl Cache {
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
 		apt::init_config_system();
-		// let cache_ptr = apt::pkg_cache_create();
 		let cache_ptr = Rc::new(RefCell::new(apt::pkg_cache_create()));
 		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
@@ -218,6 +219,32 @@ impl Cache {
 	///
 	/// Currently this doesn't do anything as we can't manipulate packages.
 	pub fn clear(&self) { self.depcache.borrow().clear(); }
+
+	/// Updates the package cache and returns a Result
+	///
+	/// Here is an example of how you may parse the Error messages.
+	///
+	/// ```
+	/// use rust_apt::cache::Cache;
+	/// use rust_apt::progress::{UpdateProgress, AptUpdateProgress};
+	///
+	/// let cache = Cache::new();
+	/// let mut progress: Box<dyn UpdateProgress> = Box::new(AptUpdateProgress::new());
+
+	/// if let Err(error) = cache.update(&mut progress) {
+	///     for msg in error.what().split(';') {
+	///         if msg.starts_with("E:") {
+	///         println!("Error: {}", &msg[2..]);
+	///         }
+	///         if msg.starts_with("W:") {
+	///             println!("Warning: {}", &msg[2..]);
+	///         }
+	///     }
+	/// }
+	/// ```
+	pub fn update(&self, progress: &mut Box<dyn UpdateProgress>) -> Result<(), Exception> {
+		apt::cache_update(&self.ptr.borrow(), progress)
+	}
 
 	/// Returns an iterator of SourceURIs.
 	///
@@ -366,4 +393,29 @@ pub fn unit_str(val: u64, base: NumSys) -> String {
 		}
 	}
 	format!("{val} B")
+}
+
+/// Converts seconds into a human readable time string.
+pub fn time_str(seconds: u64) -> String {
+	if seconds > 60 * 60 * 24 {
+		return format!(
+			"{}d {}h {}min {}s",
+			seconds / 60 / 60 / 24,
+			(seconds / 60 / 60) % 24,
+			(seconds / 60) % 60,
+			seconds % 60,
+		);
+	}
+	if seconds > 60 * 60 {
+		return format!(
+			"{}h {}min {}s",
+			(seconds / 60 / 60) % 24,
+			(seconds / 60) % 60,
+			seconds % 60,
+		);
+	}
+	if seconds > 60 {
+		return format!("{}min {}s", (seconds / 60) % 60, seconds % 60,);
+	}
+	format!("{seconds}s")
 }

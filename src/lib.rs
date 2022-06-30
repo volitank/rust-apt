@@ -6,4 +6,5 @@
 
 pub mod cache;
 pub mod package;
+pub mod progress;
 pub mod raw;

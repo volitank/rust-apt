@@ -1,6 +1,73 @@
 //! Contains the raw bindings to libapt-pkg.
 use std::fmt;
 
+use cxx::ExternType;
+
+use crate::progress::UpdateProgress;
+
+/// Impl for sending UpdateProgress across the barrier.
+unsafe impl ExternType for Box<dyn UpdateProgress> {
+	type Id = cxx::type_id!("DynUpdateProgress");
+	type Kind = cxx::kind::Trivial;
+}
+
+// Begin UpdateProgress trait functions
+
+/// Called on c++ to set the pulse interval.
+fn pulse_interval(progress: &mut Box<dyn UpdateProgress>) -> usize { (**progress).pulse_interval() }
+
+/// Called when an item is confirmed to be up-to-date.
+fn hit(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String) {
+	(**progress).hit(id, description)
+}
+
+/// Called when an Item has started to download
+fn fetch(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String, file_size: u64) {
+	(**progress).fetch(id, description, file_size)
+}
+
+/// Called when an Item fails to download
+fn fail(
+	progress: &mut Box<dyn UpdateProgress>,
+	id: u32,
+	description: String,
+	status: u32,
+	error_text: String,
+) {
+	(**progress).fail(id, description, status, error_text)
+}
+
+/// Called periodically to provide the overall progress information
+fn pulse(
+	progress: &mut Box<dyn UpdateProgress>,
+	workers: Vec<apt::Worker>,
+	percent: f32,
+	total_bytes: u64,
+	current_bytes: u64,
+	current_cps: u64,
+) {
+	(**progress).pulse(workers, percent, total_bytes, current_bytes, current_cps)
+}
+
+/// Called when an item is successfully and completely fetched.
+fn done(progress: &mut Box<dyn UpdateProgress>) { (**progress).done() }
+
+/// Called when progress has started
+fn start(progress: &mut Box<dyn UpdateProgress>) { (**progress).start() }
+
+/// Called when progress has finished
+fn stop(
+	progress: &mut Box<dyn UpdateProgress>,
+	fetched_bytes: u64,
+	elapsed_time: u64,
+	current_cps: u64,
+	pending_errors: bool,
+) {
+	(**progress).stop(fetched_bytes, elapsed_time, current_cps, pending_errors)
+}
+
+// End UpdateProgress trait functions
+
 impl fmt::Debug for apt::VersionPtr {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(
@@ -66,20 +133,20 @@ impl fmt::Display for apt::SourceFile {
 	}
 }
 
+/// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod apt {
 
 	/// Struct representing a Source File.
-	///
-	/// uri = `http://deb.volian.org/volian/dists/scar/InRelease`
-	///
-	/// filename = `deb.volian.org_volian_dists_scar_InRelease`
 	#[derive(Debug)]
 	struct SourceFile {
+		/// `http://deb.volian.org/volian/dists/scar/InRelease`
 		uri: String,
+		/// `deb.volian.org_volian_dists_scar_InRelease`
 		filename: String,
 	}
 
+	/// Struct representing a base dependency.
 	struct BaseDep {
 		name: String,
 		version: String,
@@ -88,33 +155,56 @@ pub mod apt {
 		ptr: SharedPtr<DepIterator>,
 	}
 
+	/// A wrapper for the BaseDeps to be passed as a list across the barrier.
 	struct DepContainer {
 		dep_type: String,
 		dep_list: Vec<BaseDep>,
 	}
 
+	/// A wrapper around the Apt pkgIterator.
 	struct PackagePtr {
 		ptr: UniquePtr<PkgIterator>,
 	}
 
+	/// A wrapper around the Apt verIterator.
 	struct VersionPtr {
 		ptr: UniquePtr<VerIterator>,
 		desc: UniquePtr<DescIterator>,
 	}
 
+	/// A wrapper around the Apt verFileIterator and pkgFileIterator.
 	struct PackageFile {
 		ver_file: UniquePtr<VerFileIterator>,
 		pkg_file: UniquePtr<PkgFileIterator>,
 	}
 
+	/// A wrapper around the Apt pkgRecords class.
 	struct Records {
 		records: UniquePtr<PkgRecords>,
 	}
 
+	/// A simple representation of an Aquire worker.
+	///
+	/// TODO: Make this better.
+	struct Worker {
+		is_current: bool,
+		status: String,
+		id: u64,
+		short_desc: String,
+		active_subprocess: String,
+		current_size: u64,
+		total_size: u64,
+		complete: bool,
+	}
+
+	/// Enum to determine what will be sorted.
 	#[derive(Debug)]
 	pub enum Sort {
+		/// Disable the sort method.
 		Disable,
+		/// Enable the sort method.
 		Enable,
+		/// Reverse the sort method.
 		Reverse,
 	}
 
@@ -129,22 +219,82 @@ pub mod apt {
 		pub auto_removable: Sort,
 	}
 
+	extern "Rust" {
+		/// Called on c++ to set the pulse interval.
+		fn pulse_interval(progress: &mut DynUpdateProgress) -> usize;
+
+		/// Called when an item is confirmed to be up-to-date.
+		fn hit(progress: &mut DynUpdateProgress, id: u32, description: String);
+
+		/// Called when an Item has started to download
+		fn fetch(progress: &mut DynUpdateProgress, id: u32, description: String, file_size: u64);
+
+		/// Called when an Item fails to download
+		fn fail(
+			progress: &mut DynUpdateProgress,
+			id: u32,
+			description: String,
+			status: u32,
+			error_text: String,
+		);
+
+		/// Called periodically to provide the overall progress information
+		fn pulse(
+			progress: &mut DynUpdateProgress,
+			workers: Vec<Worker>,
+			percent: f32,
+			total_bytes: u64,
+			current_bytes: u64,
+			current_cps: u64,
+		);
+
+		/// Called when an item is successfully and completely fetched.
+		fn done(progress: &mut DynUpdateProgress);
+
+		/// Called when progress has started
+		fn start(progress: &mut DynUpdateProgress);
+
+		/// Called when progress has finished
+		fn stop(
+			progress: &mut DynUpdateProgress,
+			fetched_bytes: u64,
+			elapsed_time: u64,
+			current_cps: u64,
+			pending_errors: bool,
+		);
+	}
+
 	unsafe extern "C++" {
 
+		/// Apt C++ Type
 		type PkgCacheFile;
+		/// Apt C++ Type
 		type PkgCache;
+		/// Apt C++ Type
 		type PkgSourceList;
+		/// Apt C++ Type
 		type PkgRecords;
+		/// Apt C++ Type
 		type PkgDepCache;
 
+		/// Apt C++ Type
 		type PkgIterator;
+		/// Apt C++ Type
 		type PkgFileIterator;
+		/// Apt C++ Type
 		type VerIterator;
+		/// Apt C++ Type
 		type VerFileIterator;
+		/// Apt C++ Type
 		type DepIterator;
+		/// Apt C++ Type
 		type DescIterator;
 
+		type DynUpdateProgress = Box<dyn crate::raw::UpdateProgress>;
+		// type BoxUpdate = Box<dyn crate::raw::UpdateProgress>;
+
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
+		include!("rust-apt/apt-pkg-c/progress.h");
 
 		// Main Initializers for apt:
 
@@ -154,15 +304,21 @@ pub mod apt {
 		/// Create the CacheFile.
 		pub fn pkg_cache_create() -> UniquePtr<PkgCacheFile>;
 
+		/// Update the package lists, handle errors and return a Result.
+		pub fn cache_update(
+			cache: &UniquePtr<PkgCacheFile>,
+			progress: &mut DynUpdateProgress,
+		) -> Result<()>;
+
 		/// Create the Package Records.
-		pub fn pkg_records_create(pcache: &UniquePtr<PkgCacheFile>) -> Records;
+		pub fn pkg_records_create(cache: &UniquePtr<PkgCacheFile>) -> Records;
 
 		/// Create the depcache.
-		pub fn depcache_create(pcache: &UniquePtr<PkgCacheFile>) -> UniquePtr<PkgDepCache>;
+		pub fn depcache_create(cache: &UniquePtr<PkgCacheFile>) -> UniquePtr<PkgDepCache>;
 
 		/// Get the package list uris. This is the files that are updated with
 		/// `apt update`.
-		pub fn source_uris(pcache: &UniquePtr<PkgCacheFile>) -> Vec<SourceFile>;
+		pub fn source_uris(cache: &UniquePtr<PkgCacheFile>) -> Vec<SourceFile>;
 
 		// pub fn pkg_cache_compare_versions(
 		// 	cache: &UniquePtr<PkgCacheFile>,
@@ -246,10 +402,8 @@ pub mod apt {
 		/// Version Functions:
 
 		/// Return a Vector of all the package files for a version.
-		pub fn pkg_file_list(
-			pcache: &UniquePtr<PkgCacheFile>,
-			ver: &VersionPtr,
-		) -> Vec<PackageFile>;
+		pub fn pkg_file_list(cache: &UniquePtr<PkgCacheFile>, ver: &VersionPtr)
+			-> Vec<PackageFile>;
 
 		/// Return a Vector of all the dependencies of a version.
 		pub fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
@@ -304,7 +458,7 @@ pub mod apt {
 		pub fn pkg_is_upgradable(
 			cache: &UniquePtr<PkgCacheFile>,
 			iterator: &PackagePtr,
-			skip_depcache: bool,
+			skip_decache: bool,
 		) -> bool;
 
 		/// Is the Package auto installed? Packages marked as auto installed are
@@ -372,7 +526,7 @@ pub mod apt {
 		/// A version could have multiple package files and multiple URIs.
 		pub fn ver_uri(
 			records: &Records,
-			pcache: &UniquePtr<PkgCacheFile>,
+			cache: &UniquePtr<PkgCacheFile>,
 			pkg_file: &PackageFile,
 		) -> String;
 
@@ -390,6 +544,5 @@ pub mod apt {
 
 		/// Return a Vector of all versions that can satisfy a dependency.
 		pub fn dep_all_targets(dep: &BaseDep) -> Vec<VersionPtr>;
-
 	}
 }

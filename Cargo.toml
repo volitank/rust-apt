@@ -19,6 +19,7 @@ edition = "2021"
 [dependencies]
 cxx = "1.0"
 once_cell = "1.10.0"
+termsize = "0.1.6"
 
 [build-dependencies]
 cxx-build = "1.0"

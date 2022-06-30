@@ -1,7 +1,6 @@
 #pragma once
 #include "rust/cxx.h"
 #include <apt-pkg/cachefile.h>
-#include <apt-pkg/depcache.h>
 #include <apt-pkg/pkgrecords.h>
 
 struct PkgRecords {
@@ -10,7 +9,7 @@ struct PkgRecords {
 	// Parser doesn't want to work as a UniquePtr
 	pkgRecords::Parser* parser;
 
-	unsigned long last;
+	u_int32_t last;
 
 	PkgRecords(pkgCache* cache) : records(*cache), last(0){};
 };
@@ -24,6 +23,7 @@ struct DepContainer;
 struct BaseDep;
 struct SourceFile;
 struct PackageSort;
+struct DynUpdateProgress;
 
 // Apt Aliases
 using PkgCacheFile = pkgCacheFile;
@@ -43,6 +43,8 @@ using DepIterator = pkgCache::DepIterator;
 
 void init_config_system();
 std::unique_ptr<PkgCacheFile> pkg_cache_create();
+void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynUpdateProgress& progress);
+
 Records pkg_records_create(const std::unique_ptr<PkgCacheFile>& cache);
 std::unique_ptr<PkgDepCache> depcache_create(const std::unique_ptr<PkgCacheFile>& cache);
 
