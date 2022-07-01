@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use cxx::{Exception, UniquePtr};
 
+use crate::config::init_config_system;
 use crate::package::Package;
 use crate::progress::UpdateProgress;
 use crate::raw::apt;
@@ -206,7 +207,7 @@ impl Cache {
 	///
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
-		apt::init_config_system();
+		init_config_system();
 		let cache_ptr = Rc::new(RefCell::new(apt::pkg_cache_create()));
 		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),

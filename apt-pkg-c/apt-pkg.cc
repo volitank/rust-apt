@@ -8,7 +8,6 @@
 #include <apt-pkg/version.h>
 
 // Headers for the cxx bridge
-#include "apt-pkg.h"
 #include "rust-apt/src/raw.rs"
 
 /// Helper Functions:
@@ -89,13 +88,6 @@ const char* UntranslatedDepTypes[] = { "", "Depends", "PreDepends", "Suggests",
 
 
 /// Main Initializers for apt:
-
-/// init the config system. This must occur before creating the cache.
-void init_config_system() {
-	pkgInitConfig(*_config);
-	pkgInitSystem(*_config, _system);
-}
-
 
 /// Create the CacheFile.
 std::unique_ptr<PkgCacheFile> pkg_cache_create() {

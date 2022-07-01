@@ -41,7 +41,6 @@ using DepIterator = pkgCache::DepIterator;
 
 /// Main Initializers for apt:
 
-void init_config_system();
 std::unique_ptr<PkgCacheFile> pkg_cache_create();
 void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynUpdateProgress& progress);
 

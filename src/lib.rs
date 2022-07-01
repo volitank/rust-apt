@@ -5,6 +5,7 @@
 //! For more information please see the readme in the source code.
 
 pub mod cache;
+pub mod config;
 pub mod package;
 pub mod progress;
 pub mod raw;

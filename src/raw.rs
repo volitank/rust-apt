@@ -289,17 +289,21 @@ pub mod apt {
 		type DepIterator;
 		/// Apt C++ Type
 		type DescIterator;
+		/// Apt C++ Type
+		type Configuration;
 
 		type DynUpdateProgress = Box<dyn crate::raw::UpdateProgress>;
-		// type BoxUpdate = Box<dyn crate::raw::UpdateProgress>;
 
 		include!("rust-apt/apt-pkg-c/apt-pkg.h");
 		include!("rust-apt/apt-pkg-c/progress.h");
+		include!("rust-apt/apt-pkg-c/configuration.h");
 
 		// Main Initializers for apt:
 
 		/// init the config system. This must occur before creating the cache.
-		pub fn init_config_system();
+		pub fn init_config();
+
+		pub fn init_system();
 
 		/// Create the CacheFile.
 		pub fn pkg_cache_create() -> UniquePtr<PkgCacheFile>;
@@ -325,6 +329,48 @@ pub mod apt {
 		// 	left: *const c_char,
 		// 	right: *const c_char,
 		// ) -> i32;
+
+		// Configuration Bindings:
+
+		/// Returns a string dump of configuration options separated by `\n`
+		pub fn config_dump() -> String;
+
+		/// Find a key and return it's value as a string.
+		pub fn config_find(key: String, default_value: String) -> String;
+
+		/// Find a file and return it's value as a string.
+		pub fn config_find_file(key: String, default_value: String) -> String;
+
+		/// Find a directory and return it's value as a string.
+		pub fn config_find_dir(key: String, default_value: String) -> String;
+
+		/// Same as find, but for boolean values.
+		pub fn config_find_bool(key: String, default_value: bool) -> bool;
+
+		/// Same as find, but for i32 values.
+		pub fn config_find_int(key: String, default_value: i32) -> i32;
+
+		/// Return a vector for an Apt configuration list.
+		pub fn config_find_vector(key: String) -> Vec<String>;
+
+		/// Set the given key to the specified value.
+		pub fn config_set(key: String, value: String);
+
+		/// Simply check if a key exists.
+		pub fn config_exists(key: String) -> bool;
+
+		/// Clears all values from a key.
+		///
+		/// If the value is a list, the entire list is cleared.
+		/// If you need to clear 1 value from a list see `config_clear_value`
+		pub fn config_clear(key: String);
+
+		/// Clears all configuratations.
+		pub fn config_clear_all();
+
+		/// Clear a single value from a list.
+		/// Used for removing one item in an apt configuruation list
+		pub fn config_clear_value(key: String, value: String);
 
 		// Package Functions:
 
