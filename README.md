@@ -42,7 +42,7 @@ let sort = PackageSort::default().upgradable().names();
 for pkg in cache.packages(&sort) {
 	println!(
 		"Package: {} {} is upgradable to {}",
-		pkg.name,
+		pkg.name(),
 		pkg.installed().unwrap().version(),
 		pkg.candidate().unwrap().version(),
 	);
