@@ -14,7 +14,35 @@ impl Default for Config {
 	fn default() -> Self { Self::new() }
 }
 
+pub enum Conf {
+	Get,
+	Set(bool),
+}
+
 impl Config {
+	pub fn install_recommends(&self, action: Conf) -> bool {
+		let key = String::from("APT::Install-Recommends");
+		match action {
+			Conf::Set(value) => {
+				let value = String::from(if value { "1" } else { "0" });
+				apt::config_set(key, value);
+				true
+			},
+			Conf::Get => apt::config_find_bool(key, false),
+		}
+	}
+
+	pub fn set_install_recommends(&self, value: bool) {
+		apt::config_set(
+			String::from("APT::Install-Recommends"),
+			String::from(if value { "1" } else { "0" }),
+		);
+	}
+
+	pub fn get_install_recommends(&self) -> bool {
+		apt::config_find_bool(String::from("APT::Install-Recommends"), false)
+	}
+
 	/// Create a new config object and safely init the config system.
 	///
 	/// If you initialize the struct without `new()` or `default()`

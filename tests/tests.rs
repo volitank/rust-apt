@@ -97,6 +97,15 @@ mod cache {
 	}
 
 	#[test]
+	fn shortname() {
+		let cache = Cache::new();
+		let sort = PackageSort::default();
+		for pkg in cache.packages(&sort) {
+			assert!(!pkg.name().contains(':'))
+		}
+	}
+
+	#[test]
 	fn provides() {
 		let cache = Cache::new();
 		if let Some(pkg) = cache.get("www-browser") {
@@ -359,6 +368,7 @@ mod config {
 		let config_dump = config.find("APT::Architecture", "");
 		assert!(config.contains("APT::Architecture"));
 		assert!(!config_dump.is_empty());
+		println!("{}", config.dump());
 	}
 
 	#[test]

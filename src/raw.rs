@@ -430,6 +430,9 @@ pub mod apt {
 		/// More information on this in the package module.
 		pub fn get_fullname(iterator: &PackagePtr, pretty: bool) -> String;
 
+		/// Get the name of the package without the architecture.
+		pub fn pkg_name(pkg: &PackagePtr) -> String;
+
 		/// Get the architecture of a package.
 		pub fn pkg_arch(iterator: &PackagePtr) -> String;
 

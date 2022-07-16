@@ -33,9 +33,31 @@ impl<'a> Package<'a> {
 		}
 	}
 
-	/// Get the name of the package.
-	/// If the arch is not native this will return "name:arch".
-	pub fn name(&self) -> String { apt::get_fullname(&self.ptr, true) }
+	/// Get the fullname of the package.
+	///
+	/// Pretty is a bool that will omit the native arch.
+	///
+	/// For example on an amd64 system:
+	///
+	/// ```
+	/// use rust_apt::cache::Cache;
+	/// let cache = Cache::new();
+	/// if let Some(pkg) = cache.get("apt") {
+	///    // Prints just "apt"
+	///    println!("{}", pkg.fullname(true));
+	///    // Prints "apt:amd64"
+	///    println!("{}", pkg.fullname(false));
+	/// };
+	///
+	/// if let Some(pkg) = cache.get("apt:i386") {
+	///    // Prints "apt:i386" for the i386 package
+	///    println!("{}", pkg.fullname(true));
+	/// };
+	/// ```
+	pub fn fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
+
+	/// Return the name of the package without the architechture
+	pub fn name(&self) -> String { apt::pkg_name(&self.ptr) }
 
 	/// Get the architecture of the package.
 	pub fn arch(&self) -> String { apt::pkg_arch(&self.ptr) }
@@ -60,29 +82,6 @@ impl<'a> Package<'a> {
 
 	/// Check if the package has provides.
 	pub fn has_provides(&self) -> bool { apt::pkg_has_provides(&self.ptr) }
-
-	/// Get the fullname of the package.
-	///
-	/// Pretty is a bool that will omit the native arch.
-	///
-	/// For example on an amd64 system:
-	///
-	/// ```
-	/// use rust_apt::cache::Cache;
-	/// let cache = Cache::new();
-	/// if let Some(pkg) = cache.get("apt") {
-	///    // Prints just "apt"
-	///    println!("{}", pkg.fullname(true));
-	///    // Prints "apt:amd64"
-	///    println!("{}", pkg.fullname(false));
-	/// };
-	///
-	/// if let Some(pkg) = cache.get("apt:i386") {
-	///    // Prints "apt:i386" for the i386 package
-	///    println!("{}", pkg.fullname(true));
-	/// };
-	/// ```
-	pub fn fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
 
 	/// Returns the version object of the candidate.
 	///
