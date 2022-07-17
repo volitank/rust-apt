@@ -26,6 +26,12 @@ setup_parser = sub_parser.add_parser(
 	),
 )
 
+setup_parser.add_argument(
+	"--yes",
+	action="store_true",
+	help="Don't confirm before installing packages"
+)
+
 # Parser for the test subcommand
 test_parser = sub_parser.add_parser(
 	"test",
@@ -99,10 +105,15 @@ def install_cargo() -> bool:
 	"""Install cargo if it's needed."""
 	if not which("cargo"):
 		print("Starting rustup installer...")
+
+		cmd = "/bin/sh"
+		if args.yes:
+			cmd += " -- /dev/stdin -y"
+
 		resp = get("https://sh.rustup.rs")
 		resp.raise_for_status()
 		os.environ["PATH"] = f"{os.environ['PATH']}:{os.environ['HOME']}/.cargo/bin"
-		run_cmd("/bin/sh", input=resp.content)
+		run_cmd(cmd, input=resp.content)
 		return True
 	return False
 
@@ -112,6 +123,7 @@ def install_apt_dependencies() -> None:
 	cache = Cache()
 	dev_deps = (
 		"bear",
+        "build-essential",
 		"libapt-pkg-dev",
 		"clang-format",
 		"valgrind",
@@ -135,7 +147,11 @@ def install_apt_dependencies() -> None:
 		print("Starting apt-get...")
 		# Use regular run because we don't care if update fails.
 		run(["sudo", "apt-get", "update"])
-		run_cmd(f"sudo apt-get install {' '.join(needs_install)}")
+
+		install_cmd = f"sudo -E apt-get install {' '.join(needs_install)}"
+		if args.yes:
+			install_cmd += " -y"
+		run_cmd(install_cmd)
 
 
 # This is the start of the main program
@@ -191,7 +207,7 @@ if args.command == "test":
 		print("Root permissions are required to run some tests.")
 
 	if args.leaks:
-		command = f"{prefix} valgrind --leak-check=full -- {command}"
+		command = f"valgrind --leak-check=full -- {command}"
 
 	if not args.functions:
 		run_cmd(f"{prefix} {command} {cargo_footer}")
