@@ -205,6 +205,17 @@ mod cache {
 			assert_eq!(decimal, cache::unit_str(num, NumSys::Decimal));
 		}
 	}
+
+	#[test]
+	// This test relies on the version of 'apt' being higher than 'dpkg'.
+	fn version_comparisons() {
+		let cache = Cache::new();
+		let apt_ver = cache.get("apt").unwrap().candidate().unwrap();
+		let dpkg_ver = cache.get("dpkg").unwrap().candidate().unwrap();
+		assert!(apt_ver > dpkg_ver);
+		assert!(dpkg_ver < apt_ver);
+		assert!(apt_ver != dpkg_ver);
+	}
 }
 
 #[cfg(test)]
@@ -426,6 +437,22 @@ mod config {
 		// Finally test and see if we can clear the entire list.
 		config.clear("rust_apt::aptlist");
 		assert!(config.find_vector("rust_apt::aptlist").is_empty());
+	}
+}
+
+mod util {
+	use std::cmp::Ordering;
+
+	use rust_apt::util;
+
+	#[test]
+	fn cmp_versions() {
+		let ver1 = String::from("5.0");
+		let ver2 = String::from("6.0");
+
+		assert_eq!(Ordering::Less, util::cmp_versions(&ver1, &ver2));
+		assert_eq!(Ordering::Equal, util::cmp_versions(&ver1, &ver1));
+		assert_eq!(Ordering::Greater, util::cmp_versions(&ver2, &ver1));
 	}
 }
 

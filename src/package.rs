@@ -1,5 +1,6 @@
 //! Contains Package, Version and Dependency Structs.
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
@@ -9,6 +10,7 @@ use once_cell::unsync::OnceCell;
 
 use crate::cache::{unit_str, Cache, DepCache, NumSys, Records};
 use crate::raw::apt;
+use crate::util;
 
 /// A struct representing an `apt` Package
 #[derive(Debug)]
@@ -424,6 +426,23 @@ impl<'a> fmt::Display for Version<'a> {
 			self.downloadable(),
 		)?;
 		Ok(())
+	}
+}
+
+// Implementations for comparing versions.
+impl<'a> PartialEq for Version<'a> {
+	fn eq(&self, other: &Self) -> bool {
+		if let Ordering::Equal = util::cmp_versions(&self.version(), &other.version()) {
+			true
+		} else {
+			false
+		}
+	}
+}
+
+impl<'a> PartialOrd for Version<'a> {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(util::cmp_versions(&self.version(), &other.version()))
 	}
 }
 

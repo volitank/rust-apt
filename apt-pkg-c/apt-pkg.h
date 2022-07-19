@@ -48,8 +48,9 @@ Records pkg_records_create(const std::unique_ptr<PkgCacheFile>& cache);
 std::unique_ptr<PkgDepCache> depcache_create(const std::unique_ptr<PkgCacheFile>& cache);
 
 rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
-int32_t pkg_cache_compare_versions(
-const std::unique_ptr<PkgCacheFile>& cache, const char* left, const char* right);
+
+/// Compare two package version strings.
+int32_t cmp_versions(const rust::String& ver1, const rust::String& ver2);
 
 /// Package Functions:
 

@@ -324,13 +324,15 @@ pub mod apt {
 		/// `apt update`.
 		pub fn source_uris(cache: &UniquePtr<PkgCacheFile>) -> Vec<SourceFile>;
 
-		// pub fn pkg_cache_compare_versions(
-		// 	cache: &UniquePtr<PkgCacheFile>,
-		// 	left: *const c_char,
-		// 	right: *const c_char,
-		// ) -> i32;
-
-		// Configuration Bindings:
+		/// Compares two package versions, `ver1` and `ver2`. The returned
+		/// integer's value is mapped to one of the following integers:
+		/// - Less than 0: `ver1` is less than `ver2`.
+		/// - Equal to 0: `ver1` is equal to `ver2`.
+		/// - Greater than 0: `ver1` is greater than `ver2`.
+		///
+		/// Unless you have a specific need for otherwise, you should probably
+		/// use [`crate::util::cmp_versions`] instead.
+		pub fn cmp_versions(ver1: &String, ver2: &String) -> i32;
 
 		/// Returns a string dump of configuration options separated by `\n`
 		pub fn config_dump() -> String;
