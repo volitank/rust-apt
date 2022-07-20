@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod cache {
-	use rust_apt::cache;
 	use rust_apt::cache::*;
+	use rust_apt::util::*;
 
 	#[test]
 	fn version_vec() {
@@ -190,7 +190,7 @@ mod cache {
 	}
 
 	#[test]
-	fn unit_str() {
+	fn test_unit_str() {
 		let testcase = [
 			(1649267441664_u64, "1.50 TiB", "1.65 TB"),
 			(1610612736_u64, "1.50 GiB", "1.61 GB"),
@@ -201,8 +201,8 @@ mod cache {
 		];
 
 		for (num, binary, decimal) in testcase {
-			assert_eq!(binary, cache::unit_str(num, NumSys::Binary));
-			assert_eq!(decimal, cache::unit_str(num, NumSys::Decimal));
+			assert_eq!(binary, unit_str(num, NumSys::Binary));
+			assert_eq!(decimal, unit_str(num, NumSys::Decimal));
 		}
 	}
 
@@ -461,6 +461,7 @@ mod root {
 	use rust_apt::cache::*;
 	use rust_apt::progress::{AptUpdateProgress, UpdateProgress};
 	use rust_apt::raw::apt;
+	use rust_apt::util::*;
 
 	#[test]
 	fn update() {

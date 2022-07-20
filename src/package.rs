@@ -8,9 +8,10 @@ use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
 
-use crate::cache::{unit_str, Cache, DepCache, NumSys, Records};
+use crate::cache::{Cache, DepCache, Records};
 use crate::raw::apt;
 use crate::util;
+use crate::util::{unit_str, NumSys};
 
 /// A struct representing an `apt` Package
 #[derive(Debug)]

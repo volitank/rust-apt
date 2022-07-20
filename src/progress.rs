@@ -3,8 +3,8 @@ use std::io::{stdout, Write};
 
 use termsize;
 
-use crate::cache::{time_str, unit_str, NumSys};
 use crate::raw::apt;
+use crate::util::{time_str, unit_str, NumSys};
 
 /// Trait you can impl on any struct to customize the output of the update.
 pub trait UpdateProgress {

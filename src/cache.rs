@@ -8,6 +8,7 @@ use crate::config::init_config_system;
 use crate::package::Package;
 use crate::progress::UpdateProgress;
 use crate::raw::apt;
+use crate::util::DiskSpace;
 
 /// Struct for sorting packages.
 pub type PackageSort = apt::PackageSort;
@@ -347,76 +348,4 @@ impl Cache {
 		}
 		DiskSpace::Require(size as u64)
 	}
-}
-
-/// Disk Space that `apt` will use for a transaction.
-pub enum DiskSpace {
-	/// Additional Disk Space required.
-	Require(u64),
-	/// Disk Space that will be freed
-	Free(u64),
-}
-
-/// Numeral System for unit conversion.
-pub enum NumSys {
-	/// Base 2 | 1024 | KibiByte (KiB)
-	Binary,
-	/// Base 10 | 1000 | KiloByte (KB)
-	Decimal,
-}
-
-/// Converts bytes into human readable output.
-///
-/// ```
-/// use rust_apt::cache::{unit_str, Cache, NumSys};
-/// let cache = Cache::new();
-/// let version = cache.get("apt").unwrap().candidate().unwrap();
-///
-/// println!("{}", unit_str(version.size(), NumSys::Decimal));
-/// ```
-pub fn unit_str(val: u64, base: NumSys) -> String {
-	let val = val as f64;
-	let (num, tera, giga, mega, kilo) = match base {
-		NumSys::Binary => (1024.0_f64, "TiB", "GiB", "MiB", "KiB"),
-		NumSys::Decimal => (1000.0_f64, "TB", "GB", "MB", "KB"),
-	};
-
-	let powers = [
-		(num.powi(4), tera),
-		(num.powi(3), giga),
-		(num.powi(2), mega),
-		(num, kilo),
-	];
-
-	for (divisor, unit) in powers {
-		if val > divisor {
-			return format!("{:.2} {unit}", val / divisor);
-		}
-	}
-	format!("{val} B")
-}
-
-/// Converts seconds into a human readable time string.
-pub fn time_str(seconds: u64) -> String {
-	if seconds > 60 * 60 * 24 {
-		return format!(
-			"{}d {}h {}min {}s",
-			seconds / 60 / 60 / 24,
-			(seconds / 60 / 60) % 24,
-			(seconds / 60) % 60,
-			seconds % 60,
-		);
-	}
-	if seconds > 60 * 60 {
-		return format!(
-			"{}h {}min {}s",
-			(seconds / 60 / 60) % 24,
-			(seconds / 60) % 60,
-			seconds % 60,
-		);
-	}
-	if seconds > 60 {
-		return format!("{}min {}s", (seconds / 60) % 60, seconds % 60,);
-	}
-	format!("{seconds}s")
 }
