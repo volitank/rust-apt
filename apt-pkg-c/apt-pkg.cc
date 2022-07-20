@@ -135,9 +135,9 @@ rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache) {
 
 
 /// Compare two package version strings.
-int32_t cmp_versions(const rust::String& ver1_rust, const rust::String& ver2_rust) {
-	const char* ver1 = ver1_rust.data();
-	const char* ver2 = ver2_rust.data();
+int32_t cmp_versions(rust::String ver1_rust, rust::String ver2_rust) {
+	const char* ver1 = ver1_rust.c_str();
+	const char* ver2 = ver2_rust.c_str();
 
 	if (!_system) {
 		pkgInitSystem(*_config, _system);

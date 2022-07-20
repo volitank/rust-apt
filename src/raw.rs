@@ -332,7 +332,7 @@ pub mod apt {
 		///
 		/// Unless you have a specific need for otherwise, you should probably
 		/// use [`crate::util::cmp_versions`] instead.
-		pub fn cmp_versions(ver1: &String, ver2: &String) -> i32;
+		pub fn cmp_versions(ver1: String, ver2: String) -> i32;
 
 		/// Returns a string dump of configuration options separated by `\n`
 		pub fn config_dump() -> String;

@@ -50,7 +50,7 @@ std::unique_ptr<PkgDepCache> depcache_create(const std::unique_ptr<PkgCacheFile>
 rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
 
 /// Compare two package version strings.
-int32_t cmp_versions(const rust::String& ver1, const rust::String& ver2);
+int32_t cmp_versions(rust::String ver1_rust, rust::String ver2_rust);
 
 /// Package Functions:
 
