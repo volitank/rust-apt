@@ -85,13 +85,13 @@ rust::vec<PackageFile> pkg_file_list(
 const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver);
 rust::Vec<DepContainer> dep_list(const VersionPtr& ver);
 
+PackagePtr ver_parent(const VersionPtr& ver);
 rust::string ver_arch(const VersionPtr& ver);
 rust::string ver_str(const VersionPtr& ver);
 rust::string ver_section(const VersionPtr& ver);
 rust::string ver_priority_str(const VersionPtr& ver);
 rust::string ver_source_name(const VersionPtr& ver);
 rust::string ver_source_version(const VersionPtr& ver);
-rust::string ver_name(const VersionPtr& ver);
 int32_t ver_priority(const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver);
 u_int64_t ver_size(const VersionPtr& ver);
 u_int64_t ver_installed_size(const VersionPtr& ver);

@@ -73,7 +73,7 @@ impl fmt::Debug for apt::VersionPtr {
 		write!(
 			f,
 			"VersionPtr: {}:{}",
-			apt::ver_name(self),
+			apt::get_fullname(&apt::ver_parent(self), false),
 			apt::ver_str(self)
 		)?;
 		Ok(())
@@ -459,8 +459,8 @@ pub mod apt {
 		/// Return a Vector of all the dependencies of a version.
 		pub fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
 
-		/// The name of the versions Parent Package.
-		pub fn ver_name(version: &VersionPtr) -> String;
+		/// Return the parent package.
+		pub fn ver_parent(version: &VersionPtr) -> PackagePtr;
 
 		/// The architecture of a version.
 		pub fn ver_arch(version: &VersionPtr) -> String;

@@ -20,6 +20,15 @@ mod cache {
 	}
 
 	#[test]
+	fn parent_pkg() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+		let version = pkg.versions().next().unwrap();
+		let parent = version.parent();
+		assert_eq!(pkg.id(), parent.id())
+	}
+
+	#[test]
 	fn all_packages() {
 		let cache = Cache::new();
 		let sort = PackageSort::default();

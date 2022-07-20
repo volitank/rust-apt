@@ -378,9 +378,9 @@ rust::Vec<DepContainer> dep_list(const VersionPtr& ver) {
 }
 
 
-/// The name of the versions Parent Package.
-rust::string ver_name(const VersionPtr& ver) {
-	return ver.ptr->ParentPkg().Name();
+/// Return the parent package.
+PackagePtr ver_parent(const VersionPtr& ver) {
+	return wrap_package(ver.ptr->ParentPkg());
 }
 
 

@@ -94,7 +94,11 @@ impl<'a> Package<'a> {
 		if ver.ptr.is_null() {
 			return None;
 		}
-		Some(Version::new(Rc::clone(&self.records), ver))
+		Some(Version::new(
+			Rc::clone(&self.records),
+			Rc::clone(&self.depcache),
+			ver,
+		))
 	}
 
 	/// Returns the version object of the installed version.
@@ -105,7 +109,11 @@ impl<'a> Package<'a> {
 		if ver.ptr.is_null() {
 			return None;
 		}
-		Some(Version::new(Rc::clone(&self.records), ver))
+		Some(Version::new(
+			Rc::clone(&self.records),
+			Rc::clone(&self.depcache),
+			ver,
+		))
 	}
 
 	/// Check if the package is installed.
@@ -155,9 +163,9 @@ impl<'a> Package<'a> {
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
 	pub fn versions(&self) -> impl Iterator<Item = Version<'a>> + '_ {
-		apt::pkg_version_list(&self.ptr)
-			.into_iter()
-			.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
+		apt::pkg_version_list(&self.ptr).into_iter().map(|ver_ptr| {
+			Version::new(Rc::clone(&self.records), Rc::clone(&self.depcache), ver_ptr)
+		})
 	}
 }
 
@@ -181,29 +189,46 @@ impl<'a> fmt::Display for Package<'a> {
 	}
 }
 
+// Implementations for comparing packages.
+impl<'a> PartialEq for Package<'a> {
+	fn eq(&self, other: &Self) -> bool { return self.id() == other.id() }
+}
+
 /// A struct representing a version of an `apt` Package
 #[derive(Debug)]
 pub struct Version<'a> {
 	_lifetime: &'a PhantomData<Cache>,
 	ptr: apt::VersionPtr,
 	records: Rc<RefCell<Records>>,
+	depcache: Rc<RefCell<DepCache>>,
 	file_list: OnceCell<Vec<apt::PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
 }
 
 impl<'a> Version<'a> {
-	fn new(records: Rc<RefCell<Records>>, ver_ptr: apt::VersionPtr) -> Self {
+	fn new(
+		records: Rc<RefCell<Records>>,
+		depcache: Rc<RefCell<DepCache>>,
+		ver_ptr: apt::VersionPtr,
+	) -> Self {
 		Self {
 			_lifetime: &PhantomData,
 			records,
+			depcache,
 			file_list: OnceCell::new(),
 			depends_list: OnceCell::new(),
 			ptr: ver_ptr,
 		}
 	}
 
-	/// The name of the versions Parent Package.
-	pub fn pkgname(&self) -> String { apt::ver_name(&self.ptr) }
+	/// Return the version's parent package.
+	pub fn parent(&self) -> Package {
+		Package::new(
+			Rc::clone(&self.records),
+			Rc::clone(&self.depcache),
+			apt::ver_parent(&self.ptr),
+		)
+	}
 
 	/// The architecture of the version.
 	pub fn arch(&self) -> String { apt::ver_arch(&self.ptr) }
@@ -386,6 +411,7 @@ impl<'a> Version<'a> {
 		for base_dep in apt_deps.dep_list {
 			base_vec.push(BaseDep {
 				records: Rc::clone(&self.records),
+				depcache: Rc::clone(&self.depcache),
 				apt_dep: base_dep,
 			})
 		}
@@ -415,7 +441,7 @@ impl<'a> fmt::Display for Version<'a> {
 			f,
 			"{}: Version {} <ID: {}, arch: {}, size: {}, installed_size: {}, section: {} Priority \
 			 {} at {}, downloadable: {}>",
-			self.pkgname(),
+			self.parent().name(),
 			self.version(),
 			self.id(),
 			self.arch(),
@@ -452,6 +478,7 @@ impl<'a> PartialOrd for Version<'a> {
 pub struct BaseDep {
 	apt_dep: apt::BaseDep,
 	records: Rc<RefCell<Records>>,
+	depcache: Rc<RefCell<DepCache>>,
 }
 
 impl BaseDep {
@@ -459,17 +486,16 @@ impl BaseDep {
 
 	pub fn version(&self) -> &String { &self.apt_dep.version }
 
-	pub fn comp(&self) -> &String {
-		&self.apt_dep.comp
-		// self.apt_dep.Comp_Type()
-	}
+	pub fn comp(&self) -> &String { &self.apt_dep.comp }
 
 	pub fn dep_type(&self) -> &String { &self.apt_dep.dep_type }
 
 	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
 		apt::dep_all_targets(&self.apt_dep)
 			.into_iter()
-			.map(|ver_ptr| Version::new(Rc::clone(&self.records), ver_ptr))
+			.map(|ver_ptr| {
+				Version::new(Rc::clone(&self.records), Rc::clone(&self.depcache), ver_ptr)
+			})
 	}
 }
 
