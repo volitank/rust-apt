@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod cache {
+	use std::fmt::Write as _;
+
 	use rust_apt::cache::*;
 	use rust_apt::util::*;
 
@@ -34,7 +36,7 @@ mod cache {
 		let sort = PackageSort::default();
 
 		// All real packages should not be empty.
-		assert!(!cache.packages(&sort).collect::<Vec<_>>().is_empty());
+		assert!(cache.packages(&sort).next().is_some());
 		for pkg in cache.packages(&sort) {
 			println!("{pkg}")
 		}
@@ -72,7 +74,7 @@ mod cache {
 		// Only test the candidate.
 		// It's possible for the installed version to have no uris
 		let cand = pkg.candidate().unwrap();
-		assert!(!cand.uris().collect::<Vec<_>>().is_empty());
+		assert!(cand.uris().next().is_some());
 	}
 
 	#[test]
@@ -96,7 +98,7 @@ mod cache {
 		let version_list = pkg.versions().collect::<Vec<_>>();
 		// Should not be zero for apt
 		assert!(!version_list.is_empty());
-		for version in pkg.versions() {
+		for version in version_list {
 			assert!(version.sha256().is_some());
 			assert!(version.hash("sha256").is_some());
 			assert!(version.sha512().is_none());
@@ -118,8 +120,7 @@ mod cache {
 	fn provides() {
 		let cache = Cache::new();
 		if let Some(pkg) = cache.get("www-browser") {
-			let provides = cache.provides(&pkg, true).collect::<Vec<_>>();
-			assert!(!provides.is_empty());
+			assert!(cache.provides(&pkg, true).next().is_some());
 		};
 	}
 
@@ -133,7 +134,7 @@ mod cache {
 		for deps in cand.dependencies().unwrap() {
 			for dep in &deps.base_deps {
 				// Apt Dependencies should have targets
-				assert!(!dep.all_targets().collect::<Vec<_>>().is_empty());
+				assert!(dep.all_targets().next().is_some());
 			}
 		}
 		assert!(cand.recommends().is_some());
@@ -157,7 +158,7 @@ mod cache {
 				for (num, base_dep) in dep.base_deps.iter().enumerate() {
 					or_str.push_str(base_dep.name());
 					if !base_dep.comp().is_empty() {
-						or_str.push_str(&format!("({} {})", base_dep.comp(), base_dep.version()))
+						let _ = write!(or_str, "({} {})", base_dep.comp(), base_dep.version(),);
 					}
 					if num != total {
 						or_str.push_str(" | ");
@@ -170,7 +171,7 @@ mod cache {
 				let lone_dep = dep.first();
 				dep_str.push_str(lone_dep.name().as_str());
 				if !lone_dep.comp().is_empty() {
-					dep_str.push_str(&format!(" ({} {})", lone_dep.comp(), lone_dep.version()))
+					let _ = write!(dep_str, " ({} {})", lone_dep.comp(), lone_dep.version(),);
 				}
 				dep_str.push_str(", ");
 			}
@@ -182,7 +183,7 @@ mod cache {
 	fn sources() {
 		let cache = Cache::new();
 		// If the source lists don't exists there is problems.
-		assert!(!cache.sources().collect::<Vec<_>>().is_empty());
+		assert!(cache.sources().next().is_some());
 	}
 
 	#[test]
@@ -428,7 +429,7 @@ mod config {
 		let apt_list = vec!["this", "is", "my", "apt", "list"];
 		config.set_vector("rust_apt::aptlist", &apt_list);
 
-		// Retrive a new vector from the configuration.
+		// Retrieve a new vector from the configuration.
 		let apt_vector = config.find_vector("rust_apt::aptlist");
 
 		// If everything went smooth, our original vector should match the new one
@@ -542,7 +543,6 @@ mod root {
 				_current_bytes: u64,
 				_current_cps: u64,
 			) {
-				return;
 			}
 		}
 

@@ -59,7 +59,7 @@ impl<'a> Package<'a> {
 	/// ```
 	pub fn fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
 
-	/// Return the name of the package without the architechture
+	/// Return the name of the package without the architecture
 	pub fn name(&self) -> String { apt::pkg_name(&self.ptr) }
 
 	/// Get the architecture of the package.
@@ -191,7 +191,7 @@ impl<'a> fmt::Display for Package<'a> {
 
 // Implementations for comparing packages.
 impl<'a> PartialEq for Package<'a> {
-	fn eq(&self, other: &Self) -> bool { return self.id() == other.id() }
+	fn eq(&self, other: &Self) -> bool { self.id() == other.id() }
 }
 
 /// A struct representing a version of an `apt` Package
@@ -459,11 +459,10 @@ impl<'a> fmt::Display for Version<'a> {
 // Implementations for comparing versions.
 impl<'a> PartialEq for Version<'a> {
 	fn eq(&self, other: &Self) -> bool {
-		if let Ordering::Equal = util::cmp_versions(&self.version(), &other.version()) {
-			true
-		} else {
-			false
-		}
+		matches!(
+			util::cmp_versions(&self.version(), &other.version()),
+			Ordering::Equal
+		)
 	}
 }
 

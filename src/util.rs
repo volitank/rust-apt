@@ -20,12 +20,10 @@ use crate::raw::apt;
 pub fn cmp_versions(ver1: &str, ver2: &str) -> Ordering {
 	let result = apt::cmp_versions(ver1.to_owned(), ver2.to_owned());
 
-	if result < 0 {
-		Ordering::Less
-	} else if result == 0 {
-		Ordering::Equal
-	} else {
-		Ordering::Greater
+	match apt::cmp_versions(ver1.to_owned(), ver2.to_owned()) {
+		_ if result < 0 => Ordering::Less,
+		_ if result == 0 => Ordering::Equal,
+		_ => Ordering::Greater,
 	}
 }
 

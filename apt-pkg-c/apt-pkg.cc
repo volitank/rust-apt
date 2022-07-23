@@ -466,7 +466,7 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool skip_dep
 }
 
 
-/// Is the Package auto installed? Packages marked as auto installed are usually depenencies.
+/// Is the Package auto installed? Packages marked as auto installed are usually dependencies.
 bool pkg_is_auto_installed(const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
 	return is_auto_installed(cache, *pkg.ptr);
 }

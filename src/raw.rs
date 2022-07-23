@@ -183,7 +183,7 @@ pub mod apt {
 		records: UniquePtr<PkgRecords>,
 	}
 
-	/// A simple representation of an Aquire worker.
+	/// A simple representation of an Acquire worker.
 	///
 	/// TODO: Make this better.
 	struct Worker {
@@ -513,7 +513,7 @@ pub mod apt {
 		) -> bool;
 
 		/// Is the Package auto installed? Packages marked as auto installed are
-		/// usually depenencies.
+		/// usually dependencies.
 		pub fn pkg_is_auto_installed(cache: &UniquePtr<PkgCacheFile>, wrapper: &PackagePtr)
 			-> bool;
 

@@ -1,4 +1,5 @@
 //! Contains Progress struct for updating the package list.
+use std::fmt::Write as _;
 use std::io::{stdout, Write};
 
 use termsize;
@@ -258,13 +259,14 @@ impl UpdateProgress for AptUpdateProgress {
 
 		// Set the ETA string if there is a rate of download
 		if current_cps != 0 {
-			eta_str.push_str(&format!(
+			let _ = write!(
+				eta_str,
 				" {} {}",
 				// Current rate of download
 				unit_str(current_cps, NumSys::Decimal),
 				// ETA String
 				time_str((total_bytes - current_bytes) / current_cps)
-			));
+			);
 		}
 
 		for worker in workers {
@@ -280,8 +282,7 @@ impl UpdateProgress for AptUpdateProgress {
 			}
 
 			if worker.id != 0 {
-				work_string.push(' ');
-				work_string.push_str(&format!("{} ", worker.id));
+				let _ = write!(work_string, " {} ", worker.id);
 			}
 
 			work_string.push_str(&worker.short_desc);
@@ -295,11 +296,12 @@ impl UpdateProgress for AptUpdateProgress {
 			work_string.push_str(&unit_str(worker.current_size, NumSys::Decimal));
 
 			if worker.total_size > 0 && !worker.complete {
-				work_string.push_str(&format!(
+				let _ = write!(
+					work_string,
 					"/{} {}",
 					unit_str(worker.total_size, NumSys::Decimal),
 					(worker.current_size * 100) / worker.total_size
-				));
+				);
 			}
 
 			work_string.push(']');

@@ -67,3 +67,36 @@ At this point barely any of `rust-apt` code is similar to `apt-pkg-native-rs`.
 It is not advised to use this crate in multiple threads.
 
 You're free to try it but development will not be focused on making this crate thread safe.
+
+# Development
+
+Make sure you have `cargo` and `rustup` are installed before you run the following commands.
+
+You will need the stable and nightly toolchain. Nightly is only used for `rustfmt`
+
+Install `just`, a command runner we use to simplify some tasks.
+
+```console
+cargo install just
+```
+
+Now that `cargo` and `just` are installed, You can setup your dev environment.
+
+`setup-dev` will:
+
+* Install the necessary dependencies with `apt`.
+
+* Ensure the proper toolchains are installed with `rustup`.
+
+* Create `compile_commands.json` with `bear` for better c++ linting
+
+```console
+just setup-dev
+```
+
+Before you commit, check formatting and basic code QA.
+
+```console
+just fmt
+just check
+```
