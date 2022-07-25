@@ -2,9 +2,9 @@
 use std::fmt::Write as _;
 use std::io::{stdout, Write};
 
+use cxx::ExternType;
 use termsize;
 
-use crate::raw::apt;
 use crate::util::{time_str, unit_str, NumSys};
 
 /// Trait you can impl on any struct to customize the output of the update.
@@ -24,7 +24,7 @@ pub trait UpdateProgress {
 	/// Called periodically to provide the overall progress information
 	fn pulse(
 		&mut self,
-		workers: Vec<apt::Worker>,
+		workers: Vec<raw::Worker>,
 		percent: f32,
 		total_bytes: u64,
 		current_bytes: u64,
@@ -240,7 +240,7 @@ impl UpdateProgress for AptUpdateProgress {
 	/// meter along with an overall bandwidth and ETA indicator.
 	fn pulse(
 		&mut self,
-		workers: Vec<apt::Worker>,
+		workers: Vec<raw::Worker>,
 		percent: f32,
 		total_bytes: u64,
 		current_bytes: u64,
@@ -343,3 +343,137 @@ impl UpdateProgress for AptUpdateProgress {
 		self.lastline = percent_str.len();
 	}
 }
+
+/// This module contains the bindings and structs shared with c++
+#[cxx::bridge]
+pub mod raw {
+
+	/// A simple representation of an Acquire worker.
+	///
+	/// TODO: Make this better.
+	struct Worker {
+		is_current: bool,
+		status: String,
+		id: u64,
+		short_desc: String,
+		active_subprocess: String,
+		current_size: u64,
+		total_size: u64,
+		complete: bool,
+	}
+
+	extern "Rust" {
+		/// Called on c++ to set the pulse interval.
+		fn pulse_interval(progress: &mut DynUpdateProgress) -> usize;
+
+		/// Called when an item is confirmed to be up-to-date.
+		fn hit(progress: &mut DynUpdateProgress, id: u32, description: String);
+
+		/// Called when an Item has started to download
+		fn fetch(progress: &mut DynUpdateProgress, id: u32, description: String, file_size: u64);
+
+		/// Called when an Item fails to download
+		fn fail(
+			progress: &mut DynUpdateProgress,
+			id: u32,
+			description: String,
+			status: u32,
+			error_text: String,
+		);
+
+		/// Called periodically to provide the overall progress information
+		fn pulse(
+			progress: &mut DynUpdateProgress,
+			workers: Vec<Worker>,
+			percent: f32,
+			total_bytes: u64,
+			current_bytes: u64,
+			current_cps: u64,
+		);
+
+		/// Called when an item is successfully and completely fetched.
+		fn done(progress: &mut DynUpdateProgress);
+
+		/// Called when progress has started
+		fn start(progress: &mut DynUpdateProgress);
+
+		/// Called when progress has finished
+		fn stop(
+			progress: &mut DynUpdateProgress,
+			fetched_bytes: u64,
+			elapsed_time: u64,
+			current_cps: u64,
+			pending_errors: bool,
+		);
+	}
+
+	unsafe extern "C++" {
+		type DynUpdateProgress = Box<dyn crate::progress::UpdateProgress>;
+
+		include!("rust-apt/apt-pkg-c/progress.h");
+	}
+}
+
+/// Impl for sending UpdateProgress across the barrier.
+unsafe impl ExternType for Box<dyn UpdateProgress> {
+	type Id = cxx::type_id!("DynUpdateProgress");
+	type Kind = cxx::kind::Trivial;
+}
+
+// Begin UpdateProgress trait functions
+// These must be defined outside the cxx bridge but in the same file
+
+/// Called on c++ to set the pulse interval.
+fn pulse_interval(progress: &mut Box<dyn UpdateProgress>) -> usize { (**progress).pulse_interval() }
+
+/// Called when an item is confirmed to be up-to-date.
+fn hit(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String) {
+	(**progress).hit(id, description)
+}
+
+/// Called when an Item has started to download
+fn fetch(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String, file_size: u64) {
+	(**progress).fetch(id, description, file_size)
+}
+
+/// Called when an Item fails to download
+fn fail(
+	progress: &mut Box<dyn UpdateProgress>,
+	id: u32,
+	description: String,
+	status: u32,
+	error_text: String,
+) {
+	(**progress).fail(id, description, status, error_text)
+}
+
+/// Called periodically to provide the overall progress information
+fn pulse(
+	progress: &mut Box<dyn UpdateProgress>,
+	workers: Vec<raw::Worker>,
+	percent: f32,
+	total_bytes: u64,
+	current_bytes: u64,
+	current_cps: u64,
+) {
+	(**progress).pulse(workers, percent, total_bytes, current_bytes, current_cps)
+}
+
+/// Called when an item is successfully and completely fetched.
+fn done(progress: &mut Box<dyn UpdateProgress>) { (**progress).done() }
+
+/// Called when progress has started
+fn start(progress: &mut Box<dyn UpdateProgress>) { (**progress).start() }
+
+/// Called when progress has finished
+fn stop(
+	progress: &mut Box<dyn UpdateProgress>,
+	fetched_bytes: u64,
+	elapsed_time: u64,
+	current_cps: u64,
+	pending_errors: bool,
+) {
+	(**progress).stop(fetched_bytes, elapsed_time, current_cps, pending_errors)
+}
+
+// End UpdateProgress trait functions

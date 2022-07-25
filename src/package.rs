@@ -8,10 +8,11 @@ use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
 
-use crate::cache::{Cache, DepCache, Records};
-use crate::raw::apt;
-use crate::util;
-use crate::util::{unit_str, NumSys};
+use crate::cache::raw::{pkg_file_list, pkg_version_list};
+use crate::cache::Cache;
+use crate::depcache::DepCache;
+use crate::records::Records;
+use crate::util::{cmp_versions, unit_str, NumSys};
 
 /// A struct representing an `apt` Package
 #[derive(Debug)]
@@ -19,14 +20,14 @@ pub struct Package<'a> {
 	_lifetime: &'a PhantomData<Cache>,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
-	pub(crate) ptr: apt::PackagePtr,
+	pub(crate) ptr: raw::PackagePtr,
 }
 
 impl<'a> Package<'a> {
 	pub fn new(
 		records: Rc<RefCell<Records>>,
 		depcache: Rc<RefCell<DepCache>>,
-		pkg_ptr: apt::PackagePtr,
+		pkg_ptr: raw::PackagePtr,
 	) -> Package<'a> {
 		Package {
 			_lifetime: &PhantomData,
@@ -57,40 +58,40 @@ impl<'a> Package<'a> {
 	///    println!("{}", pkg.fullname(true));
 	/// };
 	/// ```
-	pub fn fullname(&self, pretty: bool) -> String { apt::get_fullname(&self.ptr, pretty) }
+	pub fn fullname(&self, pretty: bool) -> String { raw::get_fullname(&self.ptr, pretty) }
 
 	/// Return the name of the package without the architecture
-	pub fn name(&self) -> String { apt::pkg_name(&self.ptr) }
+	pub fn name(&self) -> String { raw::pkg_name(&self.ptr) }
 
 	/// Get the architecture of the package.
-	pub fn arch(&self) -> String { apt::pkg_arch(&self.ptr) }
+	pub fn arch(&self) -> String { raw::pkg_arch(&self.ptr) }
 
 	/// Get the ID of the package.
-	pub fn id(&self) -> u32 { apt::pkg_id(&self.ptr) }
+	pub fn id(&self) -> u32 { raw::pkg_id(&self.ptr) }
 
 	/// The current state of the package.
-	pub fn current_state(&self) -> u8 { apt::pkg_current_state(&self.ptr) }
+	pub fn current_state(&self) -> u8 { raw::pkg_current_state(&self.ptr) }
 
 	/// The installed state of the package.
-	pub fn inst_state(&self) -> u8 { apt::pkg_inst_state(&self.ptr) }
+	pub fn inst_state(&self) -> u8 { raw::pkg_inst_state(&self.ptr) }
 
 	/// The selected state of the package.
-	pub fn selected_state(&self) -> u8 { apt::pkg_selected_state(&self.ptr) }
+	pub fn selected_state(&self) -> u8 { raw::pkg_selected_state(&self.ptr) }
 
 	/// Check if the package is essnetial or not.
-	pub fn essential(&self) -> bool { apt::pkg_essential(&self.ptr) }
+	pub fn essential(&self) -> bool { raw::pkg_essential(&self.ptr) }
 
 	/// Check if the package has versions.
-	pub fn has_versions(&self) -> bool { apt::pkg_has_versions(&self.ptr) }
+	pub fn has_versions(&self) -> bool { raw::pkg_has_versions(&self.ptr) }
 
 	/// Check if the package has provides.
-	pub fn has_provides(&self) -> bool { apt::pkg_has_provides(&self.ptr) }
+	pub fn has_provides(&self) -> bool { raw::pkg_has_provides(&self.ptr) }
 
 	/// Returns the version object of the candidate.
 	///
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
-		let ver = apt::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr);
+		let ver = raw::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr);
 		if ver.ptr.is_null() {
 			return None;
 		}
@@ -105,7 +106,7 @@ impl<'a> Package<'a> {
 	///
 	/// If there isn't an installed version, returns None
 	pub fn installed(&self) -> Option<Version<'a>> {
-		let ver = apt::pkg_current_version(&self.ptr);
+		let ver = raw::pkg_current_version(&self.ptr);
 		if ver.ptr.is_null() {
 			return None;
 		}
@@ -117,7 +118,7 @@ impl<'a> Package<'a> {
 	}
 
 	/// Check if the package is installed.
-	pub fn is_installed(&self) -> bool { apt::pkg_is_installed(&self.ptr) }
+	pub fn is_installed(&self) -> bool { raw::pkg_is_installed(&self.ptr) }
 
 	/// Check if the package is upgradable.
 	///
@@ -163,7 +164,7 @@ impl<'a> Package<'a> {
 	/// Returns a version list starting with the newest and ending with the
 	/// oldest.
 	pub fn versions(&self) -> impl Iterator<Item = Version<'a>> + '_ {
-		apt::pkg_version_list(&self.ptr).into_iter().map(|ver_ptr| {
+		pkg_version_list(&self.ptr).into_iter().map(|ver_ptr| {
 			Version::new(Rc::clone(&self.records), Rc::clone(&self.depcache), ver_ptr)
 		})
 	}
@@ -198,10 +199,10 @@ impl<'a> PartialEq for Package<'a> {
 #[derive(Debug)]
 pub struct Version<'a> {
 	_lifetime: &'a PhantomData<Cache>,
-	ptr: apt::VersionPtr,
+	ptr: raw::VersionPtr,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
-	file_list: OnceCell<Vec<apt::PackageFile>>,
+	file_list: OnceCell<Vec<raw::PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
 }
 
@@ -209,7 +210,7 @@ impl<'a> Version<'a> {
 	fn new(
 		records: Rc<RefCell<Records>>,
 		depcache: Rc<RefCell<DepCache>>,
-		ver_ptr: apt::VersionPtr,
+		ver_ptr: raw::VersionPtr,
 	) -> Self {
 		Self {
 			_lifetime: &PhantomData,
@@ -226,51 +227,51 @@ impl<'a> Version<'a> {
 		Package::new(
 			Rc::clone(&self.records),
 			Rc::clone(&self.depcache),
-			apt::ver_parent(&self.ptr),
+			raw::ver_parent(&self.ptr),
 		)
 	}
 
 	/// The architecture of the version.
-	pub fn arch(&self) -> String { apt::ver_arch(&self.ptr) }
+	pub fn arch(&self) -> String { raw::ver_arch(&self.ptr) }
 
 	/// The version string of the version. "1.4.10"
-	pub fn version(&self) -> String { apt::ver_str(&self.ptr) }
+	pub fn version(&self) -> String { raw::ver_str(&self.ptr) }
 
 	/// The section of the version as shown in `apt show`.
-	pub fn section(&self) -> String { apt::ver_section(&self.ptr) }
+	pub fn section(&self) -> String { raw::ver_section(&self.ptr) }
 
 	/// The priority string as shown in `apt show`.
-	pub fn priority_str(&self) -> String { apt::ver_priority_str(&self.ptr) }
+	pub fn priority_str(&self) -> String { raw::ver_priority_str(&self.ptr) }
 
 	/// The name of the source package the version was built from.
-	pub fn source_name(&self) -> String { apt::ver_source_name(&self.ptr) }
+	pub fn source_name(&self) -> String { raw::ver_source_name(&self.ptr) }
 
 	/// The version of the source package.
-	pub fn source_version(&self) -> String { apt::ver_source_version(&self.ptr) }
+	pub fn source_version(&self) -> String { raw::ver_source_version(&self.ptr) }
 
 	/// The priority of the package as shown in `apt policy`.
 	pub fn priority(&self) -> i32 {
-		apt::ver_priority(&self.records.borrow().cache.borrow(), &self.ptr)
+		raw::ver_priority(&self.records.borrow().cache.borrow(), &self.ptr)
 	}
 
 	/// The size of the .deb file.
-	pub fn size(&self) -> u64 { apt::ver_size(&self.ptr) }
+	pub fn size(&self) -> u64 { raw::ver_size(&self.ptr) }
 
 	/// The uncompressed size of the .deb file.
-	pub fn installed_size(&self) -> u64 { apt::ver_installed_size(&self.ptr) }
+	pub fn installed_size(&self) -> u64 { raw::ver_installed_size(&self.ptr) }
 
 	/// The ID of the version.
-	pub fn id(&self) -> u32 { apt::ver_id(&self.ptr) }
+	pub fn id(&self) -> u32 { raw::ver_id(&self.ptr) }
 
 	/// If the version is able to be downloaded.
-	pub fn downloadable(&self) -> bool { apt::ver_downloadable(&self.ptr) }
+	pub fn downloadable(&self) -> bool { raw::ver_downloadable(&self.ptr) }
 
 	/// Check if the version is installed
-	pub fn is_installed(&self) -> bool { apt::ver_installed(&self.ptr) }
+	pub fn is_installed(&self) -> bool { raw::ver_installed(&self.ptr) }
 
 	/// Internal Method for Generating the PackageFiles
-	fn gen_file_list(&self) -> Vec<apt::PackageFile> {
-		apt::pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr)
+	fn gen_file_list(&self) -> Vec<raw::PackageFile> {
+		pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr)
 	}
 
 	/// Returns a reference to the Dependency Map owned by the Version
@@ -405,10 +406,10 @@ impl<'a> Version<'a> {
 			})
 	}
 
-	/// Internal Method for converting apt::deps into rust-apt deps
-	fn convert_depends(&self, apt_deps: apt::DepContainer) -> Dependency {
+	/// Internal Method for converting raw::deps into rust-apt deps
+	fn convert_depends(&self, raw_deps: raw::DepContainer) -> Dependency {
 		let mut base_vec = Vec::new();
-		for base_dep in apt_deps.dep_list {
+		for base_dep in raw_deps.dep_list {
 			base_vec.push(BaseDep {
 				records: Rc::clone(&self.records),
 				depcache: Rc::clone(&self.depcache),
@@ -416,7 +417,7 @@ impl<'a> Version<'a> {
 			})
 		}
 		Dependency {
-			dep_type: apt_deps.dep_type,
+			dep_type: raw_deps.dep_type,
 			base_deps: base_vec,
 		}
 	}
@@ -424,7 +425,7 @@ impl<'a> Version<'a> {
 	/// Internal Method for Generating the Dependency HashMap
 	fn gen_depends(&self) -> HashMap<String, Vec<Dependency>> {
 		let mut dependencies: HashMap<String, Vec<Dependency>> = HashMap::new();
-		for dep in apt::dep_list(&self.ptr) {
+		for dep in raw::dep_list(&self.ptr) {
 			if let Some(vec) = dependencies.get_mut(&dep.dep_type) {
 				vec.push(self.convert_depends(dep))
 			} else {
@@ -460,7 +461,7 @@ impl<'a> fmt::Display for Version<'a> {
 impl<'a> PartialEq for Version<'a> {
 	fn eq(&self, other: &Self) -> bool {
 		matches!(
-			util::cmp_versions(&self.version(), &other.version()),
+			cmp_versions(&self.version(), &other.version()),
 			Ordering::Equal
 		)
 	}
@@ -468,14 +469,14 @@ impl<'a> PartialEq for Version<'a> {
 
 impl<'a> PartialOrd for Version<'a> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(util::cmp_versions(&self.version(), &other.version()))
+		Some(cmp_versions(&self.version(), &other.version()))
 	}
 }
 
 /// A struct representing a Base Dependency
 #[derive(Debug)]
 pub struct BaseDep {
-	apt_dep: apt::BaseDep,
+	apt_dep: raw::BaseDep,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
 }
@@ -490,7 +491,7 @@ impl BaseDep {
 	pub fn dep_type(&self) -> &String { &self.apt_dep.dep_type }
 
 	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
-		apt::dep_all_targets(&self.apt_dep)
+		raw::dep_all_targets(&self.apt_dep)
 			.into_iter()
 			.map(|ver_ptr| {
 				Version::new(Rc::clone(&self.records), Rc::clone(&self.depcache), ver_ptr)
@@ -545,6 +546,145 @@ impl fmt::Display for Dependency {
 			)?;
 		}
 		write!(f, "\n]")?;
+		Ok(())
+	}
+}
+
+/// This module contains the bindings and structs shared with c++
+#[cxx::bridge]
+pub mod raw {
+	/// Struct representing a base dependency.
+	struct BaseDep {
+		name: String,
+		version: String,
+		comp: String,
+		dep_type: String,
+		ptr: SharedPtr<DepIterator>,
+	}
+
+	/// A wrapper for the BaseDeps to be passed as a list across the barrier.
+	struct DepContainer {
+		dep_type: String,
+		dep_list: Vec<BaseDep>,
+	}
+
+	unsafe extern "C++" {
+		type DepIterator;
+
+		type PkgCacheFile = crate::cache::raw::PkgCacheFile;
+		type VersionPtr = crate::cache::raw::VersionPtr;
+		type PackagePtr = crate::cache::raw::PackagePtr;
+		type PackageFile = crate::cache::raw::PackageFile;
+
+		include!("rust-apt/apt-pkg-c/cache.h");
+		include!("rust-apt/apt-pkg-c/package.h");
+
+		/// Return the installed version of the package.
+		/// Ptr will be NULL if it's not installed.
+		pub fn pkg_current_version(iterator: &PackagePtr) -> VersionPtr;
+
+		/// Return the candidate version of the package.
+		/// Ptr will be NULL if there isn't a candidate.
+		pub fn pkg_candidate_version(
+			cache: &UniquePtr<PkgCacheFile>,
+			iterator: &PackagePtr,
+		) -> VersionPtr;
+
+		/// Check if the package is installed.
+		pub fn pkg_is_installed(iterator: &PackagePtr) -> bool;
+
+		/// Check if the package has versions.
+		/// If a package has no versions it is considered virtual.
+		pub fn pkg_has_versions(iterator: &PackagePtr) -> bool;
+
+		/// Check if a package provides anything.
+		/// Virtual packages may provide a real package.
+		/// This is how you would access the packages to satisfy it.
+		pub fn pkg_has_provides(iterator: &PackagePtr) -> bool;
+
+		/// Return true if the package is essential, otherwise false.
+		pub fn pkg_essential(iterator: &PackagePtr) -> bool;
+
+		/// Get the fullname of a package.
+		/// More information on this in the package module.
+		pub fn get_fullname(iterator: &PackagePtr, pretty: bool) -> String;
+
+		/// Get the name of the package without the architecture.
+		pub fn pkg_name(pkg: &PackagePtr) -> String;
+
+		/// Get the architecture of a package.
+		pub fn pkg_arch(iterator: &PackagePtr) -> String;
+
+		/// Get the ID of a package.
+		pub fn pkg_id(iterator: &PackagePtr) -> u32;
+
+		/// Get the current state of a package.
+		pub fn pkg_current_state(iterator: &PackagePtr) -> u8;
+
+		/// Get the installed state of a package.
+		pub fn pkg_inst_state(iterator: &PackagePtr) -> u8;
+
+		/// Get the selected state of a package.
+		pub fn pkg_selected_state(iterator: &PackagePtr) -> u8;
+
+		/// Version Functions:
+
+		/// Return a Vector of all the dependencies of a version.
+		pub fn dep_list(version: &VersionPtr) -> Vec<DepContainer>;
+
+		/// Return the parent package.
+		pub fn ver_parent(version: &VersionPtr) -> PackagePtr;
+
+		/// The architecture of a version.
+		pub fn ver_arch(version: &VersionPtr) -> String;
+
+		/// The version string of the version. "1.4.10"
+		pub fn ver_str(version: &VersionPtr) -> String;
+
+		/// The section of the version as shown in `apt show`.
+		pub fn ver_section(version: &VersionPtr) -> String;
+
+		/// The priority string as shown in `apt show`.
+		pub fn ver_priority_str(version: &VersionPtr) -> String;
+
+		/// The name of the source package the version was built from.
+		pub fn ver_source_name(version: &VersionPtr) -> String;
+
+		/// The version of the source package.
+		pub fn ver_source_version(version: &VersionPtr) -> String;
+
+		/// The priority of the package as shown in `apt policy`.
+		pub fn ver_priority(cache: &UniquePtr<PkgCacheFile>, version: &VersionPtr) -> i32;
+
+		/// The size of the .deb file.
+		pub fn ver_size(version: &VersionPtr) -> u64;
+
+		/// The uncompressed size of the .deb file.
+		pub fn ver_installed_size(version: &VersionPtr) -> u64;
+
+		/// The ID of the version.
+		pub fn ver_id(version: &VersionPtr) -> u32;
+
+		/// If the version is able to be downloaded.
+		pub fn ver_downloadable(version: &VersionPtr) -> bool;
+
+		/// Check if the version is currently installed.
+		pub fn ver_installed(version: &VersionPtr) -> bool;
+
+		/// Dependency Functions:
+
+		/// Return a Vector of all versions that can satisfy a dependency.
+		pub fn dep_all_targets(dep: &BaseDep) -> Vec<VersionPtr>;
+	}
+}
+
+impl fmt::Debug for raw::BaseDep {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"BaseDep <Name: {}, Version: {}, Comp: {}, Type: {}>",
+			self.name, self.version, self.comp, self.dep_type,
+		)?;
 		Ok(())
 	}
 }

@@ -61,6 +61,8 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "*.rs": "rust"
+        "*.rs": "rust",
+        "future": "cpp",
+        "variant": "cpp"
     }
 }

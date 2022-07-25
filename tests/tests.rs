@@ -95,16 +95,14 @@ mod cache {
 	fn hashes() {
 		let cache = Cache::new();
 		let pkg = cache.get("apt").unwrap();
-		let version_list = pkg.versions().collect::<Vec<_>>();
-		// Should not be zero for apt
-		assert!(!version_list.is_empty());
-		for version in version_list {
-			assert!(version.sha256().is_some());
-			assert!(version.hash("sha256").is_some());
-			assert!(version.sha512().is_none());
-			assert!(version.hash("md5sum").is_some());
-			assert!(version.hash("sha1").is_none())
-		}
+		// Apt could be installed, and the package no longer exists
+		// In the cache. For this case we grab the candidate so it won't fail.
+		let version = pkg.candidate().unwrap();
+		assert!(version.sha256().is_some());
+		assert!(version.hash("sha256").is_some());
+		assert!(version.sha512().is_none());
+		assert!(version.hash("md5sum").is_some());
+		assert!(version.hash("sha1").is_none())
 	}
 
 	#[test]
@@ -469,8 +467,7 @@ mod util {
 /// Tests that require root
 mod root {
 	use rust_apt::cache::*;
-	use rust_apt::progress::{AptUpdateProgress, UpdateProgress};
-	use rust_apt::raw::apt;
+	use rust_apt::progress::{raw, AptUpdateProgress, UpdateProgress};
 	use rust_apt::util::*;
 
 	#[test]
@@ -537,7 +534,7 @@ mod root {
 
 			fn pulse(
 				&mut self,
-				_workers: Vec<apt::Worker>,
+				_workers: Vec<raw::Worker>,
 				_percent: f32,
 				_total_bytes: u64,
 				_current_bytes: u64,

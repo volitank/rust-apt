@@ -1,5 +1,3 @@
-use crate::raw::apt;
-
 /// Struct for Apt Configuration
 ///
 /// All apt configuration methods do not require this struct.
@@ -14,35 +12,7 @@ impl Default for Config {
 	fn default() -> Self { Self::new() }
 }
 
-pub enum Conf {
-	Get,
-	Set(bool),
-}
-
 impl Config {
-	pub fn install_recommends(&self, action: Conf) -> bool {
-		let key = String::from("APT::Install-Recommends");
-		match action {
-			Conf::Set(value) => {
-				let value = String::from(if value { "1" } else { "0" });
-				apt::config_set(key, value);
-				true
-			},
-			Conf::Get => apt::config_find_bool(key, false),
-		}
-	}
-
-	pub fn set_install_recommends(&self, value: bool) {
-		apt::config_set(
-			String::from("APT::Install-Recommends"),
-			String::from(if value { "1" } else { "0" }),
-		);
-	}
-
-	pub fn get_install_recommends(&self) -> bool {
-		apt::config_find_bool(String::from("APT::Install-Recommends"), false)
-	}
-
 	/// Create a new config object and safely init the config system.
 	///
 	/// If you initialize the struct without `new()` or `default()`
@@ -55,14 +25,14 @@ impl Config {
 	/// Clears all configuratations, re-initialize, and returns the config
 	/// object.
 	pub fn new_clear() -> Self {
-		apt::config_clear_all();
+		raw::config_clear_all();
 		Self::new()
 	}
 
 	/// Resets the configurations.
 	///
 	/// If you'd like to clear everything and NOT reinit
-	/// you can call `self.clear_all` or `apt::config_clear_all` directly
+	/// you can call `self.clear_all` or `raw::config_clear_all` directly
 	pub fn reset(&self) {
 		self.clear_all();
 		init_config_system();
@@ -72,33 +42,33 @@ impl Config {
 	///
 	/// If the value is a list, the entire list is cleared.
 	/// If you need to clear 1 value from a list see `self.clear_value`
-	pub fn clear(&self, key: &str) { apt::config_clear(key.to_string()); }
+	pub fn clear(&self, key: &str) { raw::config_clear(key.to_string()); }
 
 	/// Clear a single value from a list.
 	/// Used for removing one item in an apt configuruation list
 	pub fn clear_value(&self, key: &str, value: &str) {
-		apt::config_clear_value(key.to_string(), value.to_string());
+		raw::config_clear_value(key.to_string(), value.to_string());
 	}
 
 	/// Clears all configuratations.
 	///
 	/// This will leave you with an empty configuration object
 	/// and most things probably won't work right.
-	pub fn clear_all(&self) { apt::config_clear_all(); }
+	pub fn clear_all(&self) { raw::config_clear_all(); }
 
 	/// Returns a string dump of configuration options separated by `\n`
-	pub fn dump(&self) -> String { apt::config_dump() }
+	pub fn dump(&self) -> String { raw::config_dump() }
 
 	/// Find a key and return it's value as a string.
 	///
 	/// default is what will be returned if nothing is found.
 	pub fn find(&self, key: &str, default: &str) -> String {
-		apt::config_find(key.to_string(), default.to_string())
+		raw::config_find(key.to_string(), default.to_string())
 	}
 
 	/// Exactly like find but takes no default and returns an option instead.
 	pub fn get(&self, key: &str) -> Option<String> {
-		let value = apt::config_find(key.to_string(), "".to_string());
+		let value = raw::config_find(key.to_string(), "".to_string());
 		if value.is_empty() {
 			return None;
 		}
@@ -116,7 +86,7 @@ impl Config {
 	///
 	/// `dir` will return with a trailing `/` where `file` will not.
 	pub fn file(&self, key: &str, default: &str) -> String {
-		apt::config_find_file(key.to_string(), default.to_string())
+		raw::config_find_file(key.to_string(), default.to_string())
 	}
 
 	/// Find a directory and return it's value as a string.
@@ -129,30 +99,30 @@ impl Config {
 	///
 	/// `dir` will return with a trailing `/` where `file` will not.
 	pub fn dir(&self, key: &str, default: &str) -> String {
-		apt::config_find_dir(key.to_string(), default.to_string())
+		raw::config_find_dir(key.to_string(), default.to_string())
 	}
 
 	/// Same as find, but for boolean values.
 	pub fn bool(&self, key: &str, default: bool) -> bool {
-		apt::config_find_bool(key.to_string(), default)
+		raw::config_find_bool(key.to_string(), default)
 	}
 
 	/// Same as find, but for i32 values.
 	pub fn int(&self, key: &str, default: i32) -> i32 {
-		apt::config_find_int(key.to_string(), default)
+		raw::config_find_int(key.to_string(), default)
 	}
 
 	/// Return a vector for an Apt configuration list.
 	///
-	/// An example of a common key that contains a list `APT::NeverAutoRemove`.
-	pub fn find_vector(&self, key: &str) -> Vec<String> { apt::config_find_vector(key.to_string()) }
+	/// An example of a common key that contains a list `raw::NeverAutoRemove`.
+	pub fn find_vector(&self, key: &str) -> Vec<String> { raw::config_find_vector(key.to_string()) }
 
 	/// Simply check if a key exists.
-	pub fn contains(&self, key: &str) -> bool { apt::config_exists(key.to_string()) }
+	pub fn contains(&self, key: &str) -> bool { raw::config_exists(key.to_string()) }
 
 	/// Set the given key to the specified value.
 	pub fn set(&self, key: &str, value: &str) {
-		apt::config_set(key.to_string(), value.to_string())
+		raw::config_set(key.to_string(), value.to_string())
 	}
 
 	/// Add strings from a vector into an apt configuration list.
@@ -176,7 +146,7 @@ impl Config {
 		}
 
 		for value in values {
-			apt::config_set(vec_key.to_string(), value.to_string());
+			raw::config_set(vec_key.to_string(), value.to_string());
 		}
 	}
 }
@@ -187,8 +157,62 @@ impl Config {
 ///
 /// This could cause some things to get reset.
 pub fn init_config_system() {
-	if apt::config_find("APT".to_string(), "".to_string()).is_empty() {
-		apt::init_config();
+	if raw::config_find("APT".to_string(), "".to_string()).is_empty() {
+		raw::init_config();
 	}
-	apt::init_system();
+	raw::init_system();
+}
+
+/// This module contains the bindings and structs shared with c++
+#[cxx::bridge]
+pub mod raw {
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/configuration.h");
+
+		/// init the system. This must occur before creating the cache.
+		pub fn init_system();
+
+		/// init the config. This must occur before creating the cache.
+		pub fn init_config();
+
+		/// Returns a string dump of configuration options separated by `\n`
+		pub fn config_dump() -> String;
+
+		/// Find a key and return it's value as a string.
+		pub fn config_find(key: String, default_value: String) -> String;
+
+		/// Find a file and return it's value as a string.
+		pub fn config_find_file(key: String, default_value: String) -> String;
+
+		/// Find a directory and return it's value as a string.
+		pub fn config_find_dir(key: String, default_value: String) -> String;
+
+		/// Same as find, but for boolean values.
+		pub fn config_find_bool(key: String, default_value: bool) -> bool;
+
+		/// Same as find, but for i32 values.
+		pub fn config_find_int(key: String, default_value: i32) -> i32;
+
+		/// Return a vector for an Apt configuration list.
+		pub fn config_find_vector(key: String) -> Vec<String>;
+
+		/// Set the given key to the specified value.
+		pub fn config_set(key: String, value: String);
+
+		/// Simply check if a key exists.
+		pub fn config_exists(key: String) -> bool;
+
+		/// Clears all values from a key.
+		///
+		/// If the value is a list, the entire list is cleared.
+		/// If you need to clear 1 value from a list see `config_clear_value`
+		pub fn config_clear(key: String);
+
+		/// Clears all configuratations.
+		pub fn config_clear_all();
+
+		/// Clear a single value from a list.
+		/// Used for removing one item in an apt configuruation list
+		pub fn config_clear_value(key: String, value: String);
+	}
 }

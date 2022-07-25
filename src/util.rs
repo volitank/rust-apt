@@ -1,8 +1,6 @@
 //! Contains miscellaneous helper utilities.
 use std::cmp::Ordering;
 
-use crate::raw::apt;
-
 /// Compares two package versions, `ver1` and `ver2`. The returned enum variant
 /// applies to the first version passed in.
 ///
@@ -18,9 +16,8 @@ use crate::raw::apt;
 /// assert_eq!(Ordering::Less, result);
 /// ```
 pub fn cmp_versions(ver1: &str, ver2: &str) -> Ordering {
-	let result = apt::cmp_versions(ver1.to_owned(), ver2.to_owned());
-
-	match apt::cmp_versions(ver1.to_owned(), ver2.to_owned()) {
+	let result = raw::cmp_versions(ver1.to_owned(), ver2.to_owned());
+	match result {
 		_ if result < 0 => Ordering::Less,
 		_ if result == 0 => Ordering::Equal,
 		_ => Ordering::Greater,
@@ -98,4 +95,23 @@ pub fn time_str(seconds: u64) -> String {
 		return format!("{}min {}s", (seconds / 60) % 60, seconds % 60,);
 	}
 	format!("{seconds}s")
+}
+
+/// This module contains the bindings and structs shared with c++
+#[cxx::bridge]
+pub mod raw {
+
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/util.h");
+
+		/// Compares two package versions, `ver1` and `ver2`. The returned
+		/// integer's value is mapped to one of the following integers:
+		/// - Less than 0: `ver1` is less than `ver2`.
+		/// - Equal to 0: `ver1` is equal to `ver2`.
+		/// - Greater than 0: `ver1` is greater than `ver2`.
+		///
+		/// Unless you have a specific need for otherwise, you should probably
+		/// use [`crate::util::cmp_versions`] instead.
+		pub fn cmp_versions(ver1: String, ver2: String) -> i32;
+	}
 }

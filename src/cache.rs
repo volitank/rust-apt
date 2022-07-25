@@ -1,19 +1,22 @@
 //! Contains Cache related structs.
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 
 use cxx::{Exception, UniquePtr};
 
 use crate::config::init_config_system;
+use crate::depcache::DepCache;
+use crate::package;
 use crate::package::Package;
 use crate::progress::UpdateProgress;
-use crate::raw::apt;
+use crate::records::Records;
 use crate::util::DiskSpace;
 
 /// Struct for sorting packages.
-pub type PackageSort = apt::PackageSort;
+pub type PackageSort = raw::PackageSort;
 /// Enum for the Package Sorter.
-pub type Sort = apt::Sort;
+pub type Sort = raw::Sort;
 
 impl Default for PackageSort {
 	fn default() -> PackageSort {
@@ -96,105 +99,10 @@ impl PackageSort {
 	}
 }
 
-/// Internal Struct for managing package records.
-#[derive(Debug)]
-pub struct Records {
-	pub(crate) ptr: apt::Records,
-	pub(crate) cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
-}
-
-impl Records {
-	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self {
-		let record = apt::pkg_records_create(&cache.borrow());
-		Records { ptr: record, cache }
-	}
-
-	pub fn lookup_desc(&mut self, desc: &UniquePtr<apt::DescIterator>) {
-		apt::desc_file_lookup(&mut self.ptr, desc);
-	}
-
-	pub fn lookup_ver(&mut self, ver_file: &apt::PackageFile) {
-		apt::ver_file_lookup(&mut self.ptr, ver_file);
-	}
-
-	pub fn description(&self) -> String { apt::long_desc(&self.ptr) }
-
-	pub fn summary(&self) -> String { apt::short_desc(&self.ptr) }
-
-	pub fn uri(&self, pkg_file: &apt::PackageFile) -> String {
-		apt::ver_uri(&self.ptr, &self.cache.borrow(), pkg_file)
-	}
-
-	pub fn hash_find(&self, hash_type: &str) -> Option<String> {
-		let hash = apt::hash_find(&self.ptr, hash_type.to_string());
-		if hash == "KeyError" {
-			return None;
-		}
-		Some(hash)
-	}
-}
-
-/// Internal Struct for managing the pkgDepCache.
-#[derive(Debug)]
-pub struct DepCache {
-	cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
-}
-
-impl DepCache {
-	pub fn new(cache: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>) -> Self { DepCache { cache } }
-
-	pub fn clear(&self) { apt::depcache_create(&self.cache.borrow()); }
-
-	pub fn is_upgradable(&self, pkg_ptr: &apt::PackagePtr, skip_depcache: bool) -> bool {
-		apt::pkg_is_upgradable(&self.cache.borrow(), pkg_ptr, skip_depcache)
-	}
-
-	pub fn is_auto_installed(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_is_auto_installed(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn is_auto_removable(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		(apt::pkg_is_installed(pkg_ptr) || apt::pkg_marked_install(&self.cache.borrow(), pkg_ptr))
-			&& apt::pkg_is_garbage(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_install(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_install(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_upgrade(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_upgrade(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_delete(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_delete(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_keep(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_keep(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_downgrade(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_downgrade(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn marked_reinstall(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_marked_reinstall(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn is_now_broken(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_is_now_broken(&self.cache.borrow(), pkg_ptr)
-	}
-
-	pub fn is_inst_broken(&self, pkg_ptr: &apt::PackagePtr) -> bool {
-		apt::pkg_is_inst_broken(&self.cache.borrow(), pkg_ptr)
-	}
-}
-
 /// The main struct for accessing any and all `apt` data.
 #[derive(Debug)]
 pub struct Cache {
-	pub ptr: Rc<RefCell<UniquePtr<apt::PkgCacheFile>>>,
+	pub ptr: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
 	pub records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
 }
@@ -209,7 +117,7 @@ impl Cache {
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Self {
 		init_config_system();
-		let cache_ptr = Rc::new(RefCell::new(apt::pkg_cache_create()));
+		let cache_ptr = Rc::new(RefCell::new(raw::pkg_cache_create()));
 		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
 			depcache: Rc::new(RefCell::new(DepCache::new(Rc::clone(&cache_ptr)))),
@@ -245,14 +153,14 @@ impl Cache {
 	/// }
 	/// ```
 	pub fn update(&self, progress: &mut Box<dyn UpdateProgress>) -> Result<(), Exception> {
-		apt::cache_update(&self.ptr.borrow(), progress)
+		raw::cache_update(&self.ptr.borrow(), progress)
 	}
 
 	/// Returns an iterator of SourceURIs.
 	///
 	/// These are the files that `apt update` will fetch.
-	pub fn sources(&self) -> impl Iterator<Item = apt::SourceFile> + '_ {
-		apt::source_uris(&self.ptr.borrow()).into_iter()
+	pub fn sources(&self) -> impl Iterator<Item = raw::SourceFile> + '_ {
+		raw::source_uris(&self.ptr.borrow()).into_iter()
 	}
 
 	/// Returns an iterator of Packages that provide the virtual package
@@ -261,15 +169,15 @@ impl Cache {
 		virt_pkg: &Package,
 		cand_only: bool,
 	) -> impl Iterator<Item = Package> + '_ {
-		apt::pkg_provides_list(&self.ptr.borrow(), &virt_pkg.ptr, cand_only)
+		raw::pkg_provides_list(&self.ptr.borrow(), &virt_pkg.ptr, cand_only)
 			.into_iter()
 			.map(|pkg| Package::new(Rc::clone(&self.records), Rc::clone(&self.depcache), pkg))
 	}
 
 	// Disabled as it doesn't really work yet. Would likely need to
 	// Be on the objects them self and not the cache
-	// pub fn validate(&self, ver: *mut apt::VerIterator) -> bool {
-	// 	apt::validate(ver, self._cache)
+	// pub fn validate(&self, ver: *mut raw::VerIterator) -> bool {
+	// 	raw::validate(ver, self._cache)
 	// }
 
 	/// Get a single package.
@@ -300,22 +208,22 @@ impl Cache {
 	///
 	/// The returned iterator will either be at the end, or at a matching
 	/// package.
-	fn find_by_name(&self, name: &str, arch: &str) -> apt::PackagePtr {
+	fn find_by_name(&self, name: &str, arch: &str) -> raw::PackagePtr {
 		if !arch.is_empty() {
-			return apt::pkg_cache_find_name_arch(
+			return raw::pkg_cache_find_name_arch(
 				&self.ptr.borrow(),
 				name.to_owned(),
 				arch.to_owned(),
 			);
 		}
-		apt::pkg_cache_find_name(&self.ptr.borrow(), name.to_owned())
+		raw::pkg_cache_find_name(&self.ptr.borrow(), name.to_owned())
 	}
 
 	/// An iterator of packages in the cache.
 	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
-		let mut pkg_list = apt::pkg_list(&self.ptr.borrow(), sort);
+		let mut pkg_list = raw::pkg_list(&self.ptr.borrow(), sort);
 		if sort.names {
-			pkg_list.sort_by_cached_key(|pkg| apt::get_fullname(pkg, true));
+			pkg_list.sort_by_cached_key(|pkg| package::raw::get_fullname(pkg, true));
 		}
 		pkg_list
 			.into_iter()
@@ -323,29 +231,205 @@ impl Cache {
 	}
 
 	/// The number of packages marked for installation.
-	pub fn install_count(&self) -> u32 { apt::install_count(&self.ptr.borrow()) }
+	pub fn install_count(&self) -> u32 { self.depcache.borrow().install_count() }
 
 	/// The number of packages marked for removal.
-	pub fn delete_count(&self) -> u32 { apt::delete_count(&self.ptr.borrow()) }
+	pub fn delete_count(&self) -> u32 { self.depcache.borrow().delete_count() }
 
 	/// The number of packages marked for keep.
-	pub fn keep_count(&self) -> u32 { apt::keep_count(&self.ptr.borrow()) }
+	pub fn keep_count(&self) -> u32 { self.depcache.borrow().keep_count() }
 
 	/// The number of packages with broken dependencies in the cache.
-	pub fn broken_count(&self) -> u32 { apt::broken_count(&self.ptr.borrow()) }
+	pub fn broken_count(&self) -> u32 { self.depcache.borrow().broken_count() }
 
 	/// The size of all packages to be downloaded.
-	pub fn download_size(&self) -> u64 { apt::download_size(&self.ptr.borrow()) }
+	pub fn download_size(&self) -> u64 { self.depcache.borrow().download_size() }
 
 	/// The amount of space required for installing/removing the packages,"
 	///
 	/// i.e. the Installed-Size of all packages marked for installation"
 	/// minus the Installed-Size of all packages for removal."
-	pub fn disk_size(&self) -> DiskSpace {
-		let size = apt::disk_size(&self.ptr.borrow());
-		if size < 0 {
-			return DiskSpace::Free(-size as u64);
-		}
-		DiskSpace::Require(size as u64)
+	pub fn disk_size(&self) -> DiskSpace { self.depcache.borrow().disk_size() }
+}
+
+/// This module contains the bindings and structs shared with c++
+#[cxx::bridge]
+pub mod raw {
+
+	/// Struct representing a Source File.
+	#[derive(Debug)]
+	struct SourceFile {
+		/// `http://deb.volian.org/volian/dists/scar/InRelease`
+		uri: String,
+		/// `deb.volian.org_volian_dists_scar_InRelease`
+		filename: String,
+	}
+
+	/// A wrapper around the Apt pkgIterator.
+	struct PackagePtr {
+		ptr: UniquePtr<PkgIterator>,
+	}
+
+	/// A wrapper around the Apt verIterator.
+	struct VersionPtr {
+		ptr: UniquePtr<VerIterator>,
+		desc: UniquePtr<DescIterator>,
+	}
+
+	/// A wrapper around the Apt verFileIterator and pkgFileIterator.
+	struct PackageFile {
+		ver_file: UniquePtr<VerFileIterator>,
+		pkg_file: UniquePtr<PkgFileIterator>,
+	}
+
+	/// Enum to determine what will be sorted.
+	#[derive(Debug)]
+	pub enum Sort {
+		/// Disable the sort method.
+		Disable,
+		/// Enable the sort method.
+		Enable,
+		/// Reverse the sort method.
+		Reverse,
+	}
+
+	/// Struct for sorting packages.
+	#[derive(Debug)]
+	pub struct PackageSort {
+		pub names: bool,
+		pub upgradable: Sort,
+		pub virtual_pkgs: Sort,
+		pub installed: Sort,
+		pub auto_installed: Sort,
+		pub auto_removable: Sort,
+	}
+
+	unsafe extern "C++" {
+
+		/// Apt C++ Type
+		type PkgCacheFile;
+		/// Apt C++ Type
+		type PkgCache;
+		/// Apt C++ Type
+		type PkgSourceList;
+		/// Apt C++ Type
+		type PkgDepCache;
+
+		/// Apt C++ Type
+		type PkgIterator;
+		/// Apt C++ Type
+		type PkgFileIterator;
+		/// Apt C++ Type
+		type VerIterator;
+		/// Apt C++ Type
+		type VerFileIterator;
+		/// Apt C++ Type
+		type DescIterator;
+
+		type DynUpdateProgress = crate::progress::raw::DynUpdateProgress;
+
+		include!("rust-apt/apt-pkg-c/cache.h");
+		include!("rust-apt/apt-pkg-c/progress.h");
+		include!("rust-apt/apt-pkg-c/records.h");
+
+		// Main Initializers for apt:
+
+		/// Create the CacheFile.
+		///
+		/// It is advised to init the config and system before creating the
+		/// cache. These bindings can be found in config::raw.
+		pub fn pkg_cache_create() -> UniquePtr<PkgCacheFile>;
+
+		/// Update the package lists, handle errors and return a Result.
+		pub fn cache_update(
+			cache: &UniquePtr<PkgCacheFile>,
+			progress: &mut DynUpdateProgress,
+		) -> Result<()>;
+
+		/// Get the package list uris. This is the files that are updated with
+		/// `apt update`.
+		pub fn source_uris(cache: &UniquePtr<PkgCacheFile>) -> Vec<SourceFile>;
+
+		// Package Functions:
+
+		/// Returns a Vector of all the packages in the cache.
+		pub fn pkg_list(cache: &UniquePtr<PkgCacheFile>, sort: &PackageSort) -> Vec<PackagePtr>;
+
+		// pkg_file_list and pkg_version_list should be in package::raw
+		// I was unable to make this work so they remain here.
+
+		/// Return a Vector of all the package files for a version.
+		pub fn pkg_file_list(cache: &UniquePtr<PkgCacheFile>, ver: &VersionPtr)
+			-> Vec<PackageFile>;
+
+		/// Return a Vector of all the versions of a package.
+		pub fn pkg_version_list(pkg: &PackagePtr) -> Vec<VersionPtr>;
+
+		/// Return a Vector of all the packages that provide another. steam:i386
+		/// provides steam.
+		pub fn pkg_provides_list(
+			cache: &UniquePtr<PkgCacheFile>,
+			iterator: &PackagePtr,
+			cand_only: bool,
+		) -> Vec<PackagePtr>;
+
+		/// Return a package by name. Ptr will be NULL if the package doesn't
+		/// exist.
+		pub fn pkg_cache_find_name(cache: &UniquePtr<PkgCacheFile>, name: String) -> PackagePtr;
+
+		/// Return a package by name and architecture.
+		/// Ptr will be NULL if the package doesn't exist.
+		pub fn pkg_cache_find_name_arch(
+			cache: &UniquePtr<PkgCacheFile>,
+			name: String,
+			arch: String,
+		) -> PackagePtr;
+	}
+}
+
+impl fmt::Debug for raw::VersionPtr {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"VersionPtr: {}:{}",
+			package::raw::get_fullname(&package::raw::ver_parent(self), false),
+			package::raw::ver_str(self)
+		)?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for raw::PkgCacheFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PkgCacheFile: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for raw::PkgDepCache {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PkgDepCache: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for raw::PackagePtr {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "PackagePtr: {}", package::raw::get_fullname(self, false))?;
+		Ok(())
+	}
+}
+
+impl fmt::Display for raw::SourceFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "Source< Uri: {}, Filename: {}>", self.uri, self.filename)?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for raw::PackageFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "package file: {{ To Be Implemented }}")?;
+		Ok(())
 	}
 }

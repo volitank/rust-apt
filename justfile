@@ -58,12 +58,20 @@ clippy +ARGS="":
 fmt +ARGS="":
 	@cargo +nightly fmt --all -- {{ARGS}}
 	@clang-format -i \
-		apt-pkg-c/apt-pkg.cc \
-		apt-pkg-c/apt-pkg.h \
+		apt-pkg-c/cache.cc \
+		apt-pkg-c/cache.h \
 		apt-pkg-c/configuration.cc \
 		apt-pkg-c/configuration.h \
 		apt-pkg-c/progress.cc \
-		apt-pkg-c/progress.h
+		apt-pkg-c/progress.h \
+		apt-pkg-c/util.cc \
+		apt-pkg-c/util.h \
+		apt-pkg-c/depcache.cc \
+		apt-pkg-c/depcache.h \
+		apt-pkg-c/records.cc \
+		apt-pkg-c/records.h \
+		apt-pkg-c/package.cc \
+		apt-pkg-c/package.h
 	@echo Codebase formatted successfully!
 
 # Spellcheck the codebase

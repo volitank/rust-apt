@@ -1,3 +1,6 @@
+#pragma once
+#include "rust/cxx.h"
+
 /// Initialize the apt configuration.
 void init_config();
 

@@ -3,7 +3,7 @@
 #include <apt-pkg/pkgsystem.h>
 #include <sstream>
 
-#include "rust-apt/src/raw.rs"
+#include "rust-apt/src/config.rs"
 /// The configuration pointer is global.
 /// We do not need to make a new unique one.
 

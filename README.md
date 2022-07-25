@@ -18,7 +18,9 @@ This API is far from what could be considered stable.
 If you plan on using it in a real project make sure to pin the exact version.
 Breaking changes will be frequent and potentially unnannouned as the API comes together.
 
-Additionally, if you do anything *wrong*, `libapt-pkg` will just segfault.
+Each module has a `raw` submodule containing c++ bindings to `libapt-pkg`.
+
+These are safe to use in terms of memory, but may cause segfaults if you do something wrong.
 
 If you find a way to segfault without using the `libapt-pkg` bindings directly, please report this as a bug.
 
