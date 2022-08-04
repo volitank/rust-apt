@@ -26,13 +26,13 @@ struct Records;
 
 Records records_create(const std::unique_ptr<PkgCacheFile>& cache);
 
-void ver_file_lookup(Records& records, const PackageFile& pkg_file);
+void ver_file_lookup(Records& records, const VersionFile& pkg_file);
 
 void desc_file_lookup(Records& records, const std::unique_ptr<DescIterator>& desc);
 
 rust::string ver_uri(const Records& records,
 const std::unique_ptr<PkgCacheFile>& cache,
-const PackageFile& pkg_file);
+const VersionFile& ver_file);
 
 rust::string long_desc(const Records& records);
 

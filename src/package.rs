@@ -8,8 +8,8 @@ use std::rc::Rc;
 
 use once_cell::unsync::OnceCell;
 
-use crate::cache::raw::{pkg_file_list, pkg_version_list};
-use crate::cache::Cache;
+use crate::cache::raw::{pkg_version_list, ver_file_list, ver_pkg_file_list};
+use crate::cache::{Cache, PackageFile};
 use crate::depcache::DepCache;
 use crate::records::Records;
 use crate::util::{cmp_versions, unit_str, NumSys};
@@ -202,7 +202,6 @@ pub struct Version<'a> {
 	ptr: raw::VersionPtr,
 	records: Rc<RefCell<Records>>,
 	depcache: Rc<RefCell<DepCache>>,
-	file_list: OnceCell<Vec<raw::PackageFile>>,
 	depends_list: OnceCell<HashMap<String, Vec<Dependency>>>,
 }
 
@@ -216,7 +215,6 @@ impl<'a> Version<'a> {
 			_lifetime: &PhantomData,
 			records,
 			depcache,
-			file_list: OnceCell::new(),
 			depends_list: OnceCell::new(),
 			ptr: ver_ptr,
 		}
@@ -268,11 +266,6 @@ impl<'a> Version<'a> {
 
 	/// Check if the version is installed
 	pub fn is_installed(&self) -> bool { raw::ver_installed(&self.ptr) }
-
-	/// Internal Method for Generating the PackageFiles
-	fn gen_file_list(&self) -> Vec<raw::PackageFile> {
-		pkg_file_list(&self.records.borrow().cache.borrow(), &self.ptr)
-	}
 
 	/// Returns a reference to the Dependency Map owned by the Version
 	/// ```
@@ -378,32 +371,33 @@ impl<'a> Version<'a> {
 	/// Get the hash specified. If there isn't one returns None
 	/// `version.hash("md5sum")`
 	pub fn hash(&self, hash_type: &str) -> Option<String> {
-		let package_files = self.file_list.get_or_init(|| self.gen_file_list());
+		let ver_file = ver_file_list(&self.ptr).into_iter().next()?;
+		let mut records = self.records.borrow_mut();
 
-		if let Some(pkg_file) = package_files.iter().next() {
-			let mut records = self.records.borrow_mut();
-			records.lookup_ver(pkg_file);
-			return records.hash_find(hash_type);
-		}
-		None
+		records.lookup_ver(&ver_file);
+		records.hash_find(hash_type)
+	}
+
+	/// Returns an iterator of PackageFiles (Origins) for the version
+	pub fn package_files(&self) -> impl Iterator<Item = PackageFile> + '_ {
+		ver_pkg_file_list(&self.ptr)
+			.into_iter()
+			.map(|pkg_file| PackageFile::new(pkg_file, Rc::clone(&self.records.borrow().cache)))
 	}
 
 	/// Returns an iterator of URIs for the version
-	pub fn uris(&'a self) -> impl Iterator<Item = String> + 'a {
-		self.file_list
-			.get_or_init(|| self.gen_file_list())
-			.iter()
-			.filter_map(|package_file| {
-				let mut records = self.records.borrow_mut();
-				records.lookup_ver(package_file);
+	pub fn uris(&self) -> impl Iterator<Item = String> + '_ {
+		ver_file_list(&self.ptr).into_iter().filter_map(|ver_file| {
+			let mut records = self.records.borrow_mut();
+			records.lookup_ver(&ver_file);
 
-				let uri = records.uri(package_file);
-				if !uri.starts_with("file:") {
-					Some(uri)
-				} else {
-					None
-				}
-			})
+			let uri = records.uri(&ver_file);
+			if !uri.starts_with("file:") {
+				Some(uri)
+			} else {
+				None
+			}
+		})
 	}
 
 	/// Internal Method for converting raw::deps into rust-apt deps
@@ -574,7 +568,7 @@ pub mod raw {
 		type PkgCacheFile = crate::cache::raw::PkgCacheFile;
 		type VersionPtr = crate::cache::raw::VersionPtr;
 		type PackagePtr = crate::cache::raw::PackagePtr;
-		type PackageFile = crate::cache::raw::PackageFile;
+		type VersionFile = crate::cache::raw::VersionFile;
 
 		include!("rust-apt/apt-pkg-c/cache.h");
 		include!("rust-apt/apt-pkg-c/package.h");

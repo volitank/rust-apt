@@ -252,6 +252,92 @@ impl Cache {
 	pub fn disk_size(&self) -> DiskSpace { self.depcache.borrow().disk_size() }
 }
 
+pub struct PackageFile {
+	pkg_file: RefCell<raw::PackageFile>,
+	pub cache: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
+}
+
+impl PackageFile {
+	pub fn new(
+		pkg_file: raw::PackageFile,
+		cache: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
+	) -> PackageFile {
+		PackageFile {
+			pkg_file: RefCell::new(pkg_file),
+			cache,
+		}
+	}
+
+	/// The path to the PackageFile
+	pub fn filename(&self) -> Option<String> { raw::filename(&self.pkg_file.borrow()).ok() }
+
+	/// The Archive of the PackageFile. ex: unstable
+	pub fn archive(&self) -> Option<String> { raw::archive(&self.pkg_file.borrow()).ok() }
+
+	/// The Origin of the PackageFile. ex: Debian
+	pub fn origin(&self) -> Option<String> { raw::origin(&self.pkg_file.borrow()).ok() }
+
+	/// The Codename of the PackageFile. ex: main, non-free
+	pub fn codename(&self) -> Option<String> { raw::codename(&self.pkg_file.borrow()).ok() }
+
+	/// The Label of the PackageFile. ex: Debian
+	pub fn label(&self) -> Option<String> { raw::label(&self.pkg_file.borrow()).ok() }
+
+	/// The Hostname of the PackageFile. ex: deb.debian.org
+	pub fn site(&self) -> Option<String> { raw::site(&self.pkg_file.borrow()).ok() }
+
+	/// The Component of the PackageFile. ex: sid
+	pub fn component(&self) -> Option<String> { raw::component(&self.pkg_file.borrow()).ok() }
+
+	/// The Architecture of the PackageFile. ex: amd64
+	pub fn arch(&self) -> Option<String> { raw::arch(&self.pkg_file.borrow()).ok() }
+
+	/// The Index Type of the PackageFile. Known values are:
+	///
+	/// Debian Package Index,
+	/// Debian Translation Index,
+	/// Debian dpkg status file,
+	pub fn index_type(&self) -> Option<String> { raw::index_type(&self.pkg_file.borrow()).ok() }
+
+	/// The Index of the PackageFile
+	pub fn index(&self) -> u64 { raw::index(&self.pkg_file.borrow()) }
+
+	/// Return true if the PackageFile is trusted.
+	pub fn is_trusted(&self) -> bool {
+		raw::pkg_file_is_trusted(&self.cache.borrow(), &mut self.pkg_file.borrow_mut())
+	}
+}
+
+impl fmt::Debug for PackageFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"PackageFile <\n    Filename: {},\n    Archive: {},\n    Origin: {},\n    Codename: \
+			 {},\n    Label: {},\n    Site: {},\n    Component: {},\n    Arch: {},\n    Index: \
+			 {},\n    Index Type: {},\n    Trusted: {},\n>",
+			self.filename().unwrap_or_else(|| String::from("Unknown")),
+			self.archive().unwrap_or_else(|| String::from("Unknown")),
+			self.origin().unwrap_or_else(|| String::from("Unknown")),
+			self.codename().unwrap_or_else(|| String::from("Unknown")),
+			self.label().unwrap_or_else(|| String::from("Unknown")),
+			self.site().unwrap_or_else(|| String::from("Unknown")),
+			self.component().unwrap_or_else(|| String::from("Unknown")),
+			self.arch().unwrap_or_else(|| String::from("Unknown")),
+			self.index(),
+			self.index_type().unwrap_or_else(|| String::from("Unknown")),
+			self.is_trusted(),
+		)?;
+		Ok(())
+	}
+}
+
+impl fmt::Display for PackageFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{self:?}")?;
+		Ok(())
+	}
+}
+
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
@@ -276,10 +362,16 @@ pub mod raw {
 		desc: UniquePtr<DescIterator>,
 	}
 
-	/// A wrapper around the Apt verFileIterator and pkgFileIterator.
+	/// A wrapper around PkgFileIterator.
 	struct PackageFile {
-		ver_file: UniquePtr<VerFileIterator>,
-		pkg_file: UniquePtr<PkgFileIterator>,
+		/// PackageFile UniquePtr.
+		ptr: UniquePtr<PkgFile>,
+	}
+
+	/// A wrapper around VerFileIterator.
+	struct VersionFile {
+		/// VersionFile UniquePtr.
+		ptr: UniquePtr<VerFileIterator>,
 	}
 
 	/// Enum to determine what will be sorted.
@@ -318,7 +410,7 @@ pub mod raw {
 		/// Apt C++ Type
 		type PkgIterator;
 		/// Apt C++ Type
-		type PkgFileIterator;
+		type PkgFile;
 		/// Apt C++ Type
 		type VerIterator;
 		/// Apt C++ Type
@@ -358,9 +450,11 @@ pub mod raw {
 		// pkg_file_list and pkg_version_list should be in package::raw
 		// I was unable to make this work so they remain here.
 
-		/// Return a Vector of all the package files for a version.
-		pub fn pkg_file_list(cache: &UniquePtr<PkgCacheFile>, ver: &VersionPtr)
-			-> Vec<PackageFile>;
+		/// Return a Vector of all the VersionFiles for a version.
+		pub fn ver_file_list(ver: &VersionPtr) -> Vec<VersionFile>;
+
+		/// Return a Vector of all the PackageFiles for a version.
+		pub fn ver_pkg_file_list(ver: &VersionPtr) -> Vec<PackageFile>;
 
 		/// Return a Vector of all the versions of a package.
 		pub fn pkg_version_list(pkg: &PackagePtr) -> Vec<VersionPtr>;
@@ -384,6 +478,48 @@ pub mod raw {
 			name: String,
 			arch: String,
 		) -> PackagePtr;
+
+		// PackageFile Functions:
+
+		/// The path to the PackageFile
+		pub fn filename(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Archive of the PackageFile. ex: unstable
+		pub fn archive(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Origin of the PackageFile. ex: Debian
+		pub fn origin(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Codename of the PackageFile. ex: main, non-free
+		pub fn codename(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Label of the PackageFile. ex: Debian
+		pub fn label(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Hostname of the PackageFile. ex: deb.debian.org
+		pub fn site(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Component of the PackageFile. ex: sid
+		pub fn component(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Architecture of the PackageFile. ex: amd64
+		pub fn arch(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Index Type of the PackageFile. Known values are:
+		///
+		/// Debian Package Index,
+		/// Debian Translation Index,
+		/// Debian dpkg status file,
+		pub fn index_type(pkg_file: &PackageFile) -> Result<String>;
+
+		/// The Index of the PackageFile
+		pub fn index(pkg_file: &PackageFile) -> u64;
+
+		/// Return true if the PackageFile is trusted.
+		pub fn pkg_file_is_trusted(
+			cache: &UniquePtr<PkgCacheFile>,
+			pkg_file: &mut PackageFile,
+		) -> bool;
 	}
 }
 
@@ -429,7 +565,14 @@ impl fmt::Display for raw::SourceFile {
 
 impl fmt::Debug for raw::PackageFile {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "package file: {{ To Be Implemented }}")?;
+		write!(f, "PackageFile: {{ To Be Implemented }}")?;
+		Ok(())
+	}
+}
+
+impl fmt::Debug for raw::VersionFile {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "VersionFile: {{ To Be Implemented }}")?;
 		Ok(())
 	}
 }

@@ -56,6 +56,22 @@ static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 }
 
 
+/// Wrap PkgFileIterator into PackageFile Struct.
+static PackageFile wrap_pkg_file(pkgCache::PkgFileIterator pkg_file) {
+	return PackageFile{
+		std::make_unique<PkgFile>(pkg_file),
+	};
+}
+
+
+/// Wrap VerFileIterator into VersionFile Struct.
+static VersionFile wrap_ver_file(pkgCache::VerFileIterator ver_file) {
+	return VersionFile{
+		std::make_unique<pkgCache::VerFileIterator>(ver_file),
+	};
+}
+
+
 static bool is_upgradable(
 const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
 	pkgCache::VerIterator inst = pkg.CurrentVer();
@@ -157,22 +173,26 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 }
 
 
-/// Return a Vector of all the package files for a version.
-rust::vec<PackageFile> pkg_file_list(
-const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver) {
-	rust::vec<PackageFile> list;
+/// Return a Vector of all the VersionFiles for a version.
+rust::vec<VersionFile> ver_file_list(const VersionPtr& ver) {
+	rust::vec<VersionFile> list;
+
 	pkgCache::VerFileIterator v_file = ver.ptr->FileList();
 
 	for (; !v_file.end(); v_file++) {
-		pkgSourceList* SrcList = cache->GetSourceList();
-		pkgIndexFile* Index;
-		if (!SrcList->FindIndex(v_file.File(), Index)) {
-			_system->FindIndex(v_file.File(), Index);
-		}
-		list.push_back(PackageFile{
-		std::make_unique<pkgCache::VerFileIterator>(v_file),
-		std::make_unique<pkgCache::PkgFileIterator>(v_file.File()),
-		});
+		list.push_back(wrap_ver_file(v_file));
+	}
+	return list;
+}
+
+/// Return a Vector of all the PackageFiles for a version.
+rust::vec<PackageFile> ver_pkg_file_list(const VersionPtr& ver) {
+	rust::vec<PackageFile> list;
+
+	pkgCache::VerFileIterator v_file = ver.ptr->FileList();
+
+	for (; !v_file.end(); v_file++) {
+		list.push_back(wrap_pkg_file(v_file.File()));
 	}
 	return list;
 }
@@ -224,4 +244,82 @@ PackagePtr pkg_cache_find_name(const std::unique_ptr<PkgCacheFile>& cache, rust:
 PackagePtr pkg_cache_find_name_arch(
 const std::unique_ptr<PkgCacheFile>& cache, rust::string name, rust::string arch) {
 	return wrap_package(cache->GetPkgCache()->FindPkg(name.c_str(), arch.c_str()));
+}
+
+
+/// PackageFile Functions:
+
+static rust::string handle_null(const char* str) {
+	if (!str) {
+		throw std::runtime_error("Unknown");
+	}
+	return str;
+}
+
+/// The path to the PackageFile
+rust::string filename(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.FileName());
+}
+
+/// The Archive of the PackageFile. ex: unstable
+rust::string archive(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Archive());
+}
+
+/// The Origin of the PackageFile. ex: Debian
+rust::string origin(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Origin());
+}
+
+/// The Codename of the PackageFile. ex: main, non-free
+rust::string codename(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Codename());
+}
+
+/// The Label of the PackageFile. ex: Debian
+rust::string label(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Label());
+}
+
+/// The Hostname of the PackageFile. ex: deb.debian.org
+rust::string site(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Site());
+}
+
+/// The Component of the PackageFile. ex: sid
+rust::string component(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Component());
+}
+
+/// The Architecture of the PackageFile. ex: amd64
+rust::string arch(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.Architecture());
+}
+
+
+/// The Index Type of the PackageFile. Known values are:
+///
+/// Debian Package Index,
+/// Debian Translation Index,
+/// Debian dpkg status file,
+rust::string index_type(const PackageFile& pkg_file) {
+	return handle_null(pkg_file.ptr->pkg_file.IndexType());
+}
+
+/// The Index of the PackageFile
+u_int64_t index(const PackageFile& pkg_file) {
+	return pkg_file.ptr->pkg_file.Index();
+}
+
+/// Return true if the PackageFile is trusted.
+bool pkg_file_is_trusted(const std::unique_ptr<PkgCacheFile>& cache, PackageFile& pkg_file) {
+	if (!pkg_file.ptr->index) {
+		pkgIndexFile* index;
+
+		if (!cache->GetSourceList()->FindIndex(pkg_file.ptr->pkg_file, index)) {
+			_system->FindIndex(pkg_file.ptr->pkg_file, index);
+		}
+		pkg_file.ptr->index = index;
+	}
+	return pkg_file.ptr->index->IsTrusted();
 }

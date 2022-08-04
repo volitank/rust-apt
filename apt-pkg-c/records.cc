@@ -10,14 +10,14 @@ Records records_create(const std::unique_ptr<PkgCacheFile>& cache) {
 
 
 /// Moves the Records into the correct place.
-void ver_file_lookup(Records& records, const PackageFile& pkg_file) {
-	auto Index = pkg_file.ver_file->Index();
+void ver_file_lookup(Records& records, const VersionFile& ver_file) {
+	auto Index = ver_file.ptr->Index();
 	if (records.records->last == Index) {
 		return;
 	}
 
 	records.records->last = Index;
-	records.records->parser = &records.records->records.Lookup(*pkg_file.ver_file);
+	records.records->parser = &records.records->records.Lookup(*ver_file.ptr);
 }
 
 
@@ -37,12 +37,24 @@ void desc_file_lookup(Records& records, const std::unique_ptr<DescIterator>& des
 /// A version could have multiple package files and multiple URIs.
 rust::string ver_uri(const Records& records,
 const std::unique_ptr<PkgCacheFile>& cache,
-const PackageFile& pkg_file) {
+const VersionFile& ver_file) {
 	pkgSourceList* SrcList = cache->GetSourceList();
 	pkgIndexFile* Index;
 
-	if (!SrcList->FindIndex(pkg_file.ver_file->File(), Index)) {
-		_system->FindIndex(pkg_file.ver_file->File(), Index);
+	// Need to come up with a way to make this lazy.
+	// Initialize and store when we need it so multiple looks ups aren't necessary.
+	//
+	// We may want to implement the SourcesList separate from the cache.
+	//
+	// We could also pull this out into a special binding, find a way to return
+	// The IndexFile and put it in a OnceCell in rust to avoid getting it several times.
+	//
+	// As of right now this also exists in cache.cc in is_trusted for the PackageFile.
+	//
+	// This is solved in the PackageFile by wrapping it on the C++ side.
+
+	if (!SrcList->FindIndex(ver_file.ptr->File(), Index)) {
+		_system->FindIndex(ver_file.ptr->File(), Index);
 	}
 	return Index->ArchiveURI(records.records->parser->FileName());
 }

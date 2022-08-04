@@ -21,7 +21,7 @@ impl Records {
 		raw::desc_file_lookup(&mut self.ptr, desc);
 	}
 
-	pub fn lookup_ver(&mut self, ver_file: &raw::PackageFile) {
+	pub fn lookup_ver(&mut self, ver_file: &raw::VersionFile) {
 		raw::ver_file_lookup(&mut self.ptr, ver_file);
 	}
 
@@ -29,7 +29,7 @@ impl Records {
 
 	pub fn summary(&self) -> String { raw::short_desc(&self.ptr) }
 
-	pub fn uri(&self, pkg_file: &raw::PackageFile) -> String {
+	pub fn uri(&self, pkg_file: &raw::VersionFile) -> String {
 		raw::ver_uri(&self.ptr, &self.cache.borrow(), pkg_file)
 	}
 
@@ -52,9 +52,7 @@ pub mod raw {
 	unsafe extern "C++" {
 		type PkgRecords;
 
-		type VerFileIterator = crate::cache::raw::VerFileIterator;
-		type PkgFileIterator = crate::cache::raw::PkgFileIterator;
-
+		type VersionFile = crate::cache::raw::VersionFile;
 		type PackageFile = crate::cache::raw::PackageFile;
 		type PkgCacheFile = crate::cache::raw::PkgCacheFile;
 		type DescIterator = crate::cache::raw::DescIterator;
@@ -68,7 +66,7 @@ pub mod raw {
 		pub fn records_create(cache: &UniquePtr<PkgCacheFile>) -> Records;
 
 		/// Moves the Records into the correct place.
-		pub fn ver_file_lookup(records: &mut Records, pkg_file: &PackageFile);
+		pub fn ver_file_lookup(records: &mut Records, pkg_file: &VersionFile);
 
 		/// Moves the Records into the correct place.
 		pub fn desc_file_lookup(records: &mut Records, desc: &UniquePtr<DescIterator>);
@@ -78,7 +76,7 @@ pub mod raw {
 		pub fn ver_uri(
 			records: &Records,
 			cache: &UniquePtr<PkgCacheFile>,
-			pkg_file: &PackageFile,
+			ver_file: &VersionFile,
 		) -> String;
 
 		/// Return the translated long description of a Package.
@@ -95,7 +93,7 @@ pub mod raw {
 
 impl fmt::Debug for raw::Records {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "package file: {{ To Be Implemented }}")?;
+		write!(f, "Records: {{ To Be Implemented }}")?;
 		Ok(())
 	}
 }

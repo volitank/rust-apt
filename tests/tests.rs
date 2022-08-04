@@ -224,6 +224,43 @@ mod cache {
 		assert!(dpkg_ver < apt_ver);
 		assert!(apt_ver != dpkg_ver);
 	}
+
+	#[test]
+	fn origins() {
+		let cache = Cache::new();
+		let apt_ver = cache.get("apt").unwrap().candidate().unwrap();
+		let pkg_files = apt_ver.package_files().collect::<Vec<_>>();
+
+		// Package files should not be empty if we got a candidate from `apt`.
+		assert!(!pkg_files.is_empty());
+
+		for pkg_file in &pkg_files {
+			// Apt should have all of these blocks in the package file.
+			assert!(pkg_file.filename().is_some());
+			assert!(pkg_file.archive().is_some());
+
+			// If the archive is `/var/lib/dpkg/status` These will be None.
+			if pkg_file.archive().unwrap() != "now" {
+				assert!(pkg_file.origin().is_some());
+				assert!(pkg_file.codename().is_some());
+				assert!(pkg_file.label().is_some());
+				assert!(pkg_file.site().is_some());
+				assert!(pkg_file.arch().is_some());
+			}
+
+			// These should be okay regardless.
+			assert!(pkg_file.component().is_some());
+			assert!(pkg_file.index_type().is_some());
+
+			// Index should not be 0.
+			assert_ne!(pkg_file.index(), 0);
+
+			// Apt should likely be from a trusted repository.
+			assert!(pkg_file.is_trusted());
+			// Print it in case I want to see.
+			println!("{pkg_file}");
+		}
+	}
 }
 
 #[cfg(test)]
