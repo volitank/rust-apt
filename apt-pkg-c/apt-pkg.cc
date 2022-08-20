@@ -204,7 +204,7 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool cand_onl
 		bool is_cand = (provide.OwnerVer() == cache->GetPolicy()->GetCandidateVer(pkg));
 		// If cand_only is true, then we check if ithe package is candidate.
 		if (!cand_only || is_cand) {
-			// Make sure we do not have duplicate packags.
+			// Make sure we do not have duplicate packages.
 			if (!set.insert(pkg.FullName()).second) {
 				continue;
 			}

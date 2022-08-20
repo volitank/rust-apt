@@ -1,0 +1,27 @@
+[build]
+publish = "target/doc"
+# Netlify doesn't allow us to download packages via APT, which is needed since
+# we need libraries from `libapt-pkg-dev`. We get around this by manually
+# unpacking the deb and including the needed library's path in
+# CPLUS_INCLUDE_PATH.
+command = """
+set -ex
+packages=('libapt-pkg-dev::https://mirrors.kernel.org/ubuntu/pool/main/a/apt/libapt-pkg-dev_2.4.5_amd64.deb')
+export CPLUS_INCLUDE_PATH="${PWD}/usr/include"
+
+for pkg in "${packages[@]}"; do
+	pkgname="$(echo "${pkg}" | sed 's|::.*||')"
+	url="$(echo "${pkg}" | sed 's|.*::||')"
+
+	wget "${url}"
+	ar xf "${pkgname}"_*.deb
+	zstd -df data.tar.zst
+	tar -xf data.tar
+done
+
+rustup toolchain install stable
+cargo doc --no-deps
+
+# Redirect the root URL to the rust_apt docs.
+echo '<html><head><meta http-equiv="refresh" content="0; URL=/rust_apt" /></head></html>' > target/doc/index.html
+"""
