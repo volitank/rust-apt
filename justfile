@@ -36,7 +36,19 @@ build:
 
 # Run the tests
 test +ARGS="":
+	@cargo test --doc
 	@cargo test -- --test-threads 1 {{ARGS}}
+
+test_root +ARGS="":
+	@cargo test --no-run
+	@sudo $( \
+		find target/debug/deps/ \
+		-executable \
+		-type f \
+		-name "tests-*" \
+		-printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
+	) --test-threads 1 {{ARGS}}
+
 
 # Run leak tests. Requires root
 leak:
@@ -70,8 +82,12 @@ fmt +ARGS="":
 		apt-pkg-c/depcache.h \
 		apt-pkg-c/records.cc \
 		apt-pkg-c/records.h \
+		apt-pkg-c/resolver.cc \
+		apt-pkg-c/resolver.h \
 		apt-pkg-c/package.cc \
-		apt-pkg-c/package.h
+		apt-pkg-c/package.h \
+		apt-pkg-c/pkgmanager.cc \
+		apt-pkg-c/pkgmanager.h
 	@echo Codebase formatted successfully!
 
 # Spellcheck the codebase

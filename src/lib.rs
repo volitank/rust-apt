@@ -14,8 +14,10 @@
 
 pub mod cache;
 pub mod config;
-pub mod depcache;
+mod depcache;
 pub mod package;
+pub mod pkgmanager;
 pub mod progress;
 pub mod records;
+mod resolver;
 pub mod util;

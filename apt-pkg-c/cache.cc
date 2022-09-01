@@ -36,7 +36,7 @@ static void handle_errors() {
 /// Wrap the PkgIterator into our PackagePtr Struct.
 static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 	if (pkg.end()) {
-		return PackagePtr{ NULL };
+		throw std::runtime_error("Package doesn't exist");
 	}
 
 	return PackagePtr{ std::make_unique<pkgCache::PkgIterator>(pkg) };
@@ -46,7 +46,7 @@ static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 /// Wrap the VerIterator into our VersionPtr Struct.
 static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 	if (ver.end()) {
-		return VersionPtr{ NULL, NULL };
+		throw std::runtime_error("Version doesn't exist");
 	}
 
 	return VersionPtr{
@@ -107,7 +107,7 @@ std::unique_ptr<PkgCacheFile> pkg_cache_create() {
 
 
 /// Update the package lists, handle errors and return a Result.
-void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynUpdateProgress& callback) {
+void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynAcquireProgress& callback) {
 	AcqTextStatus progress(callback);
 
 	ListUpdate(progress, *cache->GetSourceList(), pulse_interval(callback));
@@ -248,7 +248,6 @@ const std::unique_ptr<PkgCacheFile>& cache, rust::string name, rust::string arch
 
 
 /// PackageFile Functions:
-
 static rust::string handle_null(const char* str) {
 	if (!str) {
 		throw std::runtime_error("Unknown");

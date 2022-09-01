@@ -5,7 +5,7 @@
 /// AcqTextStatus modeled from in apt-private/acqprogress.cc
 ///
 /// AcqTextStatus::AcqTextStatus - Constructor
-AcqTextStatus::AcqTextStatus(DynUpdateProgress& callback)
+AcqTextStatus::AcqTextStatus(DynAcquireProgress& callback)
 : pkgAcquireStatus(), callback(callback) {}
 
 
@@ -197,4 +197,27 @@ std::vector<ReleaseInfoChange>&& Changes) {
 
 	// Not yet implemented. Remove return true when it is.
 	return true;
+}
+
+/// Calls for OpProgress usage.
+OpProgressWrapper::OpProgressWrapper(DynOperationProgress& callback)
+: callback(callback) {}
+
+void OpProgressWrapper::Update() { op_update(callback, Op, Percent); }
+
+void OpProgressWrapper::Done() { op_done(callback); }
+
+/// Calls for InstallProgress usage.
+PackageManagerWrapper::PackageManagerWrapper(DynInstallProgress& callback)
+: callback(callback) {}
+
+bool PackageManagerWrapper::StatusChanged(
+std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string action) {
+	inst_status_changed(callback, pkgname, steps_done, total_steps, action);
+	return true;
+}
+
+void PackageManagerWrapper::Error(
+std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string error) {
+	inst_error(callback, pkgname, steps_done, total_steps, error);
 }

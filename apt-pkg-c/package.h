@@ -17,6 +17,8 @@ VersionPtr pkg_current_version(const PackagePtr& pkg);
 VersionPtr pkg_candidate_version(
 const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg);
 
+VersionPtr pkg_get_version(const PackagePtr& pkg, rust::string version_str);
+
 bool pkg_is_installed(const PackagePtr& pkg);
 
 bool pkg_has_versions(const PackagePtr& pkg);
@@ -48,6 +50,8 @@ PackagePtr ver_parent(const VersionPtr& ver);
 rust::string ver_arch(const VersionPtr& ver);
 
 rust::string ver_str(const VersionPtr& ver);
+
+rust::Vec<rust::string> ver_provides_list(const VersionPtr& ver);
 
 rust::string ver_section(const VersionPtr& ver);
 

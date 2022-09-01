@@ -5,8 +5,10 @@ fn main() {
 		"src/config.rs",
 		"src/util.rs",
 		"src/records.rs",
+		"src/resolver.rs",
 		"src/depcache.rs",
 		"src/package.rs",
+		"src/pkgmanager.rs",
 	];
 
 	cxx_build::bridges(source_files)
@@ -17,6 +19,8 @@ fn main() {
 		.file("apt-pkg-c/records.cc")
 		.file("apt-pkg-c/depcache.cc")
 		.file("apt-pkg-c/package.cc")
+		.file("apt-pkg-c/pkgmanager.cc")
+		.file("apt-pkg-c/resolver.cc")
 		.flag_if_supported("-std=c++14")
 		.compile("rust-apt");
 
@@ -28,6 +32,8 @@ fn main() {
 	println!("cargo:rerun-if-changed=src/records.rs");
 	println!("cargo:rerun-if-changed=src/depcache.rs");
 	println!("cargo:rerun-if-changed=src/package.rs");
+	println!("cargo:rerun-if-changed=src/pkgmanager.rs");
+	println!("cargo:rerun-if-changed=src/resolver.rs");
 
 	println!("cargo:rerun-if-changed=apt-pkg-c/cache.cc");
 	println!("cargo:rerun-if-changed=apt-pkg-c/cache.h");
@@ -49,4 +55,10 @@ fn main() {
 
 	println!("cargo:rerun-if-changed=apt-pkg-c/package.cc");
 	println!("cargo:rerun-if-changed=apt-pkg-c/package.h");
+
+	println!("cargo:rerun-if-changed=apt-pkg-c/pkgmanager.cc");
+	println!("cargo:rerun-if-changed=apt-pkg-c/pkgmanager.h");
+
+	println!("cargo:rerun-if-changed=apt-pkg-c/resolver.cc");
+	println!("cargo:rerun-if-changed=apt-pkg-c/resolver.h");
 }

@@ -1,3 +1,8 @@
+//! Contains Records struct for getting extra information about a package.
+//! Some of these functions are accessible on [`crate::package::Package`]
+//! structs, please see if that suits your needs first. If not, you can also
+//! access a [`Records`] struct on any [`crate::cache::Cache`] struct via
+//! [`crate::cache::Cache::records`].
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -85,8 +90,10 @@ pub mod raw {
 		/// Return the translated short description of a Package.
 		pub fn short_desc(records: &Records) -> String;
 
-		/// Find the hash of a Version. Returns "KeyError" (lul python) if there
-		/// is no hash.
+		/// Find the hash of a Version.
+		// TODO: What kind of errors can be returned here?
+		// Research and update higher level structs as well
+		// TODO: Create custom errors when we have better information
 		pub fn hash_find(records: &Records, hash_type: String) -> Result<String>;
 	}
 }

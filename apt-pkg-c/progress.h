@@ -1,13 +1,16 @@
 #pragma once
 #include "rust/cxx.h"
 #include <apt-pkg/acquire-item.h>
+#include <apt-pkg/install-progress.h>
+#include <apt-pkg/progress.h>
 
 struct Worker;
 
-class DynUpdateProgress {
+/// Classes for pkgAcquireStatus usage.
+class DynAcquireProgress {
 	public:
-	DynUpdateProgress(DynUpdateProgress&&) noexcept;
-	~DynUpdateProgress() noexcept;
+	DynAcquireProgress(DynAcquireProgress&&) noexcept;
+	~DynAcquireProgress() noexcept;
 	using IsRelocatable = std::true_type;
 
 	int pulse_interval() const noexcept;
@@ -30,7 +33,7 @@ class DynUpdateProgress {
 class AcqTextStatus : public pkgAcquireStatus {
 	unsigned long ID;
 	/// Callback to the rust struct
-	DynUpdateProgress& callback;
+	DynAcquireProgress& callback;
 
 	void clearLastLine();
 	void AssignItemID(pkgAcquire::ItemDesc& Itm);
@@ -49,5 +52,48 @@ class AcqTextStatus : public pkgAcquireStatus {
 
 	bool Pulse(pkgAcquire* Owner);
 
-	AcqTextStatus(DynUpdateProgress& callback);
+	AcqTextStatus(DynAcquireProgress& callback);
+};
+
+/// Classes for OpProgress usage.
+class DynOperationProgress {
+	public:
+	void op_update(std::string operation, float percent);
+	void op_done();
+};
+
+class OpProgressWrapper : public OpProgress {
+	/// Callback to the rust struct
+	DynOperationProgress& callback;
+
+	public:
+	void Update();
+	void Done();
+
+	OpProgressWrapper(DynOperationProgress& callback);
+};
+
+/// Classes for InstallProgress usage.
+class DynInstallProgress {
+	public:
+	/// This is supposed to return a bool, but I have zero clue when that'd be needed in practice.
+	/// TODO: StatusChanged returns a bool sometimes in the C++ lib, though I'm not sure if it ever happens in practice.
+	void inst_status_changed(
+	std::string pkgname, u_int64_t steps_done, u_int64_t total_steps, std::string action);
+	void inst_error(
+	std::string pkgname, u_int64_t steps_done, u_int64_t total_steps, std::string error);
+};
+
+class PackageManagerWrapper : public APT::Progress::PackageManagerFancy {
+	// class PackageManagerWrapper {
+	/// Callback to the rust struct
+	DynInstallProgress& callback;
+
+	public:
+	virtual bool StatusChanged(
+	std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string action);
+	virtual void Error(
+	std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string error);
+
+	PackageManagerWrapper(DynInstallProgress& callback);
 };

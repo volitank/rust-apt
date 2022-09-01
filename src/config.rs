@@ -1,3 +1,5 @@
+//! Contains config related structs and functions.
+
 /// Struct for Apt Configuration
 ///
 /// All apt configuration methods do not require this struct.

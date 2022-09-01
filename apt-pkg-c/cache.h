@@ -9,7 +9,7 @@ struct VersionFile;
 struct PackageFile;
 struct SourceFile;
 struct PackageSort;
-struct DynUpdateProgress;
+struct DynAcquireProgress;
 
 // Apt Aliases
 using PkgCacheFile = pkgCacheFile;
@@ -37,7 +37,7 @@ struct PkgFile {
 /// Main Initializers for apt:
 
 std::unique_ptr<PkgCacheFile> pkg_cache_create();
-void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynUpdateProgress& progress);
+void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynAcquireProgress& progress);
 
 rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
 

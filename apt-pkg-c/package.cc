@@ -15,7 +15,7 @@ const char* UntranslatedDepTypes[] = { "", "Depends", "PreDepends", "Suggests",
 /// Wrap the PkgIterator into our PackagePtr Struct.
 static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 	if (pkg.end()) {
-		return PackagePtr{ NULL };
+		throw std::runtime_error("Package doesn't exist");
 	}
 
 	return PackagePtr{ std::make_unique<pkgCache::PkgIterator>(pkg) };
@@ -25,7 +25,7 @@ static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
 /// Wrap the VerIterator into our VersionPtr Struct.
 static VersionPtr wrap_version(pkgCache::VerIterator ver) {
 	if (ver.end()) {
-		return VersionPtr{ NULL, NULL };
+		throw std::runtime_error("Version doesn't exist");
 	}
 
 	return VersionPtr{
@@ -49,6 +49,17 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg) {
 	return wrap_version(cache->GetPolicy()->GetCandidateVer(*pkg.ptr));
 }
 
+/// Return the version determined by a version string.
+VersionPtr pkg_get_version(const PackagePtr& pkg, rust::string version_str) {
+	auto ver_list = pkg.ptr->VersionList();
+	for (; !ver_list.end(); ver_list++) {
+		if (version_str == ver_list.VerStr()) {
+			return wrap_version(ver_list);
+		}
+	}
+	// This doesn't matter. We will be converting it into option on the rust side
+	throw std::runtime_error("Version not found");
+}
 
 /// Check if the package is installed.
 bool pkg_is_installed(const PackagePtr& pkg) { return pkg.ptr->CurrentVer(); }
@@ -163,6 +174,25 @@ rust::string ver_arch(const VersionPtr& ver) { return ver.ptr->Arch(); }
 
 /// The version string of the version. "1.4.10"
 rust::string ver_str(const VersionPtr& ver) { return ver.ptr->VerStr(); }
+
+
+/// The list of packages that this package provides for.
+rust::Vec<rust::string> ver_provides_list(const VersionPtr& ver) {
+	rust::Vec<rust::string> list;
+
+	for (pkgCache::PrvIterator pkg = ver.ptr->ProvidesList(); !pkg.end(); pkg++) {
+		const char* name = pkg.Name();
+		const char* version = pkg.ProvideVersion();
+
+		if (version != NULL) {
+			list.push_back(std::string(name) + std::string("/") + std::string(version));
+		} else {
+			list.push_back(std::string(name) + std::string("/"));
+		}
+	}
+
+	return list;
+}
 
 
 /// The section of the version as shown in `apt show`.

@@ -3,12 +3,17 @@ use std::fmt::Write as _;
 use std::io::{stdout, Write};
 
 use cxx::ExternType;
-use termsize;
 
-use crate::util::{time_str, unit_str, NumSys};
+use crate::config::Config;
+use crate::util::{
+	get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys,
+};
 
-/// Trait you can impl on any struct to customize the output of the update.
-pub trait UpdateProgress {
+pub type Worker = raw::Worker;
+
+/// Trait you can impl on any struct to customize the output shown during file
+/// downloads.
+pub trait AcquireProgress {
 	/// Called on c++ to set the pulse interval.
 	fn pulse_interval(&self) -> usize;
 
@@ -24,7 +29,7 @@ pub trait UpdateProgress {
 	/// Called periodically to provide the overall progress information
 	fn pulse(
 		&mut self,
-		workers: Vec<raw::Worker>,
+		workers: Vec<Worker>,
 		percent: f32,
 		total_bytes: u64,
 		current_bytes: u64,
@@ -47,36 +52,51 @@ pub trait UpdateProgress {
 	);
 }
 
+/// Trait you can impl on any struct to customize the output of operation
+/// progress on things like opening the cache.
+pub trait OperationProgress {
+	fn update(&mut self, operation: String, percent: f32);
+	fn done(&mut self);
+}
+
+/// Trait you can impl on any struct to customize the output of installation
+/// progress.
+pub trait InstallProgress {
+	fn status_changed(
+		&mut self,
+		pkgname: String,
+		steps_done: u64,
+		total_steps: u64,
+		action: String,
+	);
+	fn error(&mut self, pkgname: String, steps_done: u64, total_steps: u64, error: String);
+}
+
 // TODO: Make better structs for pkgAcquire items, workers, owners.
-/// AptUpdateProgress is the default struct for the update method on the cache.
+/// AptAcquireProgress is the default struct for the update method on the cache.
 ///
 /// This struct mimics the output of `apt update`.
 #[derive(Default, Debug)]
-pub struct AptUpdateProgress {
+pub struct AptAcquireProgress {
 	lastline: usize,
 	pulse_interval: usize,
 	disable: bool,
 }
 
-impl AptUpdateProgress {
+impl AptAcquireProgress {
 	/// Returns a new default progress instance.
 	pub fn new() -> Self { Self::default() }
 
+	/// Return the AptAcquireProgress in a box
+	/// To easily pass through for progress
+	pub fn new_box() -> Box<dyn AcquireProgress> { Box::new(Self::new()) }
+
 	/// Returns a disabled progress instance. No output will be shown.
 	pub fn disable() -> Self {
-		AptUpdateProgress {
+		AptAcquireProgress {
 			disable: true,
 			..Default::default()
 		}
-	}
-
-	/// Returns the current terminal width or the default of 80
-	/// One is taken away to account for the cursor
-	fn screen_width(&self) -> usize {
-		if let Some(size) = termsize::get() {
-			return usize::from(size.cols - 1);
-		}
-		80 - 1
 	}
 
 	/// Helper function to clear the last line.
@@ -99,7 +119,7 @@ impl AptUpdateProgress {
 	}
 }
 
-impl UpdateProgress for AptUpdateProgress {
+impl AcquireProgress for AptAcquireProgress {
 	/// Used to send the pulse interval to the apt progress class.
 	///
 	/// Pulse Interval is in microseconds.
@@ -121,7 +141,7 @@ impl UpdateProgress for AptUpdateProgress {
 			return;
 		}
 
-		self.clear_last_line(self.screen_width());
+		self.clear_last_line(terminal_width() - 1);
 
 		println!("\rHit:{} {}", id, description);
 	}
@@ -134,7 +154,7 @@ impl UpdateProgress for AptUpdateProgress {
 			return;
 		}
 
-		self.clear_last_line(self.screen_width());
+		self.clear_last_line(terminal_width() - 1);
 
 		if file_size != 0 {
 			println!(
@@ -153,7 +173,7 @@ impl UpdateProgress for AptUpdateProgress {
 	/// TODO: Pass through information here.
 	/// Likely when we make a general struct fork the items.
 	fn done(&mut self) {
-		// self.clear_last_line(self.screen_width());
+		// self.clear_last_line(terminal_width() - 1);
 
 		// println!("This is done!");
 	}
@@ -182,7 +202,7 @@ impl UpdateProgress for AptUpdateProgress {
 			return;
 		}
 
-		self.clear_last_line(self.screen_width());
+		self.clear_last_line(terminal_width() - 1);
 
 		if pending_errors {
 			return;
@@ -208,7 +228,7 @@ impl UpdateProgress for AptUpdateProgress {
 			return;
 		}
 
-		self.clear_last_line(self.screen_width());
+		self.clear_last_line(terminal_width() - 1);
 
 		let mut show_error = true;
 
@@ -240,7 +260,7 @@ impl UpdateProgress for AptUpdateProgress {
 	/// meter along with an overall bandwidth and ETA indicator.
 	fn pulse(
 		&mut self,
-		workers: Vec<raw::Worker>,
+		workers: Vec<Worker>,
 		percent: f32,
 		total_bytes: u64,
 		current_bytes: u64,
@@ -251,7 +271,7 @@ impl UpdateProgress for AptUpdateProgress {
 		}
 
 		// Minus 1 for the cursor
-		let term_width = self.screen_width();
+		let term_width = terminal_width() - 1;
 
 		let mut string = String::new();
 		let mut percent_str = format!("\r{percent:.0}%");
@@ -344,6 +364,104 @@ impl UpdateProgress for AptUpdateProgress {
 	}
 }
 
+/// Default struct to handle the output of a transaction.
+pub struct AptInstallProgress {
+	config: Config,
+}
+
+impl AptInstallProgress {
+	#[allow(dead_code)]
+	pub fn new() -> Self {
+		Self {
+			config: Config::new(),
+		}
+	}
+
+	/// Return the AptInstallProgress in a box
+	/// To easily pass through to do_install
+	pub fn new_box() -> Box<dyn InstallProgress> { Box::new(Self::new()) }
+}
+
+impl Default for AptInstallProgress {
+	fn default() -> Self { Self::new() }
+}
+
+impl InstallProgress for AptInstallProgress {
+	fn status_changed(
+		&mut self,
+		_pkgname: String,
+		steps_done: u64,
+		total_steps: u64,
+		_action: String,
+	) {
+		// Get the terminal's width and height.
+		let term_height = terminal_height();
+		let term_width = terminal_width();
+
+		// Save the current cursor position.
+		print!("\x1b7");
+
+		// Go to the progress reporting line.
+		print!("\x1b[{};0f", term_height);
+		std::io::stdout().flush().unwrap();
+
+		// Convert the float to a percentage string.
+		let percent = steps_done as f32 / total_steps as f32;
+		let mut percent_str = (percent * 100.0).round().to_string();
+
+		let percent_padding = match percent_str.len() {
+			1 => "  ",
+			2 => " ",
+			3 => "",
+			_ => unreachable!(),
+		};
+
+		percent_str = percent_padding.to_owned() + &percent_str;
+
+		// Get colors for progress reporting.
+		// NOTE: The APT implementation confusingly has 'Progress-fg' for 'bg_color',
+		// and the same the other way around.
+		let bg_color = self
+			.config
+			.find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
+		let fg_color = self
+			.config
+			.find("Dpkg::Progress-Fancy::Progress-bg", "\x1b[30m");
+		const BG_COLOR_RESET: &str = "\x1b[49m";
+		const FG_COLOR_RESET: &str = "\x1b[39m";
+
+		print!(
+			"{}{}Progress: [{}%]{}{} ",
+			bg_color, fg_color, percent_str, BG_COLOR_RESET, FG_COLOR_RESET
+		);
+
+		// The length of "Progress: [100%] ".
+		const PROGRESS_STR_LEN: usize = 17;
+
+		// Print the progress bar.
+		// We should safely be able to convert the `usize`.try_into() into the `u32`
+		// needed by `get_apt_progress_string`, as usize ints only take up 8 bytes on a
+		// 64-bit processor.
+		print!(
+			"{}",
+			get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())
+		);
+		std::io::stdout().flush().unwrap();
+
+		// If this is the last change, remove the progress reporting bar.
+		// if steps_done == total_steps {
+		// print!("{}", " ".repeat(term_width));
+		// print!("\x1b[0;{}r", term_height);
+		// }
+		// Finally, go back to the previous cursor position.
+		print!("\x1b8");
+		std::io::stdout().flush().unwrap();
+	}
+
+	// TODO: Need to figure out when to use this.
+	fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
+}
+
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
@@ -364,17 +482,17 @@ pub mod raw {
 
 	extern "Rust" {
 		/// Called on c++ to set the pulse interval.
-		fn pulse_interval(progress: &mut DynUpdateProgress) -> usize;
+		fn pulse_interval(progress: &mut DynAcquireProgress) -> usize;
 
 		/// Called when an item is confirmed to be up-to-date.
-		fn hit(progress: &mut DynUpdateProgress, id: u32, description: String);
+		fn hit(progress: &mut DynAcquireProgress, id: u32, description: String);
 
 		/// Called when an Item has started to download
-		fn fetch(progress: &mut DynUpdateProgress, id: u32, description: String, file_size: u64);
+		fn fetch(progress: &mut DynAcquireProgress, id: u32, description: String, file_size: u64);
 
 		/// Called when an Item fails to download
 		fn fail(
-			progress: &mut DynUpdateProgress,
+			progress: &mut DynAcquireProgress,
 			id: u32,
 			description: String,
 			status: u32,
@@ -383,7 +501,7 @@ pub mod raw {
 
 		/// Called periodically to provide the overall progress information
 		fn pulse(
-			progress: &mut DynUpdateProgress,
+			progress: &mut DynAcquireProgress,
 			workers: Vec<Worker>,
 			percent: f32,
 			total_bytes: u64,
@@ -392,53 +510,99 @@ pub mod raw {
 		);
 
 		/// Called when an item is successfully and completely fetched.
-		fn done(progress: &mut DynUpdateProgress);
+		fn done(progress: &mut DynAcquireProgress);
 
 		/// Called when progress has started
-		fn start(progress: &mut DynUpdateProgress);
+		fn start(progress: &mut DynAcquireProgress);
 
 		/// Called when progress has finished
 		fn stop(
-			progress: &mut DynUpdateProgress,
+			progress: &mut DynAcquireProgress,
 			fetched_bytes: u64,
 			elapsed_time: u64,
 			current_cps: u64,
 			pending_errors: bool,
 		);
+
+		/// Called when an operation has been updated.
+		fn op_update(progress: &mut DynOperationProgress, operation: String, percent: f32);
+
+		/// Called when an operation has finished.
+		fn op_done(progress: &mut DynOperationProgress);
+
+		///
+		fn inst_status_changed(
+			progress: &mut DynInstallProgress,
+			pkgname: String,
+			steps_done: u64,
+			total_steps: u64,
+			action: String,
+		);
+
+		// TODO: What kind of errors can be returned here?
+		// Research and update higher level structs as well
+		// TODO: Create custom errors when we have better information
+		fn inst_error(
+			progress: &mut DynInstallProgress,
+			pkgname: String,
+			steps_done: u64,
+			total_steps: u64,
+			error: String,
+		);
 	}
 
 	unsafe extern "C++" {
-		type DynUpdateProgress = Box<dyn crate::progress::UpdateProgress>;
+		type DynAcquireProgress = Box<dyn crate::progress::AcquireProgress>;
+		type DynOperationProgress = Box<dyn crate::progress::OperationProgress>;
+		type DynInstallProgress = Box<dyn crate::progress::InstallProgress>;
 
 		include!("rust-apt/apt-pkg-c/progress.h");
 	}
 }
 
-/// Impl for sending UpdateProgress across the barrier.
-unsafe impl ExternType for Box<dyn UpdateProgress> {
-	type Id = cxx::type_id!("DynUpdateProgress");
+/// Impl for sending AcquireProgress across the barrier.
+unsafe impl ExternType for Box<dyn AcquireProgress> {
+	type Id = cxx::type_id!("DynAcquireProgress");
 	type Kind = cxx::kind::Trivial;
 }
 
-// Begin UpdateProgress trait functions
+/// Impl for sending OperationProgress across the barrier.
+/// TODO: Needs to be reviewed in GitLab MR, because I've got just about zero
+/// clue what I'm doing.
+unsafe impl ExternType for Box<dyn OperationProgress> {
+	type Id = cxx::type_id!("DynOperationProgress");
+	type Kind = cxx::kind::Trivial;
+}
+
+/// Impl for sending InstallProgress across the barrier.
+/// TODO: Needs to be reviewed in GitLab MR, because I've got just about zero
+/// clue what I'm doing.
+unsafe impl ExternType for Box<dyn InstallProgress> {
+	type Id = cxx::type_id!("DynInstallProgress");
+	type Kind = cxx::kind::Trivial;
+}
+
+// Begin AcquireProgress trait functions
 // These must be defined outside the cxx bridge but in the same file
 
 /// Called on c++ to set the pulse interval.
-fn pulse_interval(progress: &mut Box<dyn UpdateProgress>) -> usize { (**progress).pulse_interval() }
+fn pulse_interval(progress: &mut Box<dyn AcquireProgress>) -> usize {
+	(**progress).pulse_interval()
+}
 
 /// Called when an item is confirmed to be up-to-date.
-fn hit(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String) {
+fn hit(progress: &mut Box<dyn AcquireProgress>, id: u32, description: String) {
 	(**progress).hit(id, description)
 }
 
 /// Called when an Item has started to download
-fn fetch(progress: &mut Box<dyn UpdateProgress>, id: u32, description: String, file_size: u64) {
+fn fetch(progress: &mut Box<dyn AcquireProgress>, id: u32, description: String, file_size: u64) {
 	(**progress).fetch(id, description, file_size)
 }
 
 /// Called when an Item fails to download
 fn fail(
-	progress: &mut Box<dyn UpdateProgress>,
+	progress: &mut Box<dyn AcquireProgress>,
 	id: u32,
 	description: String,
 	status: u32,
@@ -449,8 +613,8 @@ fn fail(
 
 /// Called periodically to provide the overall progress information
 fn pulse(
-	progress: &mut Box<dyn UpdateProgress>,
-	workers: Vec<raw::Worker>,
+	progress: &mut Box<dyn AcquireProgress>,
+	workers: Vec<Worker>,
 	percent: f32,
 	total_bytes: u64,
 	current_bytes: u64,
@@ -460,14 +624,14 @@ fn pulse(
 }
 
 /// Called when an item is successfully and completely fetched.
-fn done(progress: &mut Box<dyn UpdateProgress>) { (**progress).done() }
+fn done(progress: &mut Box<dyn AcquireProgress>) { (**progress).done() }
 
 /// Called when progress has started
-fn start(progress: &mut Box<dyn UpdateProgress>) { (**progress).start() }
+fn start(progress: &mut Box<dyn AcquireProgress>) { (**progress).start() }
 
 /// Called when progress has finished
 fn stop(
-	progress: &mut Box<dyn UpdateProgress>,
+	progress: &mut Box<dyn AcquireProgress>,
 	fetched_bytes: u64,
 	elapsed_time: u64,
 	current_cps: u64,
@@ -476,4 +640,41 @@ fn stop(
 	(**progress).stop(fetched_bytes, elapsed_time, current_cps, pending_errors)
 }
 
-// End UpdateProgress trait functions
+// End AcquireProgress trait functions
+
+// Begin OperationProgress trait functions
+// These must be defined outside the cxx bridge but in the same file
+
+/// Called when an operation has been updated.
+fn op_update(progress: &mut Box<dyn OperationProgress>, operation: String, percent: f32) {
+	(**progress).update(operation, percent)
+}
+
+/// Called when an operation has finished.
+fn op_done(progress: &mut Box<dyn OperationProgress>) { (**progress).done() }
+
+// End OperationProgress trait functions
+
+// Begin InstallProgress trait functions
+
+fn inst_status_changed(
+	progress: &mut Box<dyn InstallProgress>,
+	pkgname: String,
+	steps_done: u64,
+	total_steps: u64,
+	action: String,
+) {
+	(**progress).status_changed(pkgname, steps_done, total_steps, action)
+}
+
+fn inst_error(
+	progress: &mut Box<dyn InstallProgress>,
+	pkgname: String,
+	steps_done: u64,
+	total_steps: u64,
+	error: String,
+) {
+	(**progress).error(pkgname, steps_done, total_steps, error)
+}
+
+// End InstallProgress trait functions

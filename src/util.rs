@@ -1,6 +1,34 @@
 //! Contains miscellaneous helper utilities.
 use std::cmp::Ordering;
 
+pub use cxx::Exception;
+
+use crate::config;
+
+/// Get the terminal's height, i.e. the number of rows it has.
+///
+/// # Returns:
+/// * The terminal height, or `24` if it cannot be determined.
+pub fn terminal_height() -> usize {
+	if let Some(size) = termsize::get() {
+		usize::from(size.rows)
+	} else {
+		24
+	}
+}
+
+/// Get the terminal's width, i.e. the number of columns it has.
+///
+/// # Returns:
+/// * The terminal width, or `80` if it cannot be determined.
+pub fn terminal_width() -> usize {
+	if let Some(size) = termsize::get() {
+		usize::from(size.cols)
+	} else {
+		80
+	}
+}
+
 /// Compares two package versions, `ver1` and `ver2`. The returned enum variant
 /// applies to the first version passed in.
 ///
@@ -97,6 +125,73 @@ pub fn time_str(seconds: u64) -> String {
 	format!("{seconds}s")
 }
 
+/// Get an APT-styled progress bar.
+///
+/// # Returns:
+/// * [`String`] representing the progress bar.
+///
+/// # Example:
+/// ```
+/// use rust_apt::util::get_apt_progress_string;
+/// let progress = get_apt_progress_string(0.5, 10);
+/// assert_eq!(progress, "[####....]");
+/// ```
+pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String {
+	raw::get_apt_progress_string(percent, output_width)
+}
+
+/// Lock the APT lockfile.
+/// This should be done before modifying any APT files
+/// such as with [`crate::cache::Cache::update`]
+/// and then [`apt_unlock`] should be called after.
+///
+/// This Function Requires root
+///
+/// If [`apt_lock`] is called `n` times, [`apt_unlock`] must also be called `n`
+/// times to release all acquired locks.
+///
+/// # Known Error Messages:
+/// * `E:Could not open lock file /var/lib/dpkg/lock-frontend - open (13:
+///   Permission denied)`
+/// * `E:Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend),
+///   are you root?`
+pub fn apt_lock() -> Result<(), Exception> {
+	config::init_config_system();
+	raw::apt_lock()
+}
+
+/// Unlock the APT lockfile.
+pub fn apt_unlock() {
+	config::init_config_system();
+	raw::apt_unlock()
+}
+
+/// Unlock the Dpkg lockfile.
+/// This should be done before manually running
+/// [`crate::cache::Cache::do_install`]
+/// and then [`apt_unlock_inner`] should be called after.
+///
+/// This Function Requires root
+pub fn apt_lock_inner() -> Result<(), Exception> {
+	config::init_config_system();
+	raw::apt_lock_inner()
+}
+
+/// Unlock the Dpkg lockfile.
+pub fn apt_unlock_inner() {
+	config::init_config_system();
+	raw::apt_unlock_inner()
+}
+
+/// Checks if any locks are currently active for the lockfile. Note that this
+/// will only return [`true`] if the current process has an active lock, calls
+/// to [`apt_lock`] will return an [`Exception`] if another process has an
+/// active lock.
+pub fn apt_is_locked() -> bool {
+	config::init_config_system();
+	raw::apt_is_locked()
+}
+
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
@@ -113,5 +208,27 @@ pub mod raw {
 		/// Unless you have a specific need for otherwise, you should probably
 		/// use [`crate::util::cmp_versions`] instead.
 		pub fn cmp_versions(ver1: String, ver2: String) -> i32;
+
+		/// Return an APT-styled progress bar (`[####..]`).
+		pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String;
+
+		/// Lock the lockfile.
+		// TODO: There's `unlock_inner` functions in the Python APT library, but I have no clue how
+		// we'd implement them in regard to our structs and such in this library. They seem to only
+		// be used to have a lock on dpkg between calls, which shouldn't be an issue in most cases,
+		// though it should probably be looked into.
+		pub fn apt_lock() -> Result<()>;
+
+		/// Unock the lockfile.
+		pub fn apt_unlock();
+
+		/// Lock the Dpkg lockfile.
+		pub fn apt_lock_inner() -> Result<()>;
+
+		/// Unlock the Dpkg lockfile.
+		pub fn apt_unlock_inner();
+
+		/// Check if the lockfile is locked.
+		pub fn apt_is_locked() -> bool;
 	}
 }

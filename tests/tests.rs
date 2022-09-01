@@ -31,6 +31,19 @@ mod cache {
 	}
 
 	#[test]
+	fn get_version() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+
+		// The candidate for apt surely exists.
+		let cand_str = pkg.candidate().unwrap().version();
+		assert!(pkg.get_version(&cand_str).is_some());
+
+		// I sure hope this doesn't exist.
+		assert!(pkg.get_version("9.0.0.1").is_none());
+	}
+
+	#[test]
 	fn all_packages() {
 		let cache = Cache::new();
 		let sort = PackageSort::default();
@@ -115,14 +128,6 @@ mod cache {
 	}
 
 	#[test]
-	fn provides() {
-		let cache = Cache::new();
-		if let Some(pkg) = cache.get("www-browser") {
-			assert!(cache.provides(&pkg, true).next().is_some());
-		};
-	}
-
-	#[test]
 	fn depends() {
 		let cache = Cache::new();
 
@@ -178,6 +183,66 @@ mod cache {
 	}
 
 	#[test]
+	fn provides_list() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap().candidate().unwrap();
+		let provides_list = pkg.provides_list();
+		let (provides_pkgname, provides_pkgver) = provides_list.get(0).unwrap();
+
+		assert!(provides_list.len() == 1);
+		// 'apt' seems to always provide for 'apt-transport-https' at APT's version. If
+		// it ever doesn't, this test will break.
+		assert!(provides_pkgname == "apt-transport-https");
+		assert!(provides_pkgver.as_ref().unwrap() == &pkg.version());
+	}
+
+	/// This test is tied pretty closely to the currently available versions in
+	/// the Ubuntu/Debian repos. Feel free to adjust if you can verify its
+	/// needed.
+	#[test]
+	fn rev_provides_list() {
+		// Test concrete packages with provides.
+		let cache = Cache::new();
+		let ver = cache.get("apt").unwrap().candidate().unwrap();
+		let pkg = cache.get("apt-transport-https").unwrap();
+
+		{
+			let rev_provides_list = pkg.rev_provides_list(None);
+			let provides_pkg = rev_provides_list.get(0).unwrap();
+			let mut prov_names = Vec::new();
+			for pkg in &rev_provides_list {
+				prov_names.push(pkg.parent().name());
+			}
+			assert_eq!(rev_provides_list.len(), 1);
+			assert!(prov_names.contains(&"apt".to_string()));
+			assert_eq!(provides_pkg.version(), ver.version());
+		}
+
+		{
+			let rev_provides_list = pkg.rev_provides_list(Some(("=", &ver.version())));
+			let provides_pkg = rev_provides_list.get(0).unwrap();
+			let mut prov_names = Vec::new();
+			for pkg in &rev_provides_list {
+				prov_names.push(pkg.parent().name());
+			}
+			assert_eq!(rev_provides_list.len(), 1);
+			assert!(prov_names.contains(&"apt".to_string()));
+			assert_eq!(provides_pkg.version(), ver.version());
+		}
+
+		{
+			let rev_provides_list = pkg.rev_provides_list(Some(("=", "50000000000.0.0")));
+			assert_eq!(rev_provides_list.len(), 0);
+		}
+
+		// Test a virtual package with provides.
+		{
+			let pkg = cache.get("www-browser").unwrap();
+			assert!(!pkg.rev_provides_list(None).is_empty());
+		}
+	}
+
+	#[test]
 	fn sources() {
 		let cache = Cache::new();
 		// If the source lists don't exists there is problems.
@@ -223,6 +288,62 @@ mod cache {
 		assert!(apt_ver > dpkg_ver);
 		assert!(dpkg_ver < apt_ver);
 		assert!(apt_ver != dpkg_ver);
+	}
+
+	#[test]
+	// This test relies on 'gobby' and 'gsasl-common' not being installed.
+	fn good_resolution() {
+		let cache = Cache::new();
+		let pkg = cache.get("gobby").unwrap();
+
+		pkg.mark_install(true, true);
+		pkg.protect();
+		cache.resolve(false).unwrap();
+
+		let pkg2 = cache.get("gsasl-common").unwrap();
+		pkg2.mark_install(true, true);
+		assert!(pkg2.marked_install())
+	}
+
+	// 'dpkg' can't ever be removed from what I've observed, so we'll use that to
+	// our advantage here.
+	#[test]
+	fn bad_resolution() {
+		let cache = Cache::new();
+
+		let pkg = cache.get("dpkg").unwrap();
+
+		pkg.mark_delete(true);
+		pkg.protect();
+
+		assert!(cache.resolve(false).is_err());
+	}
+
+	#[test]
+	fn depcache_clear() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+
+		pkg.mark_delete(true);
+
+		assert!(pkg.marked_delete());
+
+		cache.clear_marked().unwrap();
+		assert!(!pkg.marked_delete());
+	}
+
+	#[test]
+	fn cache_remap() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+		let cand = pkg.candidate().unwrap();
+
+		cache.clear();
+
+		// These will segfault if the remap isn't done properly
+		dbg!(pkg.mark_delete(true));
+		dbg!(cand.version());
+		dbg!(cand);
 	}
 
 	#[test]
@@ -406,6 +527,86 @@ mod sort {
 	}
 }
 
+mod depcache {
+	use rust_apt::cache::{Cache, Upgrade};
+	use rust_apt::package::Mark;
+
+	#[test]
+	fn mark_reinstall() {
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+
+		dbg!(pkg.marked_reinstall());
+		dbg!(pkg.mark_reinstall(true));
+		assert!(pkg.marked_reinstall());
+	}
+
+	#[test]
+	fn mark_all() {
+		// This test assumes that apt is installed
+		let cache = Cache::new();
+		let pkg = cache.get("apt").unwrap();
+
+		let marks = [
+			Mark::Keep,
+			Mark::Auto,
+			Mark::Manual,
+			Mark::Remove,
+			Mark::Purge,
+			// Since apt is already installed these will not work
+			// The only way they will is if it's able to be upgraded
+			// Mark::Install,
+			Mark::Reinstall,
+			Mark::NoReinstall,
+			// Mark::Upgrade,
+		];
+
+		// Set each mark, and then check the value based on the bool from setting.
+		for mark in marks {
+			if pkg.set(&mark) {
+				assert!(pkg.state(&mark));
+			} else {
+				assert!(!pkg.state(&mark));
+			}
+			// Clear all the marks after each test
+			// To ensure that the package states are clear
+			cache.clear_marked().unwrap();
+		}
+	}
+
+	#[test]
+	fn upgrade() {
+		// There isn't a great way to test if upgrade is working properly
+		// as this is dynamic depending on the system.
+		// This test will always pass, but print the status of the changes.
+		// Occasionally manually compare the output to apt full-upgrade.
+		let cache = Cache::new();
+		cache.upgrade(&Upgrade::FullUpgrade).unwrap();
+
+		for pkg in cache.get_changes(true) {
+			if pkg.marked_install() {
+				println!("{} is marked install", pkg.name());
+				// If the package is marked install then it will also
+				// show up as marked upgrade, downgrade etc.
+				// Check this first and continue.
+				continue;
+			}
+			if pkg.marked_upgrade() {
+				println!("{} is marked upgrade", pkg.name())
+			}
+			if pkg.marked_delete() {
+				println!("{} is marked remove", pkg.name())
+			}
+			if pkg.marked_reinstall() {
+				println!("{} is marked reinstall", pkg.name())
+			}
+			if pkg.marked_downgrade() {
+				println!("{} is marked downgrade", pkg.name())
+			}
+		}
+	}
+}
+
 mod config {
 	use rust_apt::config::Config;
 
@@ -504,15 +705,28 @@ mod util {
 /// Tests that require root
 mod root {
 	use rust_apt::cache::*;
-	use rust_apt::progress::{raw, AptUpdateProgress, UpdateProgress};
+	use rust_apt::progress::{raw, AcquireProgress, AptAcquireProgress, AptInstallProgress};
 	use rust_apt::util::*;
+
+	#[test]
+	fn lock() {
+		apt_lock().unwrap();
+		apt_lock().unwrap();
+		assert!(apt_is_locked());
+
+		apt_unlock();
+		assert!(apt_is_locked());
+
+		apt_unlock();
+		assert!(!apt_is_locked());
+	}
 
 	#[test]
 	fn update() {
 		let cache = Cache::new();
 		struct Progress {}
 
-		impl UpdateProgress for Progress {
+		impl AcquireProgress for Progress {
 			fn pulse_interval(&self) -> usize { 0 }
 
 			fn hit(&mut self, id: u32, description: String) {
@@ -580,12 +794,36 @@ mod root {
 			}
 		}
 
-		// Test a new impl for UpdateProgress
-		let mut progress: Box<dyn UpdateProgress> = Box::new(Progress {});
+		// Test a new impl for AcquireProgress
+		let mut progress: Box<dyn AcquireProgress> = Box::new(Progress {});
 		cache.update(&mut progress).unwrap();
 
 		// Test the default implementation for it
-		let mut progress: Box<dyn UpdateProgress> = Box::new(AptUpdateProgress::new());
+		let mut progress = AptAcquireProgress::new_box();
 		cache.update(&mut progress).unwrap();
+	}
+
+	#[test]
+	fn install_and_remove() {
+		let cache = Cache::new();
+
+		let pkg = cache.get("neofetch").unwrap();
+
+		pkg.protect();
+		pkg.mark_install(true, true);
+		cache.resolve(false).unwrap();
+		dbg!(pkg.marked_install());
+
+		let mut progress = AptAcquireProgress::new_box();
+		let mut inst_progress = AptInstallProgress::new_box();
+
+		cache.commit(&mut progress, &mut inst_progress).unwrap();
+		// After commit a new cache must be created for more operations
+		cache.clear();
+
+		// Segmentation fault if the cache isn't remapped properly
+		pkg.mark_delete(true);
+
+		cache.commit(&mut progress, &mut inst_progress).unwrap();
 	}
 }
