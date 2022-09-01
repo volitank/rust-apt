@@ -5,13 +5,6 @@
 Currently there is only basic package querying.
 The goal is to eventually have all of the functionality that `python-apt` has.
 
-This is a fork of [apt-pkg-native-rs](https://github.com/FauxFaux/apt-pkg-native-rs),
-but is designed to be more intuitive.
-
-A big thanks is in order for FauxFaux.
-His original crate is a huge contribution to this project.
-It likely would not have gotten done with out him.
-
 ### *This Crate is Under Active Development*
 
 This API is far from what could be considered stable.
@@ -55,11 +48,6 @@ for pkg in cache.packages(&sort) {
 
 This crate is licensed under the GPLv3 or later.
 
-The original project was under the MIT License.
-This license has been included in the source code to comply.
-
-At this point barely any of `rust-apt` code is similar to `apt-pkg-native-rs`.
-
 # Building
 
 `libapt-pkg-dev` must be installed.
@@ -72,9 +60,9 @@ You're free to try it but development will not be focused on making this crate t
 
 # Development
 
-Make sure you have `cargo` and `rustup` are installed before you run the following commands.
+Make sure `cargo` and `rustup` are installed before you run the following commands.
 
-You will need the stable and nightly toolchain. Nightly is only used for `rustfmt`
+You will need the stable and nightly toolchain. Nightly is only used for `rustfmt`.
 
 Install `just`, a command runner we use to simplify some tasks.
 
