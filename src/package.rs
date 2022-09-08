@@ -276,23 +276,25 @@ impl<'a> Package<'a> {
 	///
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&self) -> Option<Version<'a>> {
-		let ver =
-			raw::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr.borrow());
-		if ver.ptr.is_null() {
-			return None;
+		match raw::pkg_candidate_version(&self.records.borrow().cache.borrow(), &self.ptr.borrow())
+		{
+			Ok(ver_ptr) => Some(self.create_version(ver_ptr)),
+			// The error here is just that the version doesn't exist
+			// A cxx quirk we're using to make returning Option easier
+			Err(_) => None,
 		}
-		Some(self.create_version(ver))
 	}
 
 	/// Returns the version object of the installed version.
 	///
 	/// If there isn't an installed version, returns None
 	pub fn installed(&self) -> Option<Version<'a>> {
-		let ver = raw::pkg_current_version(&self.ptr.borrow());
-		if ver.ptr.is_null() {
-			return None;
+		match raw::pkg_current_version(&self.ptr.borrow()) {
+			Ok(ver_ptr) => Some(self.create_version(ver_ptr)),
+			// The error here is just that the version doesn't exist
+			// A cxx quirk we're using to make returning Option easier
+			Err(_) => None,
 		}
-		Some(self.create_version(ver))
 	}
 
 	/// Return either a Version or None
@@ -658,6 +660,7 @@ impl<'a> Version<'a> {
 	/// use [`Package::rev_provides_list`] instead.
 	// TODO: This appears to sometimes return janky result, such as
 	// `apt-transport-https` being reporting as providing `apt-transport-https`.
+	// Additionally with the new records accessors, is this still necessary?
 	pub fn provides_list(&self) -> Vec<(String, Option<String>)> {
 		let mut returned_pkgs = Vec::new();
 
@@ -676,12 +679,6 @@ impl<'a> Version<'a> {
 
 	/// The priority string as shown in `apt show`.
 	pub fn priority_str(&self) -> String { raw::ver_priority_str(&self.ptr.borrow()) }
-
-	/// The name of the source package the version was built from.
-	pub fn source_name(&self) -> String { raw::ver_source_name(&self.ptr.borrow()) }
-
-	/// The version of the source package.
-	pub fn source_version(&self) -> String { raw::ver_source_version(&self.ptr.borrow()) }
 
 	/// The priority of the package as shown in `apt policy`.
 	pub fn priority(&self) -> i32 {
@@ -786,17 +783,59 @@ impl<'a> Version<'a> {
 	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends("Suggests") }
 
 	/// Get the translated long description
-	pub fn description(&self) -> String {
+	pub fn description(&self) -> Option<String> {
 		let mut records = self.records.borrow_mut();
 		records.lookup_desc(&self.ptr.borrow().desc);
 		records.description()
 	}
 
 	/// Get the translated short description
-	pub fn summary(&self) -> String {
+	pub fn summary(&self) -> Option<String> {
 		let mut records = self.records.borrow_mut();
 		records.lookup_desc(&self.ptr.borrow().desc);
 		records.summary()
+	}
+
+	/// Get data from the specified record field
+	///
+	/// # Returns:
+	///   * Some String or None if the field doesn't exist.
+	///
+	/// # Example:
+	/// ```
+	/// use rust_apt::cache::Cache;
+	/// use rust_apt::records::RecordField;
+	///
+	/// let cache = Cache::new();
+	/// let pkg = cache.get("apt").unwrap();
+	/// let cand = pkg.candidate().unwrap();
+	///
+	/// println!("{}", cand.get_record(RecordField::Maintainer).unwrap());
+	/// // Or alternatively you can just pass any string
+	/// println!("{}", cand.get_record("Description-md5").unwrap());
+	/// ```
+	pub fn get_record(&self, field_name: &str) -> Option<String> {
+		// If the lookup fails it could return data from an unrelated package
+		match self.lookup_ver() {
+			true => self.records.borrow().get_field(field_name.to_string()),
+			false => None,
+		}
+	}
+
+	/// Internal function to help with lookups and deduplicate code.
+	///
+	/// It is expected that this may not ever return false except maybe virtual
+	/// packages.
+	fn lookup_ver(&self) -> bool {
+		// It is possible we should do something similar with lookup_desc.
+		// May need to research if we should OnceCell the ver_file_list again,
+		// the performance penalty of getting the ver_file_list may not be an issue.
+		let mut records = self.records.borrow_mut();
+		if let Some(ver_file) = ver_file_list(&self.ptr.borrow()).first() {
+			records.lookup_ver(ver_file);
+			return true;
+		}
+		false
 	}
 
 	/// Get the sha256 hash. If there isn't one returns None
@@ -810,11 +849,10 @@ impl<'a> Version<'a> {
 	/// Get the hash specified. If there isn't one returns None
 	/// `version.hash("md5sum")`
 	pub fn hash(&self, hash_type: &str) -> Option<String> {
-		let ver_file = ver_file_list(&self.ptr.borrow()).into_iter().next()?;
-		let mut records = self.records.borrow_mut();
-
-		records.lookup_ver(&ver_file);
-		records.hash_find(hash_type)
+		match self.lookup_ver() {
+			true => self.records.borrow().hash_find(hash_type),
+			false => None,
+		}
 	}
 
 	/// Returns an iterator of PackageFiles (Origins) for the version
@@ -1030,14 +1068,14 @@ pub mod raw {
 
 		/// Return the installed version of the package.
 		/// Ptr will be NULL if it's not installed.
-		pub fn pkg_current_version(iterator: &PackagePtr) -> VersionPtr;
+		pub fn pkg_current_version(iterator: &PackagePtr) -> Result<VersionPtr>;
 
 		/// Return the candidate version of the package.
 		/// Ptr will be NULL if there isn't a candidate.
 		pub fn pkg_candidate_version(
 			cache: &UniquePtr<PkgCacheFile>,
 			iterator: &PackagePtr,
-		) -> VersionPtr;
+		) -> Result<VersionPtr>;
 
 		/// Return the version determined by a version string.
 		pub fn pkg_get_version(iterator: &PackagePtr, version_str: String) -> Result<VersionPtr>;
@@ -1105,12 +1143,6 @@ pub mod raw {
 
 		/// The priority string as shown in `apt show`.
 		pub fn ver_priority_str(version: &VersionPtr) -> String;
-
-		/// The name of the source package the version was built from.
-		pub fn ver_source_name(version: &VersionPtr) -> String;
-
-		/// The version of the source package.
-		pub fn ver_source_version(version: &VersionPtr) -> String;
 
 		/// The priority of the package as shown in `apt policy`.
 		pub fn ver_priority(cache: &UniquePtr<PkgCacheFile>, version: &VersionPtr) -> i32;

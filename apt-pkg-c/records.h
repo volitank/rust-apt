@@ -38,4 +38,6 @@ rust::string long_desc(const Records& records);
 
 rust::string short_desc(const Records& records);
 
+rust::string get_field(const Records& records, rust::string field);
+
 rust::string hash_find(const Records& records, rust::string hash_type);

@@ -1,6 +1,16 @@
 #include "rust-apt/src/records.rs"
 #include "rust-apt/src/cache.rs"
 
+// Helper function
+//
+/// Check if a string exists and return a Result to rust
+static rust::string check_string(std::string string) {
+	if (string.empty()) {
+		throw std::runtime_error("String is empty");
+	}
+	return string;
+}
+
 /// Create the Package Records.
 Records records_create(const std::unique_ptr<PkgCacheFile>& cache) {
 	return Records{
@@ -62,15 +72,18 @@ const VersionFile& ver_file) {
 
 /// Return the translated long description of a Package.
 rust::string long_desc(const Records& records) {
-	return records.records->parser->LongDesc();
+	return check_string(records.records->parser->LongDesc());
 }
-
 
 /// Return the translated short description of a Package.
 rust::string short_desc(const Records& records) {
-	return records.records->parser->ShortDesc();
+	return check_string(records.records->parser->ShortDesc());
 }
 
+/// Return the Source package version string.
+rust::string get_field(const Records& records, rust::string field) {
+	return check_string(records.records->parser->RecordField(field.c_str()));
+}
 
 /// Find the hash of a Version. Returns "KeyError" (lul python) if there is no hash.
 rust::string hash_find(const Records& records, rust::string hash_type) {

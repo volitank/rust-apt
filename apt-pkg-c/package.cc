@@ -211,17 +211,6 @@ rust::string ver_priority_str(const VersionPtr& ver) {
 }
 
 
-/// The name of the source package the version was built from.
-rust::string ver_source_name(const VersionPtr& ver) {
-	return ver.ptr->SourcePkgName();
-}
-
-
-/// The version of the source package.
-rust::string ver_source_version(const VersionPtr& ver) {
-	return ver.ptr->SourceVerStr();
-}
-
 /// The priority of the package as shown in `apt policy`.
 int32_t ver_priority(const std::unique_ptr<PkgCacheFile>& cache, const VersionPtr& ver) {
 	return cache->GetPolicy()->GetPriority(*ver.ptr);
