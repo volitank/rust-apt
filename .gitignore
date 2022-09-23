@@ -7,3 +7,4 @@ apt-c/lib.o
 apt-c/libapt-c.a
 .cache
 compile_commands.json
+tests/files/cache/*.deb

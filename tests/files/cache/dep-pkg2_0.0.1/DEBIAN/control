@@ -1,0 +1,10 @@
+Package: dep-pkg2
+Version: 0.0.1
+Section: base
+Priority: optional
+Architecture: all
+Depends: neofetch, xonsh
+Maintainer: Your Name <you@email.com>
+Description: Rust FTW
+ This is only used for testing.
+ Why would you install this?

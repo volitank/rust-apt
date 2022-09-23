@@ -114,10 +114,38 @@ mod root {
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 		// After commit a new cache must be created for more operations
-		cache.clear();
+		cache.clear().unwrap();
 
 		// Segmentation fault if the cache isn't remapped properly
 		pkg.mark_delete(true);
+
+		cache.commit(&mut progress, &mut inst_progress).unwrap();
+	}
+
+	#[test]
+	fn install_with_debs() {
+		let cache = Cache::debs(&[
+			"tests/files/cache/dep-pkg1_0.0.1.deb",
+			"tests/files/cache/dep-pkg2_0.0.1.deb",
+		])
+		.unwrap();
+
+		let pkg1 = cache.get("dep-pkg1").unwrap();
+		let pkg2 = cache.get("dep-pkg2").unwrap();
+
+		pkg1.mark_install(true, true);
+		pkg2.mark_install(true, true);
+		cache.resolve(false).unwrap();
+
+		let mut progress = AptAcquireProgress::new_box();
+		let mut inst_progress = AptInstallProgress::new_box();
+		cache.commit(&mut progress, &mut inst_progress).unwrap();
+
+		cache.clear().unwrap();
+
+		// Leave no trace
+		pkg1.mark_delete(true);
+		pkg2.mark_delete(true);
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 	}

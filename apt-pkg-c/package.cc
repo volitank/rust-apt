@@ -3,6 +3,7 @@
 #include <apt-pkg/policy.h>
 #include <apt-pkg/sourcelist.h>
 
+#include "rust-apt/apt-pkg-c/util.h"
 #include "rust-apt/src/package.rs"
 
 
@@ -11,36 +12,11 @@
 const char* UntranslatedDepTypes[] = { "", "Depends", "PreDepends", "Suggests",
 	"Recommends", "Conflicts", "Replaces", "Obsoletes", "Breaks", "Enhances" };
 
-
-/// Wrap the PkgIterator into our PackagePtr Struct.
-static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
-	if (pkg.end()) {
-		throw std::runtime_error("Package doesn't exist");
-	}
-
-	return PackagePtr{ std::make_unique<pkgCache::PkgIterator>(pkg) };
-}
-
-
-/// Wrap the VerIterator into our VersionPtr Struct.
-static VersionPtr wrap_version(pkgCache::VerIterator ver) {
-	if (ver.end()) {
-		throw std::runtime_error("Version doesn't exist");
-	}
-
-	return VersionPtr{
-		std::make_unique<pkgCache::VerIterator>(ver),
-		std::make_unique<pkgCache::DescIterator>(ver.TranslatedDescription()),
-	};
-}
-
-
 /// Return the installed version of the package.
 /// Ptr will be NULL if it's not installed.
 VersionPtr pkg_current_version(const PackagePtr& pkg) {
 	return wrap_version(pkg.ptr->CurrentVer());
 }
-
 
 /// Return the candidate version of the package.
 /// Ptr will be NULL if there isn't a candidate.
@@ -198,16 +174,14 @@ rust::Vec<rust::string> ver_provides_list(const VersionPtr& ver) {
 /// The section of the version as shown in `apt show`.
 rust::string ver_section(const VersionPtr& ver) {
 	// Some packages, such as msft teams, doesn't have a section.
-	if (!ver.ptr->Section()) {
-		return "None";
-	}
-	return ver.ptr->Section();
+	return handle_null_str(ver.ptr->Section());
 }
 
 
 /// The priority string as shown in `apt show`.
 rust::string ver_priority_str(const VersionPtr& ver) {
-	return ver.ptr->PriorityType();
+	// Priority is required. If it doesn't exist null is returned
+	return handle_null_str(ver.ptr->PriorityType());
 }
 
 

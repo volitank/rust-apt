@@ -1,0 +1,5 @@
+Package: apt
+Version: 5000:1.0.0
+Description: This package would never exist in a normal APT repository
+Maintainer: Foo Bar <foobar@example.com>
+Architecture: all

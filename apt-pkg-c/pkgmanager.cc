@@ -14,6 +14,7 @@ const std::unique_ptr<PkgCacheFile>& cache) {
 }
 
 void pkgmanager_get_archives(const std::unique_ptr<PkgPackageManager>& pkgmanager,
+const std::unique_ptr<PkgCacheFile>& cache,
 Records& records,
 DynAcquireProgress& callback) {
 	AcqTextStatus archive_progress(callback);
@@ -21,12 +22,9 @@ DynAcquireProgress& callback) {
 
 	// We probably need to let the user set their own pkgSourceList,
 	// but there hasn't been a need to expose such in the Rust interface yet.
-	pkgSourceList sourcelist;
-	if (!sourcelist.ReadMainList()) {
-		handle_errors();
-	}
-
-	if (!pkgmanager->GetArchives(&acquire, &sourcelist, &records.records->records)) {
+	// pkgSourceList sourcelist = *cache->GetSourceList();
+	if (!pkgmanager->GetArchives(
+		&acquire, cache->GetSourceList(), &records.records->records)) {
 		handle_errors();
 		throw std::runtime_error(
 		"Internal Issue with rust-apt in pkgmanager_get_archives."

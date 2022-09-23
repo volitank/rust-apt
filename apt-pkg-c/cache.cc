@@ -1,9 +1,11 @@
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/fileutl.h>
+#include <apt-pkg/indexfile.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/policy.h>
 #include <apt-pkg/sourcelist.h>
+#include <apt-pkg/strutl.h>
 #include <apt-pkg/update.h>
 #include <apt-pkg/version.h>
 
@@ -12,80 +14,20 @@
 #include "rust-apt/src/cache.rs"
 #include "rust-apt/src/progress.rs"
 
-/// Helper Functions:
-
-/// Wrap the PkgIterator into our PackagePtr Struct.
-static PackagePtr wrap_package(pkgCache::PkgIterator pkg) {
-	if (pkg.end()) {
-		throw std::runtime_error("Package doesn't exist");
-	}
-
-	return PackagePtr{ std::make_unique<pkgCache::PkgIterator>(pkg) };
-}
-
-
-/// Wrap the VerIterator into our VersionPtr Struct.
-static VersionPtr wrap_version(pkgCache::VerIterator ver) {
-	if (ver.end()) {
-		throw std::runtime_error("Version doesn't exist");
-	}
-
-	return VersionPtr{
-		std::make_unique<pkgCache::VerIterator>(ver),
-		std::make_unique<pkgCache::DescIterator>(ver.TranslatedDescription()),
-	};
-}
-
-
-/// Wrap PkgFileIterator into PackageFile Struct.
-static PackageFile wrap_pkg_file(pkgCache::PkgFileIterator pkg_file) {
-	return PackageFile{
-		std::make_unique<PkgFile>(pkg_file),
-	};
-}
-
-
-/// Wrap VerFileIterator into VersionFile Struct.
-static VersionFile wrap_ver_file(pkgCache::VerFileIterator ver_file) {
-	return VersionFile{
-		std::make_unique<pkgCache::VerFileIterator>(ver_file),
-	};
-}
-
-
-static bool is_upgradable(
-const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
-	pkgCache::VerIterator inst = pkg.CurrentVer();
-	if (!inst) return false;
-
-	pkgCache::VerIterator cand = cache->GetPolicy()->GetCandidateVer(pkg);
-	if (!cand) return false;
-
-	return inst != cand;
-}
-
-
-static bool is_auto_removable(
-const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
-	pkgDepCache::StateCache state = (*cache->GetDepCache())[pkg];
-	return ((pkg.CurrentVer() || state.NewInstall()) && state.Garbage);
-}
-
-
-static bool is_auto_installed(
-const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
-	pkgDepCache::StateCache state = (*cache->GetDepCache())[pkg];
-	return state.Flags & pkgCache::Flag::Auto;
-}
-
-
-/// Main Initializers for apt:
 
 /// Create the CacheFile.
-std::unique_ptr<PkgCacheFile> pkg_cache_create() {
-	return std::make_unique<PkgCacheFile>();
-}
+std::unique_ptr<PkgCacheFile> pkg_cache_create(rust::Slice<const rust::String> deb_files) {
+	std::unique_ptr<PkgCacheFile> cache = std::make_unique<PkgCacheFile>();
 
+	for (auto deb_str : deb_files) {
+		std::string deb_string(deb_str.c_str());
+		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
+			throw std::runtime_error("Couldn't add '" + deb_string + "' to the cache.");
+		}
+	}
+
+	return cache;
+}
 
 /// Update the package lists, handle errors and return a Result.
 void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynAcquireProgress& callback) {
@@ -227,53 +169,44 @@ const std::unique_ptr<PkgCacheFile>& cache, rust::string name, rust::string arch
 	return wrap_package(cache->GetPkgCache()->FindPkg(name.c_str(), arch.c_str()));
 }
 
-
-/// PackageFile Functions:
-static rust::string handle_null(const char* str) {
-	if (!str) {
-		throw std::runtime_error("Unknown");
-	}
-	return str;
-}
-
 /// The path to the PackageFile
 rust::string filename(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.FileName());
+	return handle_null_str(pkg_file.ptr->pkg_file.FileName());
 }
 
 /// The Archive of the PackageFile. ex: unstable
 rust::string archive(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Archive());
+	return handle_null_str(pkg_file.ptr->pkg_file.Archive());
 }
 
 /// The Origin of the PackageFile. ex: Debian
 rust::string origin(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Origin());
+	return handle_null_str(pkg_file.ptr->pkg_file.Origin());
 }
 
 /// The Codename of the PackageFile. ex: main, non-free
 rust::string codename(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Codename());
+	return handle_null_str(pkg_file.ptr->pkg_file.Codename());
 }
 
 /// The Label of the PackageFile. ex: Debian
 rust::string label(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Label());
+	return handle_null_str(pkg_file.ptr->pkg_file.Label());
 }
 
 /// The Hostname of the PackageFile. ex: deb.debian.org
 rust::string site(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Site());
+	return handle_null_str(pkg_file.ptr->pkg_file.Site());
 }
 
 /// The Component of the PackageFile. ex: sid
 rust::string component(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Component());
+	return handle_null_str(pkg_file.ptr->pkg_file.Component());
 }
 
 /// The Architecture of the PackageFile. ex: amd64
 rust::string arch(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.Architecture());
+	return handle_null_str(pkg_file.ptr->pkg_file.Architecture());
 }
 
 
@@ -283,7 +216,7 @@ rust::string arch(const PackageFile& pkg_file) {
 /// Debian Translation Index,
 /// Debian dpkg status file,
 rust::string index_type(const PackageFile& pkg_file) {
-	return handle_null(pkg_file.ptr->pkg_file.IndexType());
+	return handle_null_str(pkg_file.ptr->pkg_file.IndexType());
 }
 
 /// The Index of the PackageFile

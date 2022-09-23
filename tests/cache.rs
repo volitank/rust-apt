@@ -5,6 +5,19 @@ mod cache {
 	use rust_apt::util::*;
 
 	#[test]
+	fn with_debs() {
+		let cache = Cache::debs(&[
+			"tests/files/cache/apt.deb",
+			"tests/files/cache/dep-pkg1_0.0.1.deb",
+		])
+		.unwrap();
+		cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap();
+		cache.get("dep-pkg1").unwrap();
+
+		assert!(Cache::debs(&["tests/files/this-file-doesnt-exist.deb"]).is_err());
+	}
+
+	#[test]
 	fn version_vec() {
 		let cache = Cache::new();
 
@@ -212,6 +225,9 @@ mod cache {
 			for pkg in &rev_provides_list {
 				prov_names.push(pkg.parent().name());
 			}
+
+			// This function is wild and possibly can fail all the time.
+			// For example adding i386 arch will cause this to fail.
 			assert_eq!(rev_provides_list.len(), 1);
 			assert!(prov_names.contains(&"apt".to_string()));
 			assert_eq!(provides_pkg.version(), ver.version());
@@ -304,15 +320,15 @@ mod cache {
 		assert!(pkg2.marked_install())
 	}
 
-	// 'dpkg' can't ever be removed from what I've observed, so we'll use that to
-	// our advantage here.
+	// For now `zorp` has broken dependencies so the resolver errors.
+	// If this test fails, potentially find a reason.
 	#[test]
 	fn bad_resolution() {
 		let cache = Cache::new();
 
-		let pkg = cache.get("dpkg").unwrap();
+		let pkg = cache.get("zorp").unwrap();
 
-		pkg.mark_delete(true);
+		pkg.mark_install(false, true);
 		pkg.protect();
 
 		assert!(cache.resolve(false).is_err());
@@ -337,7 +353,7 @@ mod cache {
 		let pkg = cache.get("apt").unwrap();
 		let cand = pkg.candidate().unwrap();
 
-		cache.clear();
+		cache.clear().unwrap();
 
 		// These will segfault if the remap isn't done properly
 		dbg!(pkg.mark_delete(true));

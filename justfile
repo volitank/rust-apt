@@ -1,23 +1,29 @@
 #!/usr/bin/env just --justfile
 
-# Setup the development environment
-setup-dev:
-	@echo Installing required packages from apt
-	@sudo apt-get install bear valgrind libapt-pkg-dev clang-format codespell -y
+# Setup the development environment.
+@setup-dev:
+	#!/bin/sh
 
-	@echo Setting up toolchains
-	@rustup toolchain install nightly
-	@rustup toolchain install stable
+	set -e
 
-	@echo Installing nightly \`rustfmt\`
-	@rustup toolchain install nightly --component rustfmt
-	@echo Nightly \`rustfmt\` successfully installed!
+	echo Installing required packages from apt
+	sudo apt-get install bear valgrind libapt-pkg-dev clang-format codespell -y
 
-	@echo Cleaning and building c++ compile commands
-	@cargo clean
-	@bear -- cargo build
+	echo Setting up toolchains
+	rustup toolchain install nightly
+	rustup toolchain install stable
 
-	@echo Development environment installed successfully!
+	echo Installing nightly \`rustfmt\`
+	rustup toolchain install nightly --component rustfmt
+	echo Nightly \`rustfmt\` successfully installed!
+
+	echo Cleaning and building c++ compile commands
+	cargo clean
+
+	bear -- cargo build
+	echo Development environment installed successfully!
+
+	# Sudo is required to install packages with apt
 
 # Run checks
 check: spellcheck clippy
@@ -34,32 +40,57 @@ build:
 	@cargo build
 	@echo Project successfully built!
 
-# Run the tests
-test +ARGS="":
-	@cargo test --doc
-	@cargo test -- --test-threads 1 {{ARGS}}
+# Create the debs required for tests
+create-test-debs:
+	#!/bin/sh
+	set -e
 
-test_root +ARGS="":
-	@cargo test --no-run
-	@sudo -- $( \
-		find target/debug/deps/ \
-		-executable \
-		-type f \
-		-name "tests-*" \
-		-printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
-	) --test-threads 1 {{ARGS}}
+	cd tests/files/cache
+	rm -f *.deb
+	for pkg in *; do
+		dpkg-deb --build "${pkg}";
+	done
+
+# Run all tests except for root
+test +ARGS="":
+	@just create-test-debs
+	@cargo test --doc
+	@cargo test --no-fail-fast -- --test-threads 1 --skip root {{ARGS}}
+
+# Run only the root tests. Sudo password required!
+test-root +ARGS="":
+	#!/bin/bash
+	just create-test-debs
+	cargo test --no-run
+
+	# This is just for the ci. You should not be running everything as root
+	if [ $(id -u) -eq 0 ]; then
+		cargo="cargo"
+	else
+		cargo="sudo -E /home/${USER}/.cargo/bin/cargo"
+	fi
+
+	${cargo} test --test root -- --test-threads 1 {{ARGS}}
 
 
 # Run leak tests. Requires root
-leak:
-	@cargo test --no-run
-	@sudo -- valgrind --leak-check=full -- $( \
-		find target/debug/deps/ \
-		-executable \
-		-type f \
-		-name "tests-*" \
+@leak:
+	#!/bin/sh
+
+	set -e
+	just create-test-debs
+	cargo test --no-run
+
+	test_binaries=$( \
+		find target/debug/deps -executable -type f \
 		-printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
-	) --test-threads 1
+		| grep -v ".so"
+	)
+
+	for test in $test_binaries; do
+		# Sudo is needed to memleak the root tests
+		sudo valgrind --leak-check=full -- "${test}" --test-threads 1
+	done
 
 # Lint the codebase
 clippy +ARGS="":
@@ -67,30 +98,17 @@ clippy +ARGS="":
 	@echo Lint successful!
 
 # Format the codebase
-fmt +ARGS="":
-	@cargo +nightly fmt --all -- {{ARGS}}
-	@clang-format -i \
-		apt-pkg-c/cache.cc \
-		apt-pkg-c/cache.h \
-		apt-pkg-c/configuration.cc \
-		apt-pkg-c/configuration.h \
-		apt-pkg-c/progress.cc \
-		apt-pkg-c/progress.h \
-		apt-pkg-c/util.cc \
-		apt-pkg-c/util.h \
-		apt-pkg-c/depcache.cc \
-		apt-pkg-c/depcache.h \
-		apt-pkg-c/records.cc \
-		apt-pkg-c/records.h \
-		apt-pkg-c/resolver.cc \
-		apt-pkg-c/resolver.h \
-		apt-pkg-c/package.cc \
-		apt-pkg-c/package.h \
-		apt-pkg-c/pkgmanager.cc \
-		apt-pkg-c/pkgmanager.h
-	@echo Codebase formatted successfully!
+@fmt +ARGS="":
+	#!/bin/sh
+
+	set -e
+
+	cargo +nightly fmt --all -- {{ARGS}}
+	cd apt-pkg-c
+	clang-format -i *
+	echo Codebase formatted successfully!
 
 # Spellcheck the codebase
-spellcheck +ARGS="--skip target*":
+spellcheck +ARGS="--skip target* --skip .git*":
 	@codespell --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
 	@echo Spellings look good!

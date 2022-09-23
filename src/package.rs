@@ -646,7 +646,7 @@ impl<'a> Version<'a> {
 	pub fn version(&self) -> String { raw::ver_str(&self.ptr.borrow()) }
 
 	/// The section of the version as shown in `apt show`.
-	pub fn section(&self) -> String { raw::ver_section(&self.ptr.borrow()) }
+	pub fn section(&self) -> Option<String> { raw::ver_section(&self.ptr.borrow()).ok() }
 
 	/// The list of packages that this package provides for.
 	///
@@ -678,7 +678,7 @@ impl<'a> Version<'a> {
 	}
 
 	/// The priority string as shown in `apt show`.
-	pub fn priority_str(&self) -> String { raw::ver_priority_str(&self.ptr.borrow()) }
+	pub fn priority_str(&self) -> Option<String> { raw::ver_priority_str(&self.ptr.borrow()).ok() }
 
 	/// The priority of the package as shown in `apt policy`.
 	pub fn priority(&self) -> i32 {
@@ -925,8 +925,8 @@ impl<'a> fmt::Display for Version<'a> {
 			self.arch(),
 			unit_str(self.size(), NumSys::Decimal),
 			unit_str(self.installed_size(), NumSys::Decimal),
-			self.section(),
-			self.priority_str(),
+			self.section().unwrap_or_else(|| String::from("None")),
+			self.priority_str().unwrap_or_else(|| String::from("None")),
 			self.priority(),
 			self.downloadable(),
 		)?;
@@ -1139,10 +1139,10 @@ pub mod raw {
 		pub fn ver_str(version: &VersionPtr) -> String;
 
 		/// The section of the version as shown in `apt show`.
-		pub fn ver_section(version: &VersionPtr) -> String;
+		pub fn ver_section(version: &VersionPtr) -> Result<String>;
 
 		/// The priority string as shown in `apt show`.
-		pub fn ver_priority_str(version: &VersionPtr) -> String;
+		pub fn ver_priority_str(version: &VersionPtr) -> Result<String>;
 
 		/// The priority of the package as shown in `apt policy`.
 		pub fn ver_priority(cache: &UniquePtr<PkgCacheFile>, version: &VersionPtr) -> i32;

@@ -5,18 +5,6 @@
 #include "rust-apt/apt-pkg-c/util.h"
 #include "rust-apt/src/depcache.rs"
 
-/// Helper Functions:
-
-static bool is_upgradable(
-const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
-	pkgCache::VerIterator inst = pkg.CurrentVer();
-	if (!inst) return false;
-
-	pkgCache::VerIterator cand = cache->GetPolicy()->GetCandidateVer(pkg);
-	if (!cand) return false;
-
-	return inst != cand;
-}
 
 /// Clear any marked changes in the DepCache.
 void depcache_init(const std::unique_ptr<PkgCacheFile>& cache, DynOperationProgress& callback) {

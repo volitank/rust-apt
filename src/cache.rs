@@ -216,6 +216,7 @@ pub struct Cache {
 	resolver: Rc<RefCell<ProblemResolver>>,
 	pkgmanager: Rc<RefCell<PackageManager>>,
 	pointer_map: Rc<RefCell<PointerMap>>,
+	deb_pkglist: Vec<String>,
 }
 
 impl Default for Cache {
@@ -223,30 +224,58 @@ impl Default for Cache {
 }
 
 impl Cache {
-	/// Initialize the configuration system, open and return the cache.
-	///
-	/// This is the entry point for all operations of this crate.
-	pub fn new() -> Self {
+	fn internal_new(deb_pkgs: &[&str]) -> Result<Self, Exception> {
 		init_config_system();
-		let cache_ptr = Rc::new(RefCell::new(raw::pkg_cache_create()));
+		let mut raw_deb_pkgs = vec![];
+		for pkg in deb_pkgs {
+			raw_deb_pkgs.push(pkg.to_string());
+		}
 
-		Self {
+		let cache_ptr = {
+			match raw::pkg_cache_create(&raw_deb_pkgs) {
+				Ok(ptr) => Rc::new(RefCell::new(ptr)),
+				Err(err) => return Err(err),
+			}
+		};
+
+		Ok(Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
 			depcache: Rc::new(RefCell::new(DepCache::new(Rc::clone(&cache_ptr)))),
 			resolver: Rc::new(RefCell::new(ProblemResolver::new(Rc::clone(&cache_ptr)))),
 			pkgmanager: Rc::new(RefCell::new(PackageManager::new(Rc::clone(&cache_ptr)))),
 			ptr: cache_ptr,
 			pointer_map: Rc::new(RefCell::new(PointerMap::new())),
-		}
+			deb_pkglist: raw_deb_pkgs,
+		})
 	}
+
+	/// Initialize the configuration system, open and return the cache.
+	/// This is the entry point for all operations of this crate.
+	pub fn new() -> Self { Self::internal_new(&[]).unwrap() }
+
+	/// The same thing as [`Cache::new`], but allows you to add local `.deb`
+	/// files to the cache. This function returns an [`Exception`] if any of the
+	/// `.deb` files cannot be found.
+	pub fn debs(deb_files: &[&str]) -> Result<Self, Exception> { Self::internal_new(deb_files) }
 
 	/// Clear the entire cache and start new.
 	///
 	/// This function would be used after `cache.update`
-	/// Or after do_install if you plan on making more changes
-	pub fn clear(&self) {
+	/// Or after do_install if you plan on making more changes.
+	///
+	/// If you created the cache via [`Cache::debs`], this will return an
+	/// [`Exception`] if the `.deb` files that were specified no longer exist on
+	/// the system. If they do or you created the cache via [`Cache::new`] or
+	/// [`Cache::default`], then this function will always return an [`Ok`], and
+	/// it can safely be ran with `.unwrap`.
+	pub fn clear(&self) -> Result<(), Exception> {
+		let new_ptr = match raw::pkg_cache_create(&self.deb_pkglist) {
+			Ok(ptr) => ptr,
+			Err(err) => return Err(err),
+		};
+
 		// Replace all of the Cache references
-		self.ptr.replace(raw::pkg_cache_create());
+		self.ptr.replace(new_ptr);
 		self.records.replace(Records::new(Rc::clone(&self.ptr)));
 		self.depcache.replace(DepCache::new(Rc::clone(&self.ptr)));
 		self.resolver
@@ -256,6 +285,7 @@ impl Cache {
 
 		// Remap packages to coincide with the new cache
 		self.pointer_map.borrow_mut().remap(&self.ptr.borrow());
+		Ok(())
 	}
 
 	/// Updates the package cache and returns a Result
@@ -311,7 +341,7 @@ impl Cache {
 	/// # sort_name:
 	/// * [`true`] = Packages will be in alphabetical order
 	/// * [`false`] = Packages will not be sorted by name
-	pub fn get_changes<'a>(&'a self, sort_name: bool) -> impl Iterator<Item = Package> + '_ {
+	pub fn get_changes(&self, sort_name: bool) -> impl Iterator<Item = Package> + '_ {
 		let mut changed = Vec::new();
 		let depcache = self.depcache.borrow();
 
@@ -803,7 +833,7 @@ pub mod raw {
 		/// It is advised to init the config and system before creating the
 		/// cache. These bindings can be found in config::raw.
 		// TODO: Maybe this should return result. I believe this can fail with an apt error
-		pub fn pkg_cache_create() -> UniquePtr<PkgCacheFile>;
+		pub fn pkg_cache_create(deb_files: &[String]) -> Result<UniquePtr<PkgCacheFile>>;
 
 		/// Update the package lists, handle errors and return a Result.
 		// TODO: What kind of errors can be returned here?

@@ -16,7 +16,6 @@ using PkgCacheFile = pkgCacheFile;
 using PkgCache = pkgCache;
 using PkgSourceList = pkgSourceList;
 using PkgDepCache = pkgDepCache;
-
 using PkgIterator = pkgCache::PkgIterator;
 using VerIterator = pkgCache::VerIterator;
 using VerFileIterator = pkgCache::VerFileIterator;
@@ -36,9 +35,8 @@ struct PkgFile {
 
 /// Main Initializers for apt:
 
-std::unique_ptr<PkgCacheFile> pkg_cache_create();
+std::unique_ptr<PkgCacheFile> pkg_cache_create(rust::Slice<const rust::String> deb_files);
 void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynAcquireProgress& progress);
-
 rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
 
 /// Package Functions:

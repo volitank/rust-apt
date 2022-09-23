@@ -3,7 +3,6 @@
 #include "rust-apt/src/cache.rs"
 #include "rust-apt/src/progress.rs"
 
-/// Helper Functions:
 
 /// Create the problem resolver.
 std::unique_ptr<PkgProblemResolver> problem_resolver_create(

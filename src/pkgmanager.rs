@@ -12,6 +12,7 @@ use crate::records::Records;
 
 pub(crate) struct PackageManager {
 	ptr: Rc<RefCell<UniquePtr<raw::PkgPackageManager>>>,
+	cache: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
 }
 
 // Other structs that use this one implement Debug, so we need to as well.
@@ -24,9 +25,8 @@ impl fmt::Debug for PackageManager {
 
 impl PackageManager {
 	pub fn new(cache: Rc<RefCell<UniquePtr<PkgCacheFile>>>) -> Self {
-		Self {
-			ptr: Rc::new(RefCell::new(raw::pkgmanager_create(&cache.borrow()))),
-		}
+		let ptr = Rc::new(RefCell::new(raw::pkgmanager_create(&cache.borrow())));
+		Self { ptr, cache }
 	}
 
 	pub fn get_archives(
@@ -34,7 +34,12 @@ impl PackageManager {
 		records: &mut Records,
 		progress: &mut Box<dyn AcquireProgress>,
 	) -> Result<(), Exception> {
-		raw::pkgmanager_get_archives(&self.ptr.borrow(), &mut records.ptr, progress)
+		raw::pkgmanager_get_archives(
+			&self.ptr.borrow(),
+			&self.cache.borrow(),
+			&mut records.ptr,
+			progress,
+		)
 	}
 
 	pub fn do_install(&self, progress: &mut Box<dyn InstallProgress>) -> Result<(), Exception> {
@@ -59,6 +64,7 @@ pub mod raw {
 
 		pub fn pkgmanager_get_archives(
 			pkgmanager: &UniquePtr<PkgPackageManager>,
+			cache: &UniquePtr<PkgCacheFile>,
 			records: &mut Records,
 			progress: &mut DynAcquireProgress,
 		) -> Result<()>;

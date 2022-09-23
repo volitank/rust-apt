@@ -3,6 +3,7 @@ stages:
 variables:
   DEBIAN_FRONTEND: noninteractive
   PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+  USER: "root"
 
 test:
   stage: test
@@ -18,9 +19,11 @@ test:
     - apt install eatmydata -y
     - eatmydata apt install build-essential curl sudo -y
     - eatmydata curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
-    - eatmydata cargo install just
+    # Save some CI time by using a pre-built binary for just
+    - curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/bin
     - eatmydata just setup-dev
     - eatmydata just check
-    # Just test_root is not testing the doc examples
-    - eatmydata cargo test --doc
-    - eatmydata just test_root
+    # Docker has 0777 for everything. Deb packages need to be 0755
+    - chmod 0755 -R tests/files/cache
+    - eatmydata just test
+    - eatmydata just test-root

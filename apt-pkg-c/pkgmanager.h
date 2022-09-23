@@ -14,6 +14,7 @@ std::unique_ptr<PkgPackageManager> pkgmanager_create(
 const std::unique_ptr<PkgCacheFile>& cache);
 
 void pkgmanager_get_archives(const std::unique_ptr<PkgPackageManager>& pkgmanager,
+const std::unique_ptr<PkgCacheFile>& cache,
 Records& records,
 DynAcquireProgress& callback);
 
