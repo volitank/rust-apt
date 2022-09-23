@@ -21,4 +21,6 @@ test:
     - eatmydata cargo install just
     - eatmydata just setup-dev
     - eatmydata just check
+    # Just test_root is not testing the doc examples
+    - eatmydata cargo test --doc
     - eatmydata just test_root

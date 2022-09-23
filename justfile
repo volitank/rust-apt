@@ -41,7 +41,7 @@ test +ARGS="":
 
 test_root +ARGS="":
 	@cargo test --no-run
-	@sudo $( \
+	@sudo -- $( \
 		find target/debug/deps/ \
 		-executable \
 		-type f \
@@ -53,7 +53,7 @@ test_root +ARGS="":
 # Run leak tests. Requires root
 leak:
 	@cargo test --no-run
-	@sudo valgrind --leak-check=full -- $( \
+	@sudo -- valgrind --leak-check=full -- $( \
 		find target/debug/deps/ \
 		-executable \
 		-type f \

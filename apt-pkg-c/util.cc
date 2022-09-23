@@ -9,7 +9,7 @@
 #include "rust-apt/src/util.rs"
 
 /// Handle any apt errors and return result to rust.
-static void handle_errors() {
+void handle_errors() {
 	std::string err_str;
 	while (!_error->empty()) {
 		std::string msg;

@@ -2,6 +2,10 @@
 #include "rust/cxx.h"
 #include <cstdint>
 
+/// Handle any apt errors and return result to rust.
+/// Do not expose this on the Rust side - this is just for use on the C++ side.
+void handle_errors();
+
 /// Compare two package version strings.
 int32_t cmp_versions(rust::String ver1_rust, rust::String ver2_rust);
 

@@ -20,4 +20,5 @@ pub mod pkgmanager;
 pub mod progress;
 pub mod records;
 mod resolver;
+pub mod tagfile;
 pub mod util;

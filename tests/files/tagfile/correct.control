@@ -1,0 +1,18 @@
+Package: pkg1
+Version: 1.0.0
+Description: pkgdesc1
+Multi-Line: Wow
+  This is
+  Multiple lines!
+Back-To: Normal
+
+Package: pkg2
+Version: 2.0.0
+Description: pkgdesc2
+Value-Starts-On-Newline:
+  Well that's interesting!
+  It's nice that this isn't failing the test, isn't it??
+Normal-Line: Once again
+Tabbed-Indentation:
+	All my homies know that tabs be superior.
+	   Why not just use both?

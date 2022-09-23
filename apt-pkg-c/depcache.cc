@@ -2,28 +2,10 @@
 #include <apt-pkg/policy.h>
 #include <apt-pkg/upgrade.h>
 
+#include "rust-apt/apt-pkg-c/util.h"
 #include "rust-apt/src/depcache.rs"
 
 /// Helper Functions:
-
-/// Handle any apt errors and return result to rust.
-static void handle_errors() {
-	std::string err_str;
-	while (!_error->empty()) {
-		std::string msg;
-		bool Type = _error->PopMessage(msg);
-		err_str.append(Type == true ? "E:" : "W:");
-		err_str.append(msg);
-		err_str.append(";");
-	}
-
-	// Throwing runtime_error returns result to rust.
-	// Remove the last ";" in the string before sending it.
-	if (err_str.length()) {
-		err_str.pop_back();
-		throw std::runtime_error(err_str);
-	}
-}
 
 static bool is_upgradable(
 const std::unique_ptr<PkgCacheFile>& cache, const pkgCache::PkgIterator& pkg) {
