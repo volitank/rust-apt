@@ -2,28 +2,57 @@ stages:
   - test
 variables:
   DEBIAN_FRONTEND: noninteractive
-  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  APT_STATE: ${CI_PROJECT_DIR}/apt/state
+  APT_CACHE: ${CI_PROJECT_DIR}/apt/cache
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/${CARGO_HOME}/bin"
   USER: "root"
 
 test:
   stage: test
   image: debian:sid
   environment:
-  script:
-    # Debian/Ubuntu docker images contain some docker-specific configs in
-    # /etc/apt that mess with the tests, so remove them here first.
-    - rm /etc/apt/apt.conf.d/docker*
-    - apt-cache gencaches
+  cache:
+    key: build-cache
+    paths:
+      - ".cargo/"
+      - target/
+      - apt/
 
-    - apt update
-    - apt install eatmydata -y
-    - eatmydata apt install build-essential curl sudo -y
-    - eatmydata curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
-    # Save some CI time by using a pre-built binary for just
-    - curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/bin
-    - eatmydata just setup-dev
+  script:
+    # Debian/Ubuntu docker images contain some docker-specific configs that mess with rust-apt tests, so remove them here first.
+    # https://github.com/GoogleContainerTools/base-images-docker/blob/master/debian/reproducible/overlay/etc/apt/apt.conf.d/docker-gzip-indexes
+    - rm -f /etc/apt/apt.conf.d/docker*
+
+    # Setup the CI apt config. If this gets too spicy make config file and move it
+    - echo -e
+      "Dir::State ${APT_STATE};\nDir::Cache ${APT_CACHE};" > /etc/apt/apt.conf.d/apt-ci
+
+    # Create partial directories in the cache
+    - mkdir -p
+      "${APT_STATE}/lists/partial"
+      "${APT_CACHE}/archive/partial"
+
+    - apt-get update
+    - apt-get install eatmydata -y
+    - eatmydata apt-get install -y
+      build-essential
+      curl
+      sudo
+      apt-utils
+      libapt-pkg-dev
+      clang-format
+      codespell
+
+    - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
+
+    - rustup toolchain install nightly
+    - rustup toolchain install stable
+
+    - cargo install just
     - eatmydata just check
     # Docker has 0777 for everything. Deb packages need to be 0755
     - chmod 0755 -R tests/files/cache
-    - eatmydata just test
-    - eatmydata just test-root
+    # Create the test .debs then run the tests
+    - eatmydata just create-test-debs
+    - eatmydata cargo test --no-fail-fast -- --test-threads 1

@@ -39,10 +39,12 @@ mod config {
 		// Test other find functions on known defaults.
 		assert!(!config.bool("APT::Install-Suggests", true));
 		assert_eq!(config.int("APT::Install-Suggests", 20), 0);
-		assert_eq!(
-			config.file("Dir::Cache::pkgcache", ""),
-			"/var/cache/apt/pkgcache.bin"
-		);
+
+		// Directory is different in CI. Just check for the name
+		assert!(config
+			.file("Dir::Cache::pkgcache", "")
+			.split('/')
+			.any(|x| x == "pkgcache.bin"));
 		assert_eq!(
 			config.dir("Dir::Etc::sourceparts", ""),
 			"/etc/apt/sources.list.d/"

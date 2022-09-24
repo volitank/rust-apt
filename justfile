@@ -1,5 +1,8 @@
 #!/usr/bin/env just --justfile
 
+default:
+	@just --list
+
 # Setup the development environment.
 @setup-dev:
 	#!/bin/sh
@@ -54,24 +57,20 @@ create-test-debs:
 # Run all tests except for root
 test +ARGS="":
 	@just create-test-debs
-	@cargo test --doc
 	@cargo test --no-fail-fast -- --test-threads 1 --skip root {{ARGS}}
 
 # Run only the root tests. Sudo password required!
-test-root +ARGS="":
-	#!/bin/bash
+@test-root +ARGS="":
+	#!/bin/sh
+
+	set -e
+
 	just create-test-debs
-	cargo test --no-run
 
-	# This is just for the ci. You should not be running everything as root
-	if [ $(id -u) -eq 0 ]; then
-		cargo="cargo"
-	else
-		cargo="sudo -E /home/${USER}/.cargo/bin/cargo"
-	fi
-
-	${cargo} test --test root -- --test-threads 1 {{ARGS}}
-
+	sudo -E /home/${USER}/.cargo/bin/cargo \
+		test \
+		--test root \
+		-- --test-threads 1 {{ARGS}}
 
 # Run leak tests. Requires root
 @leak:

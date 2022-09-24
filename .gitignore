@@ -8,3 +8,4 @@ apt-c/libapt-c.a
 .cache
 compile_commands.json
 tests/files/cache/*.deb
+.gitlab-ci-local*
