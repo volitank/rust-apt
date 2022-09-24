@@ -54,6 +54,9 @@ create-test-debs:
 		dpkg-deb --build "${pkg}";
 	done
 
+	# Create an empty garbage pacakage to make sure it fails
+	echo "\n" > pkg.deb
+
 # Run all tests except for root
 test +ARGS="":
 	@just create-test-debs

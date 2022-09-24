@@ -1,5 +1,6 @@
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/algorithms.h>
+#include <apt-pkg/debfile.h>
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/indexfile.h>
 #include <apt-pkg/pkgsystem.h>
@@ -21,9 +22,21 @@ std::unique_ptr<PkgCacheFile> pkg_cache_create(rust::Slice<const rust::String> d
 
 	for (auto deb_str : deb_files) {
 		std::string deb_string(deb_str.c_str());
+
+		// Make sure this is a valid archive.
+		// signal: 11, SIGSEGV: invalid memory reference
+		FileFd fd(deb_string, FileFd::ReadOnly);
+		debDebFile debfile(fd);
+		handle_errors();
+
+		// Add the deb to the cache.
 		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
-			throw std::runtime_error("Couldn't add '" + deb_string + "' to the cache.");
+			_error->Error(
+			"%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
+			handle_errors();
 		}
+
+		handle_errors();
 	}
 
 	return cache;

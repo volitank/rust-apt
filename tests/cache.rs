@@ -15,6 +15,10 @@ mod cache {
 		cache.get("dep-pkg1").unwrap();
 
 		assert!(Cache::debs(&["tests/files/this-file-doesnt-exist.deb"]).is_err());
+
+		// Check if it errors on a garbage empty file as well
+		// signal: 11, SIGSEGV: invalid memory reference
+		assert!(Cache::debs(&["tests/files/cache/pkg.deb",]).is_err());
 	}
 
 	#[test]
