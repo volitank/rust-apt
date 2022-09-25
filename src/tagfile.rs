@@ -43,6 +43,11 @@ impl TagSection {
 			return Self::error("More than one section was found", None);
 		}
 
+		// Make sure the user didn't pass an empty string.
+		if section.is_empty() {
+			return Self::error("An empty string was passed", None);
+		}
+
 		// Start building up the HashMap.
 		let mut data = HashMap::new();
 		let lines = section.lines().collect::<Vec<&str>>();
@@ -151,6 +156,12 @@ pub fn parse_tagfile(content: &str) -> Result<Vec<TagSection>, ParserError> {
 	let section_strings = content.split("\n\n");
 
 	for (iter, section) in section_strings.clone().enumerate() {
+		// If this section is empty (i.e. more than one empty line was placed between
+		// each section), then ignore this section.
+		if section.is_empty() || section.chars().all(|c| c == '\n') {
+			break;
+		}
+
 		match TagSection::new(section) {
 			Ok(section) => sections.push(section),
 			Err(mut err) => {

@@ -4,10 +4,12 @@ mod tagfile {
 	#[test]
 	fn correct() {
 		let control_file = include_str!("files/tagfile/correct.control");
+		let dpkg_status = include_str!("/var/lib/dpkg/status");
 		let control_sections: Vec<&str> = control_file.split("\n\n").collect();
 		let control_section_one = TagSection::new(control_sections.first().unwrap()).unwrap();
 		let control_section_two = TagSection::new(control_sections.get(1).unwrap()).unwrap();
 
+		assert!(tagfile::parse_tagfile(dpkg_status).is_ok());
 		assert!(tagfile::parse_tagfile(control_file).is_ok());
 		assert!(TagSection::new(control_file).is_err());
 		assert!(TagSection::new(
