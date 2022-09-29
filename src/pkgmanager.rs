@@ -5,13 +5,14 @@ use std::fmt;
 use std::rc::Rc;
 
 use cxx::{Exception, UniquePtr};
+use once_cell::unsync::OnceCell;
 
 use crate::cache::raw::PkgCacheFile;
 use crate::progress::{AcquireProgress, InstallProgress};
 use crate::records::Records;
 
 pub(crate) struct PackageManager {
-	ptr: Rc<RefCell<UniquePtr<raw::PkgPackageManager>>>,
+	ptr: OnceCell<UniquePtr<raw::PkgPackageManager>>,
 	cache: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
 }
 
@@ -25,8 +26,16 @@ impl fmt::Debug for PackageManager {
 
 impl PackageManager {
 	pub fn new(cache: Rc<RefCell<UniquePtr<PkgCacheFile>>>) -> Self {
-		let ptr = Rc::new(RefCell::new(raw::pkgmanager_create(&cache.borrow())));
-		Self { ptr, cache }
+		Self {
+			ptr: OnceCell::new(),
+			cache,
+		}
+	}
+
+	// Internal method for lazily initializing the DepCache
+	fn get_ptr(&self) -> &UniquePtr<raw::PkgPackageManager> {
+		self.ptr
+			.get_or_init(|| raw::pkgmanager_create(&self.cache.borrow()))
 	}
 
 	pub fn get_archives(
@@ -35,7 +44,7 @@ impl PackageManager {
 		progress: &mut Box<dyn AcquireProgress>,
 	) -> Result<(), Exception> {
 		raw::pkgmanager_get_archives(
-			&self.ptr.borrow(),
+			self.get_ptr(),
 			&self.cache.borrow(),
 			&mut records.ptr,
 			progress,
@@ -43,7 +52,7 @@ impl PackageManager {
 	}
 
 	pub fn do_install(&self, progress: &mut Box<dyn InstallProgress>) -> Result<(), Exception> {
-		raw::pkgmanager_do_install(&self.ptr.borrow(), progress)
+		raw::pkgmanager_do_install(self.get_ptr(), progress)
 	}
 }
 

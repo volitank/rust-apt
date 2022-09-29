@@ -10,6 +10,8 @@
 
 std::unique_ptr<PkgPackageManager> pkgmanager_create(
 const std::unique_ptr<PkgCacheFile>& cache) {
+	// Package Manager needs the DepCache initialized or else invalid memory reference.
+	cache->GetDepCache();
 	return std::unique_ptr<pkgPackageManager>(_system->CreatePM(*cache));
 }
 

@@ -4,6 +4,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use cxx::UniquePtr;
+use once_cell::unsync::OnceCell;
 
 use crate::cache::raw::{PackagePtr, PkgCacheFile};
 use crate::progress::OperationProgress;
@@ -11,7 +12,8 @@ use crate::util::Exception;
 
 /// Internal struct for managing a pkgProblemResolver.
 pub(crate) struct ProblemResolver {
-	ptr: Rc<RefCell<UniquePtr<raw::PkgProblemResolver>>>,
+	ptr: OnceCell<UniquePtr<raw::PkgProblemResolver>>,
+	cache: Rc<RefCell<UniquePtr<PkgCacheFile>>>,
 }
 
 // Other structs that use this one implement Debug, so we need to as well.
@@ -24,21 +26,27 @@ impl fmt::Debug for ProblemResolver {
 
 impl ProblemResolver {
 	pub(crate) fn new(cache: Rc<RefCell<UniquePtr<PkgCacheFile>>>) -> Self {
-		let resolver_ptr = Rc::new(RefCell::new(raw::problem_resolver_create(&cache.borrow())));
-
-		Self { ptr: resolver_ptr }
+		Self {
+			ptr: OnceCell::new(),
+			cache,
+		}
 	}
 
-	pub fn protect(&self, pkg_ptr: &PackagePtr) {
-		raw::resolver_protect(&self.ptr.borrow(), pkg_ptr);
+	// Internal method for lazily initializing the DepCache
+	fn get_ptr(&self) -> &UniquePtr<raw::PkgProblemResolver> {
+		println!("TEST");
+		self.ptr
+			.get_or_init(|| raw::problem_resolver_create(&self.cache.borrow()))
 	}
+
+	pub fn protect(&self, pkg_ptr: &PackagePtr) { raw::resolver_protect(self.get_ptr(), pkg_ptr); }
 
 	pub fn resolve(
 		&self,
 		fix_broken: bool,
 		op_progress: &mut Box<dyn OperationProgress>,
 	) -> Result<(), Exception> {
-		raw::resolver_resolve(&self.ptr.borrow(), fix_broken, op_progress)
+		raw::resolver_resolve(self.get_ptr(), fix_broken, op_progress)
 	}
 }
 
