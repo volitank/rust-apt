@@ -10,6 +10,7 @@ struct PackageFile;
 struct SourceFile;
 struct PackageSort;
 struct DynAcquireProgress;
+struct GlobResults;
 
 // Apt Aliases
 using PkgCacheFile = pkgCacheFile;
@@ -43,6 +44,10 @@ rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
 
 rust::Vec<PackagePtr> pkg_list(
 const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort);
+
+GlobResults glob_pkgs(const std::unique_ptr<PkgCacheFile>& cache,
+const PackageSort& sort,
+rust::Slice<const rust::String> globs);
 
 rust::vec<VersionFile> ver_file_list(const VersionPtr& ver);
 

@@ -9,6 +9,7 @@
 #include <apt-pkg/strutl.h>
 #include <apt-pkg/update.h>
 #include <apt-pkg/version.h>
+#include <fnmatch.h>
 
 // Headers for the cxx bridge
 #include "rust-apt/apt-pkg-c/util.h"
@@ -65,41 +66,55 @@ rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache) {
 	return list;
 }
 
+/// Helper function to check if the package should be included in the list
+static bool include_pkg(const std::unique_ptr<PkgCacheFile>& cache,
+pkgCache::PkgIterator pkg,
+const PackageSort& sort) {
+	// If Virtual Packages is not enabled will check if they're virtual
+	if ((sort.virtual_pkgs != Sort::Enable) &&
+	// If the package is Virtual it will not have a version list
+	// And if disabled then we will exclude this package
+	((sort.virtual_pkgs == Sort::Disable && !pkg.VersionList()) ||
+	// If reverse then exclude any packages that DO have a version list
+	(sort.virtual_pkgs == Sort::Reverse && pkg.VersionList()))) {
+		return false;
+	}
+
+	if ((sort.upgradable != Sort::Disable) &&
+	((sort.upgradable == Sort::Enable && !is_upgradable(cache, pkg)) ||
+	(sort.upgradable == Sort::Reverse && is_upgradable(cache, pkg)))) {
+		return false;
+	}
+
+	if ((sort.installed != Sort::Disable) &&
+	((sort.installed == Sort::Enable && !pkg.CurrentVer()) ||
+	(sort.installed == Sort::Reverse && pkg.CurrentVer()))) {
+		return false;
+	}
+
+	if ((sort.auto_installed != Sort::Disable) &&
+	((sort.auto_installed == Sort::Enable && !is_auto_installed(cache, pkg)) ||
+	(sort.auto_installed == Sort::Reverse && is_auto_installed(cache, pkg)))) {
+		return false;
+	}
+
+	if ((sort.auto_removable != Sort::Disable) &&
+	((sort.auto_removable == Sort::Enable && !is_auto_removable(cache, pkg)) ||
+	(sort.auto_removable == Sort::Reverse && is_auto_removable(cache, pkg)))) {
+		return false;
+	}
+	return true;
+}
+
 /// Returns a Vector of all the packages in the cache.
 rust::Vec<PackagePtr> pkg_list(
 const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
-	rust::vec<PackagePtr> list;
+	rust::Vec<PackagePtr> list;
 	pkgCache::PkgIterator pkg;
 
 	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
 
-		if ((sort.virtual_pkgs != Sort::Enable) &&
-		((sort.virtual_pkgs == Sort::Disable && !pkg.VersionList()) ||
-		(sort.virtual_pkgs == Sort::Reverse && pkg.VersionList()))) {
-			continue;
-		}
-
-		if ((sort.upgradable != Sort::Disable) &&
-		((sort.upgradable == Sort::Enable && !is_upgradable(cache, pkg)) ||
-		(sort.upgradable == Sort::Reverse && is_upgradable(cache, pkg)))) {
-			continue;
-		}
-
-		if ((sort.installed != Sort::Disable) &&
-		((sort.installed == Sort::Enable && !pkg.CurrentVer()) ||
-		(sort.installed == Sort::Reverse && pkg.CurrentVer()))) {
-			continue;
-		}
-
-		if ((sort.auto_installed != Sort::Disable) &&
-		((sort.auto_installed == Sort::Enable && !is_auto_installed(cache, pkg)) ||
-		(sort.auto_installed == Sort::Reverse && is_auto_installed(cache, pkg)))) {
-			continue;
-		}
-
-		if ((sort.auto_removable != Sort::Disable) &&
-		((sort.auto_removable == Sort::Enable && !is_auto_removable(cache, pkg)) ||
-		(sort.auto_removable == Sort::Reverse && is_auto_removable(cache, pkg)))) {
+		if (!include_pkg(cache, pkg, sort)) {
 			continue;
 		}
 
@@ -108,6 +123,45 @@ const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort) {
 	return list;
 }
 
+/// Returns a Vector of all the packages in the cache.
+GlobResults glob_pkgs(const std::unique_ptr<PkgCacheFile>& cache,
+const PackageSort& sort,
+rust::Slice<const rust::String> globs) {
+	rust::Vec<PackagePtr> list;
+	std::unordered_set<std::string> found;
+
+	pkgCache::PkgIterator pkg;
+	for (pkg = cache->GetPkgCache()->PkgBegin(); !pkg.end(); pkg++) {
+
+		// First check if the package should even be included
+		if (!include_pkg(cache, pkg, sort)) {
+			continue;
+		}
+
+		// If the package passes sorting, we can now glob pkg name
+		for (auto glob : globs) {
+			const char* c_glob = glob.c_str();
+			if (fnmatch(c_glob, pkg.Name(), FNM_CASEFOLD) == 0) {
+				// Add that the glob has matched something
+				found.insert(c_glob);
+				// Add the package to our list
+				list.push_back(wrap_package(pkg));
+				break;
+			}
+		}
+	}
+
+	rust::Vec<rust::String> failed_globs;
+	for (auto glob : globs) {
+		// Check against the matched globs and create a list of non matched
+		if (found.find(glob.c_str()) == found.end()) {
+			failed_globs.push_back(glob);
+		}
+	}
+
+	// These must be moved since they contain UniquePtrs
+	return GlobResults{ std::move(list), std::move(failed_globs) };
+}
 
 /// Return a Vector of all the VersionFiles for a version.
 rust::vec<VersionFile> ver_file_list(const VersionPtr& ver) {

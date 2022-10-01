@@ -224,39 +224,45 @@ impl Default for Cache {
 }
 
 impl Cache {
-	fn internal_new(deb_pkgs: &[&str]) -> Result<Self, Exception> {
+	/// Internal function to create the cache
+	fn internal_new(
+		cache_ptr: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
+		deb_pkgs: Vec<String>,
+	) -> Cache {
 		init_config_system();
-		let mut raw_deb_pkgs = vec![];
-		for pkg in deb_pkgs {
-			raw_deb_pkgs.push(pkg.to_string());
-		}
-
-		let cache_ptr = {
-			match raw::pkg_cache_create(&raw_deb_pkgs) {
-				Ok(ptr) => Rc::new(RefCell::new(ptr)),
-				Err(err) => return Err(err),
-			}
-		};
-
-		Ok(Self {
+		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
 			depcache: Rc::new(RefCell::new(DepCache::new(Rc::clone(&cache_ptr)))),
 			resolver: Rc::new(RefCell::new(ProblemResolver::new(Rc::clone(&cache_ptr)))),
 			pkgmanager: Rc::new(RefCell::new(PackageManager::new(Rc::clone(&cache_ptr)))),
 			ptr: cache_ptr,
 			pointer_map: Rc::new(RefCell::new(PointerMap::new())),
-			deb_pkglist: raw_deb_pkgs,
-		})
+			deb_pkglist: deb_pkgs,
+		}
 	}
 
 	/// Initialize the configuration system, open and return the cache.
 	/// This is the entry point for all operations of this crate.
-	pub fn new() -> Self { Self::internal_new(&[]).unwrap() }
+	pub fn new() -> Cache {
+		let no_debs = vec![];
+		Self::internal_new(
+			Rc::new(RefCell::new(raw::pkg_cache_create(&no_debs).unwrap())),
+			no_debs,
+		)
+	}
 
 	/// The same thing as [`Cache::new`], but allows you to add local `.deb`
 	/// files to the cache. This function returns an [`Exception`] if any of the
 	/// `.deb` files cannot be found.
-	pub fn debs(deb_files: &[&str]) -> Result<Self, Exception> { Self::internal_new(deb_files) }
+	pub fn debs<T: ToString>(deb_files: &[T]) -> Result<Self, Exception> {
+		let raw_deb_pkgs = deb_files
+			.iter()
+			.map(|d| d.to_string())
+			.collect::<Vec<String>>();
+		let cache_ptr = Rc::new(RefCell::new(raw::pkg_cache_create(&raw_deb_pkgs)?));
+
+		Ok(Self::internal_new(cache_ptr, raw_deb_pkgs))
+	}
 
 	/// Clear the entire cache and start new.
 	///
@@ -622,7 +628,7 @@ impl Cache {
 	}
 
 	/// An iterator of packages in the cache.
-	pub fn packages<'a>(&'a self, sort: &'a PackageSort) -> impl Iterator<Item = Package> + '_ {
+	pub fn packages<'a>(&'a self, sort: &PackageSort) -> impl Iterator<Item = Package> + '_ {
 		let mut pkg_list = raw::pkg_list(&self.ptr.borrow(), sort);
 		if sort.names {
 			pkg_list.sort_by_cached_key(|pkg| package::raw::get_fullname(pkg, true));
@@ -630,6 +636,37 @@ impl Cache {
 		pkg_list
 			.into_iter()
 			.map(|pkg_ptr| self.make_package(pkg_ptr))
+	}
+
+	/// Similar to packages but allows globbing the package names.
+	///
+	/// Returns a tuple containing a vector of matched packages
+	/// and a vector of failed glob strings
+	pub fn glob_pkgs<'a, T: ToString>(
+		&'a self,
+		sort: &PackageSort,
+		globs: &[T],
+	) -> (Vec<Package>, Vec<String>) {
+		let mut glob_results = raw::glob_pkgs(
+			&self.ptr.borrow(),
+			sort,
+			&globs.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+		);
+
+		if sort.names {
+			glob_results
+				.packages
+				.sort_by_cached_key(|pkg| package::raw::get_fullname(pkg, true));
+		}
+
+		(
+			glob_results
+				.packages
+				.into_iter()
+				.map(|pkg_ptr| self.make_package(pkg_ptr))
+				.collect(),
+			glob_results.failed_globs,
+		)
 	}
 
 	/// The number of packages marked for installation.
@@ -798,6 +835,12 @@ pub mod raw {
 		pub auto_removable: Sort,
 	}
 
+	/// Return value from globbing packages
+	pub struct GlobResults {
+		pub packages: Vec<PackagePtr>,
+		pub failed_globs: Vec<String>,
+	}
+
 	unsafe extern "C++" {
 
 		/// Apt C++ Type
@@ -851,6 +894,14 @@ pub mod raw {
 
 		/// Returns a Vector of all the packages in the cache.
 		pub fn pkg_list(cache: &UniquePtr<PkgCacheFile>, sort: &PackageSort) -> Vec<PackagePtr>;
+
+		/// Returns GlobResults that contains matched packages and failed glob
+		/// strings
+		pub fn glob_pkgs(
+			cache: &UniquePtr<PkgCacheFile>,
+			sort: &PackageSort,
+			globs: &[String],
+		) -> GlobResults;
 
 		// pkg_file_list and pkg_version_list should be in package::raw
 		// I was unable to make this work so they remain here.

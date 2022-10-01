@@ -5,6 +5,18 @@ mod cache {
 	use rust_apt::util::*;
 
 	#[test]
+	fn glob_pkgs() {
+		let cache = Cache::new();
+		let (globbed, failed) = &cache.glob_pkgs(
+			&PackageSort::default(),
+			&["ap?", "n*la4", "dpkg", "not?found"],
+		);
+
+		assert!(!globbed.is_empty());
+		assert_eq!(failed.len(), 2);
+	}
+
+	#[test]
 	fn with_debs() {
 		let cache = Cache::debs(&[
 			"tests/files/cache/apt.deb",
