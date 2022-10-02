@@ -34,7 +34,6 @@ impl ProblemResolver {
 
 	// Internal method for lazily initializing the DepCache
 	fn get_ptr(&self) -> &UniquePtr<raw::PkgProblemResolver> {
-		println!("TEST");
 		self.ptr
 			.get_or_init(|| raw::problem_resolver_create(&self.cache.borrow()))
 	}
