@@ -27,7 +27,7 @@ fn main() {
 	println!("cargo:rustc-link-lib=apt-pkg");
 	println!("cargo:rerun-if-changed=src/cache.rs");
 	println!("cargo:rerun-if-changed=src/progress.rs");
-	println!("cargo:rerun-if-changed=src/configuration.rs");
+	println!("cargo:rerun-if-changed=src/config.rs");
 	println!("cargo:rerun-if-changed=src/util.rs");
 	println!("cargo:rerun-if-changed=src/records.rs");
 	println!("cargo:rerun-if-changed=src/depcache.rs");
