@@ -229,7 +229,6 @@ impl Cache {
 		cache_ptr: Rc<RefCell<UniquePtr<raw::PkgCacheFile>>>,
 		deb_pkgs: Vec<String>,
 	) -> Cache {
-		init_config_system();
 		Self {
 			records: Rc::new(RefCell::new(Records::new(Rc::clone(&cache_ptr)))),
 			depcache: Rc::new(RefCell::new(DepCache::new(Rc::clone(&cache_ptr)))),
@@ -244,6 +243,7 @@ impl Cache {
 	/// Initialize the configuration system, open and return the cache.
 	/// This is the entry point for all operations of this crate.
 	pub fn new() -> Cache {
+		init_config_system();
 		let no_debs = vec![];
 		Self::internal_new(
 			Rc::new(RefCell::new(raw::pkg_cache_create(&no_debs).unwrap())),
@@ -255,6 +255,7 @@ impl Cache {
 	/// files to the cache. This function returns an [`Exception`] if any of the
 	/// `.deb` files cannot be found.
 	pub fn debs<T: ToString>(deb_files: &[T]) -> Result<Self, Exception> {
+		init_config_system();
 		let raw_deb_pkgs = deb_files
 			.iter()
 			.map(|d| d.to_string())
