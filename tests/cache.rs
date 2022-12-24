@@ -2,56 +2,63 @@ mod cache {
 	use std::fmt::Write as _;
 
 	use rust_apt::cache::*;
+	use rust_apt::new_cache;
+	use rust_apt::package::DepType;
 	use rust_apt::util::*;
 
 	#[test]
-	fn glob_pkgs() {
-		let cache = Cache::new();
-		let (globbed, failed) = &cache.glob_pkgs(
-			&PackageSort::default(),
-			&["ap?", "n*la4", "dpkg", "not?found"],
-		);
+	fn test_raw_pkg() {
+		let cache = new_cache!().unwrap();
 
-		assert!(!globbed.is_empty());
-		assert_eq!(failed.len(), 2);
+		for pkg in cache.raw_pkgs() {
+			println!("ID: {}", pkg.id());
+			println!("Name: {}", pkg.name());
+			println!("Arch: {}", pkg.arch());
+			println!("FullName: {}", pkg.full_name(false));
+			println!("current_state: {}", pkg.current_state());
+			println!("inst_state: {}", pkg.inst_state());
+			println!("selected_state: {}\n", pkg.selected_state());
+
+			match pkg.version_list() {
+				Some(ver) => {
+					println!("Version of '{}'", pkg.name());
+
+					println!("    Version: {}", ver.version());
+					println!("    Arch: {}", ver.arch());
+					println!("    Section: {}", ver.section().unwrap_or_default());
+					println!("    Source Pkg: {}", ver.source_name());
+					println!("    Source Version: {}\n", ver.source_version());
+
+					println!("End: {}\n\n", pkg.end());
+				},
+				None => {
+					println!("'{}' is a Virtual Package\n", pkg.name());
+				},
+			}
+		}
 	}
 
 	#[test]
 	fn with_debs() {
-		let cache = Cache::debs(&[
+		let cache = new_cache!(&[
 			"tests/files/cache/apt.deb",
 			"tests/files/cache/dep-pkg1_0.0.1.deb",
 		])
 		.unwrap();
+
 		cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap();
 		cache.get("dep-pkg1").unwrap();
 
-		assert!(Cache::debs(&["tests/files/this-file-doesnt-exist.deb"]).is_err());
+		assert!(new_cache!(&["tests/files/this-file-doesnt-exist.deb"]).is_err());
 
 		// Check if it errors on a garbage empty file as well
 		// signal: 11, SIGSEGV: invalid memory reference
-		assert!(Cache::debs(&["tests/files/cache/pkg.deb",]).is_err());
-	}
-
-	#[test]
-	fn version_vec() {
-		let cache = Cache::new();
-
-		let mut versions = Vec::new();
-		// Don't unwrap and assign so that the package can
-		// Get out of scope from the version
-		if let Some(apt) = cache.get("apt") {
-			for version in apt.versions() {
-				versions.push(version);
-			}
-		}
-		// Apt is now out of scope
-		assert!(!versions.is_empty());
+		assert!(new_cache!(&["tests/files/cache/pkg.deb",]).is_err());
 	}
 
 	#[test]
 	fn parent_pkg() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		let version = pkg.versions().next().unwrap();
 		let parent = version.parent();
@@ -60,12 +67,12 @@ mod cache {
 
 	#[test]
 	fn get_version() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 
 		// The candidate for apt surely exists.
-		let cand_str = pkg.candidate().unwrap().version();
-		assert!(pkg.get_version(&cand_str).is_some());
+		let cand = pkg.candidate().unwrap();
+		assert!(pkg.get_version(cand.version()).is_some());
 
 		// I sure hope this doesn't exist.
 		assert!(pkg.get_version("9.0.0.1").is_none());
@@ -73,19 +80,21 @@ mod cache {
 
 	#[test]
 	fn all_packages() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
 
 		// All real packages should not be empty.
 		assert!(cache.packages(&sort).next().is_some());
 		for pkg in cache.packages(&sort) {
-			println!("{pkg}")
+			// impl display??
+			// println!("{pkg}")
+			println!("{}:{}", pkg.name(), pkg.arch())
 		}
 	}
 
 	#[test]
 	fn descriptions() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		// Apt should exist
 		let pkg = cache.get("apt").unwrap();
@@ -106,21 +115,24 @@ mod cache {
 		// The summary and description are the same
 		assert_ne!(inst_sum, inst_desc);
 		assert_ne!(cand_sum, cand_desc);
+		dbg!(inst_desc);
+		dbg!(cand_desc);
 	}
 
 	#[test]
 	fn version_uris() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		// Only test the candidate.
 		// It's possible for the installed version to have no uris
 		let cand = pkg.candidate().unwrap();
 		assert!(cand.uris().next().is_some());
+		dbg!(cand.uris().collect::<Vec<_>>());
 	}
 
 	#[test]
 	fn depcache_marked() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		assert!(!pkg.marked_install());
 		assert!(!pkg.marked_upgrade());
@@ -134,7 +146,7 @@ mod cache {
 
 	#[test]
 	fn hashes() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		// Apt could be installed, and the package no longer exists
 		// In the cache. For this case we grab the candidate so it won't fail.
@@ -148,7 +160,7 @@ mod cache {
 
 	#[test]
 	fn shortname() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
 		for pkg in cache.packages(&sort) {
 			assert!(!pkg.name().contains(':'))
@@ -157,7 +169,7 @@ mod cache {
 
 	#[test]
 	fn depends() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let pkg = cache.get("apt").unwrap();
 		let cand = pkg.candidate().unwrap();
@@ -171,25 +183,25 @@ mod cache {
 		assert!(cand.recommends().is_some());
 		assert!(cand.suggests().is_some());
 		// TODO: Add these as methods
-		assert!(cand.get_depends("Replaces").is_some());
+		assert!(cand.get_depends(&DepType::Replaces).is_some());
 		// This test seems to work on Debian Sid desktop systems, but not in a Debian
 		// Sid Docker container (and potentially other distros too). Leaving this
 		// commented out until a solution is found.
 		// assert!(cand.get_depends("Conflicts").is_some());
-		assert!(cand.get_depends("Breaks").is_some());
+		assert!(cand.get_depends(&DepType::Breaks).is_some());
 
 		// This part is basically just formatting an apt depends String
 		// Like you would see in `apt show`
 		let mut dep_str = String::new();
 		dep_str.push_str("Depends: ");
-		for dep in cand.depends_map().get("Depends").unwrap() {
+		for dep in cand.depends_map().get(&DepType::Depends).unwrap() {
 			if dep.is_or() {
 				let mut or_str = String::new();
 				let total = dep.base_deps.len() - 1;
 				for (num, base_dep) in dep.base_deps.iter().enumerate() {
-					or_str.push_str(base_dep.name());
-					if !base_dep.comp().is_empty() {
-						let _ = write!(or_str, "({} {})", base_dep.comp(), base_dep.version(),);
+					or_str.push_str(&base_dep.name());
+					if let Some(comp) = base_dep.comp() {
+						let _ = write!(or_str, "({} {})", comp, base_dep.version().unwrap());
 					}
 					if num != total {
 						or_str.push_str(" | ");
@@ -200,9 +212,10 @@ mod cache {
 				dep_str.push_str(&or_str)
 			} else {
 				let lone_dep = dep.first();
-				dep_str.push_str(lone_dep.name().as_str());
-				if !lone_dep.comp().is_empty() {
-					let _ = write!(dep_str, " ({} {})", lone_dep.comp(), lone_dep.version(),);
+				dep_str.push_str(&lone_dep.name());
+
+				if let Some(comp) = lone_dep.comp() {
+					let _ = write!(dep_str, " ({} {})", comp, lone_dep.version().unwrap());
 				}
 				dep_str.push_str(", ");
 			}
@@ -212,16 +225,17 @@ mod cache {
 
 	#[test]
 	fn provides_list() {
-		let cache = Cache::new();
-		let pkg = cache.get("apt").unwrap().candidate().unwrap();
-		let provides_list = pkg.provides_list();
-		let (provides_pkgname, provides_pkgver) = provides_list.get(0).unwrap();
+		let cache = new_cache!().unwrap();
+		let pkg = cache.get("apt").unwrap();
+		let cand = pkg.candidate().unwrap();
+		let provides_list = cand.provides_list().unwrap().collect::<Vec<_>>();
 
 		assert!(provides_list.len() == 1);
-		// 'apt' seems to always provide for 'apt-transport-https' at APT's version. If
-		// it ever doesn't, this test will break.
-		assert!(provides_pkgname == "apt-transport-https");
-		assert!(provides_pkgver.as_ref().unwrap() == &pkg.version());
+		// 'apt' seems to always provide for 'apt-transport-https' at APT's version.
+		// If it ever doesn't, this test will break.
+		let provide = provides_list.get(0).unwrap();
+		assert!(provide.name() == "apt-transport-https");
+		assert!(provide.version().unwrap() == cand.version());
 	}
 
 	/// This test is tied pretty closely to the currently available versions in
@@ -230,60 +244,65 @@ mod cache {
 	#[test]
 	fn rev_provides_list() {
 		// Test concrete packages with provides.
-		let cache = Cache::new();
-		let ver = cache.get("apt").unwrap().candidate().unwrap();
+		let cache = new_cache!().unwrap();
+		let apt = cache.get("apt").unwrap();
+		let ver = apt.candidate().unwrap();
 		let pkg = cache.get("apt-transport-https").unwrap();
 
 		{
-			let rev_provides_list = pkg.rev_provides_list(None);
-			let provides_pkg = rev_provides_list.get(0).unwrap();
-			let mut prov_names = Vec::new();
-			for pkg in &rev_provides_list {
-				prov_names.push(pkg.parent().name());
-			}
+			let mut rev_provides_list = pkg.provides_list().unwrap();
+			let provides_pkg = rev_provides_list.next().unwrap();
 
-			// This function is wild and possibly can fail all the time.
-			// For example adding i386 arch will cause this to fail.
-			assert_eq!(rev_provides_list.len(), 1);
-			assert!(prov_names.contains(&"apt".to_string()));
-			assert_eq!(provides_pkg.version(), ver.version());
+			assert!(rev_provides_list.next().is_none());
+
+			let parent = provides_pkg.target_pkg();
+			assert!(parent.name().contains("apt"));
+			assert_eq!(provides_pkg.version().unwrap(), ver.version());
 		}
 
 		{
-			let rev_provides_list = pkg.rev_provides_list(Some(("=", &ver.version())));
-			let provides_pkg = rev_provides_list.get(0).unwrap();
-			let mut prov_names = Vec::new();
-			for pkg in &rev_provides_list {
-				prov_names.push(pkg.parent().name());
-			}
-			assert_eq!(rev_provides_list.len(), 1);
-			assert!(prov_names.contains(&"apt".to_string()));
-			assert_eq!(provides_pkg.version(), ver.version());
+			let mut rev_provides_list =
+				pkg.provides_list().unwrap().filter(|p| match p.version() {
+					Err(_) => false,
+					Ok(version) => version == ver.version(),
+				});
+
+			let provides_pkg = rev_provides_list.next().unwrap();
+			assert!(rev_provides_list.next().is_none());
+
+			let parent = provides_pkg.target_pkg();
+			assert_eq!(parent.name(), "apt");
+
+			assert_eq!(provides_pkg.version().unwrap(), ver.version());
 		}
 
 		{
-			let rev_provides_list = pkg.rev_provides_list(Some(("=", "50000000000.0.0")));
-			assert_eq!(rev_provides_list.len(), 0);
+			let mut rev_provides_list =
+				pkg.provides_list().unwrap().filter(|p| match p.version() {
+					Err(_) => false,
+					Ok(version) => version == "50000000000.0.0",
+				});
+			assert!(rev_provides_list.next().is_none());
 		}
 
 		// Test a virtual package with provides.
 		{
 			let pkg = cache.get("www-browser").unwrap();
-			assert!(!pkg.rev_provides_list(None).is_empty());
+			assert!(pkg.provides_list().unwrap().next().is_some());
 		}
 	}
 
 	#[test]
 	fn sources() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		// If the source lists don't exists there is problems.
-		assert!(cache.sources().next().is_some());
+		assert!(!cache.source_uris().is_empty());
 	}
 
 	#[test]
 	fn cache_count() {
-		let cache = Cache::new();
-		match cache.disk_size() {
+		let cache = new_cache!().unwrap();
+		match cache.depcache().disk_size() {
 			DiskSpace::Require(num) => {
 				assert_eq!(num, 0);
 			},
@@ -313,9 +332,13 @@ mod cache {
 	#[test]
 	// This test relies on the version of 'apt' being higher than 'dpkg'.
 	fn version_comparisons() {
-		let cache = Cache::new();
-		let apt_ver = cache.get("apt").unwrap().candidate().unwrap();
-		let dpkg_ver = cache.get("dpkg").unwrap().candidate().unwrap();
+		let cache = new_cache!().unwrap();
+		let apt = cache.get("apt").unwrap();
+		let dpkg = cache.get("dpkg").unwrap();
+
+		let apt_ver = apt.candidate().unwrap();
+		let dpkg_ver = dpkg.candidate().unwrap();
+
 		assert!(apt_ver > dpkg_ver);
 		assert!(dpkg_ver < apt_ver);
 		assert!(apt_ver != dpkg_ver);
@@ -324,7 +347,7 @@ mod cache {
 	#[test]
 	// This test relies on 'gobby' and 'gsasl-common' not being installed.
 	fn good_resolution() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("gobby").unwrap();
 
 		pkg.mark_install(true, true);
@@ -336,13 +359,13 @@ mod cache {
 		assert!(pkg2.marked_install())
 	}
 
-	// For now `zorp` has broken dependencies so the resolver errors.
+	// For now `zeek` has broken dependencies so the resolver errors.
 	// If this test fails, potentially find a reason.
 	#[test]
 	fn bad_resolution() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
-		let pkg = cache.get("zorp").unwrap();
+		let pkg = cache.get("zeek").unwrap();
 
 		pkg.mark_install(false, true);
 		pkg.protect();
@@ -352,65 +375,52 @@ mod cache {
 
 	#[test]
 	fn depcache_clear() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 
 		pkg.mark_delete(true);
 
 		assert!(pkg.marked_delete());
 
-		cache.clear_marked().unwrap();
+		cache.depcache().clear_marked().unwrap();
 		assert!(!pkg.marked_delete());
 	}
 
 	#[test]
-	fn cache_remap() {
-		let cache = Cache::new();
-		let pkg = cache.get("apt").unwrap();
-		let cand = pkg.candidate().unwrap();
-
-		cache.clear().unwrap();
-
-		// These will segfault if the remap isn't done properly
-		dbg!(pkg.mark_delete(true));
-		dbg!(cand.version());
-		dbg!(cand);
-	}
-
-	#[test]
 	fn origins() {
-		let cache = Cache::new();
-		let apt_ver = cache.get("apt").unwrap().candidate().unwrap();
+		let cache = new_cache!().unwrap();
+		let apt = cache.get("apt").unwrap();
+		let apt_ver = apt.candidate().unwrap();
 		let pkg_files = apt_ver.package_files().collect::<Vec<_>>();
 
 		// Package files should not be empty if we got a candidate from `apt`.
 		assert!(!pkg_files.is_empty());
 
-		for pkg_file in &pkg_files {
+		for mut pkg_file in pkg_files {
 			// Apt should have all of these blocks in the package file.
-			assert!(pkg_file.filename().is_some());
-			assert!(pkg_file.archive().is_some());
+			assert!(pkg_file.filename().is_ok());
+			assert!(pkg_file.archive().is_ok());
 
 			// If the archive is `/var/lib/dpkg/status` These will be None.
 			if pkg_file.archive().unwrap() != "now" {
-				assert!(pkg_file.origin().is_some());
-				assert!(pkg_file.codename().is_some());
-				assert!(pkg_file.label().is_some());
-				assert!(pkg_file.site().is_some());
-				assert!(pkg_file.arch().is_some());
+				assert!(pkg_file.origin().is_ok());
+				assert!(pkg_file.codename().is_ok());
+				assert!(pkg_file.label().is_ok());
+				assert!(pkg_file.site().is_ok());
+				assert!(pkg_file.arch().is_ok());
 			}
 
 			// These should be okay regardless.
-			assert!(pkg_file.component().is_some());
-			assert!(pkg_file.index_type().is_some());
+			assert!(pkg_file.component().is_ok());
+			assert!(pkg_file.index_type().is_ok());
 
 			// Index should not be 0.
 			assert_ne!(pkg_file.index(), 0);
 
 			// Apt should likely be from a trusted repository.
-			assert!(pkg_file.is_trusted());
+			assert!(cache.is_trusted(&mut pkg_file));
 			// Print it in case I want to see.
-			println!("{pkg_file}");
+			// println!("{pkg_file}");
 		}
 	}
 }

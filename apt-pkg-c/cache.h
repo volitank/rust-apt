@@ -1,88 +1,108 @@
 #pragma once
 #include "rust/cxx.h"
 #include <apt-pkg/cachefile.h>
+#include <apt-pkg/debfile.h>
+#include <apt-pkg/error.h>
+#include <apt-pkg/fileutl.h>
+#include <apt-pkg/indexfile.h>
+#include <apt-pkg/pkgcache.h>
+#include <apt-pkg/policy.h>
+#include <apt-pkg/sourcelist.h>
+#include <apt-pkg/update.h>
 
-// Rust Shared Structs
-struct PackagePtr;
-struct VersionPtr;
-struct VersionFile;
-struct PackageFile;
-struct SourceFile;
-struct PackageSort;
-struct DynAcquireProgress;
-struct GlobResults;
+#include "rust-apt/src/raw/cache.rs"
+#include "rust-apt/src/raw/progress.rs"
 
-// Apt Aliases
-using PkgCacheFile = pkgCacheFile;
-using PkgCache = pkgCache;
-using PkgSourceList = pkgSourceList;
-using PkgDepCache = pkgDepCache;
-using PkgIterator = pkgCache::PkgIterator;
-using VerIterator = pkgCache::VerIterator;
-using VerFileIterator = pkgCache::VerFileIterator;
-using PkgFileIterator = pkgCache::PkgFileIterator;
-using DescIterator = pkgCache::DescIterator;
-using DepIterator = pkgCache::DepIterator;
+/// Update the package lists, handle errors and return a Result.
+inline void Cache::update(DynAcquireProgress& callback) const {
+	AcqTextStatus progress(callback);
 
+	ListUpdate(progress, *ptr->GetSourceList(), pulse_interval(callback));
+	handle_errors();
+}
 
-struct PkgFile {
+// Return a package by name.
+inline Package Cache::unsafe_find_pkg(rust::string name) const noexcept {
+	return Package{ std::make_unique<PkgIterator>(
+	ptr->GetPkgCache()->FindPkg(name.c_str())) };
+}
 
-	PkgFileIterator pkg_file;
+inline Package Cache::begin() const {
+	return Package{ std::make_unique<PkgIterator>(ptr->GetPkgCache()->PkgBegin()) };
+}
 
-	pkgIndexFile* index;
+/// The priority of the package as shown in `apt policy`.
+inline int32_t Cache::priority(const Version& ver) const noexcept {
+	return ptr->GetPolicy()->GetPriority(*ver.ptr);
+}
 
-	PkgFile(PkgFileIterator pkg_file) : pkg_file(pkg_file), index(0){};
-};
+inline DepCache Cache::create_depcache() const noexcept {
+	return DepCache{ std::make_unique<PkgDepCache>(ptr->GetDepCache()) };
+}
 
-/// Main Initializers for apt:
+inline std::unique_ptr<Records> Cache::create_records() const noexcept {
+	return Records::Unique(ptr);
+}
 
-std::unique_ptr<PkgCacheFile> pkg_cache_create(rust::Slice<const rust::String> deb_files);
-void cache_update(const std::unique_ptr<PkgCacheFile>& cache, DynAcquireProgress& progress);
-rust::Vec<SourceFile> source_uris(const std::unique_ptr<PkgCacheFile>& cache);
+/// Return the candidate version of the package.
+/// Ptr will be NULL if there isn't a candidate.
+inline Version Cache::unsafe_candidate_version(const Package& pkg) const noexcept {
+	return Version{ std::make_unique<VerIterator>(
+	ptr->GetPolicy()->GetCandidateVer(*pkg.ptr)) };
+}
 
-/// Package Functions:
+inline void Cache::find_index(PackageFile& pkg_file) const noexcept {
+	if (!pkg_file.index_file) {
+		pkgIndexFile* index;
 
-rust::Vec<PackagePtr> pkg_list(
-const std::unique_ptr<PkgCacheFile>& cache, const PackageSort& sort);
+		if (!ptr->GetSourceList()->FindIndex(*pkg_file.ptr, index)) {
+			_system->FindIndex(*pkg_file.ptr, index);
+		}
+		pkg_file.index_file = std::make_unique<IndexFile>(index);
+	}
+}
 
-GlobResults glob_pkgs(const std::unique_ptr<PkgCacheFile>& cache,
-const PackageSort& sort,
-rust::Slice<const rust::String> globs);
+/// These should probably go under a index file binding;
+/// Return true if the PackageFile is trusted.
+inline bool Cache::is_trusted(PackageFile& pkg_file) const noexcept {
+	this->find_index(pkg_file);
+	return (*pkg_file.index_file)->IsTrusted();
+}
 
-rust::vec<VersionFile> ver_file_list(const VersionPtr& ver);
+/// Get the package list uris. This is the files that are updated with `apt update`.
+inline rust::Vec<SourceURI> Cache::source_uris() const noexcept {
+	pkgAcquire fetcher;
+	rust::Vec<SourceURI> list;
 
-rust::vec<PackageFile> ver_pkg_file_list(const VersionPtr& ver);
+	ptr->GetSourceList()->GetIndexes(&fetcher, true);
+	pkgAcquire::UriIterator I = fetcher.UriBegin();
+	for (; I != fetcher.UriEnd(); ++I) {
+		list.push_back(SourceURI{ I->URI, flNotDir(I->Owner->DestFile) });
+	}
+	return list;
+}
 
-rust::vec<VersionPtr> pkg_version_list(const PackagePtr& pkg);
+inline Cache create_cache(rust::Slice<const rust::String> deb_files) {
+	std::unique_ptr<pkgCacheFile> cache = std::make_unique<pkgCacheFile>();
 
-rust::Vec<PackagePtr> pkg_provides_list(
-const std::unique_ptr<PkgCacheFile>& cache, const PackagePtr& pkg, bool cand_only);
+	for (auto deb_str : deb_files) {
+		std::string deb_string(deb_str.c_str());
 
-PackagePtr pkg_cache_find_name(const std::unique_ptr<PkgCacheFile>& cache, rust::string name);
+		// Make sure this is a valid archive.
+		// signal: 11, SIGSEGV: invalid memory reference
+		FileFd fd(deb_string, FileFd::ReadOnly);
+		debDebFile debfile(fd);
+		handle_errors();
 
-PackagePtr pkg_cache_find_name_arch(
-const std::unique_ptr<PkgCacheFile>& cache, rust::string name, rust::string arch);
+		// Add the deb to the cache.
+		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
+			_error->Error(
+			"%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
+			handle_errors();
+		}
 
-/// PackageFile Functions:
+		handle_errors();
+	}
 
-rust::string filename(const PackageFile& pkg_file);
-
-rust::string archive(const PackageFile& pkg_file);
-
-rust::string origin(const PackageFile& pkg_file);
-
-rust::string codename(const PackageFile& pkg_file);
-
-rust::string label(const PackageFile& pkg_file);
-
-rust::string site(const PackageFile& pkg_file);
-
-rust::string component(const PackageFile& pkg_file);
-
-rust::string arch(const PackageFile& pkg_file);
-
-rust::string index_type(const PackageFile& pkg_file);
-
-bool pkg_file_is_trusted(const std::unique_ptr<PkgCacheFile>& cache, PackageFile& pkg_file);
-
-u_int64_t index(const PackageFile& pkg_file);
+	return Cache{ std::move(cache) };
+}

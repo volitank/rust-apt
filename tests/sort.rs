@@ -1,9 +1,10 @@
 mod sort {
 	use rust_apt::cache::*;
+	use rust_apt::new_cache;
 
 	#[test]
 	fn defaults() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let mut installed = false;
 		let mut auto_installed = false;
 
@@ -36,13 +37,13 @@ mod sort {
 
 	#[test]
 	fn include_virtual() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		// Check that we have virtual and real packages after sorting.
 		let mut real_pkgs = Vec::new();
 		let mut virtual_pkgs = Vec::new();
 
-		let sort = PackageSort::default().include_virtual();
+		let sort = PackageSort::default().include_virtual().names();
 
 		for pkg in cache.packages(&sort) {
 			if pkg.has_versions() {
@@ -57,7 +58,7 @@ mod sort {
 
 	#[test]
 	fn only_virtual() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		// Check that we have only virtual packages.
 		let mut real_pkgs = Vec::new();
@@ -78,25 +79,22 @@ mod sort {
 
 	#[test]
 	fn upgradable() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().upgradable();
 		for pkg in cache.packages(&sort) {
-			// Sorting by upgradable skips the pkgDepCache same as `.is_upgradable(true)`
-			// Here we check is_upgradable with the pkgDepCache to make sure there is
-			// consistency
-			assert!(pkg.is_upgradable(false))
+			assert!(pkg.is_upgradable())
 		}
 
 		let sort = PackageSort::default().not_upgradable();
 		for pkg in cache.packages(&sort) {
-			assert!(!pkg.is_upgradable(false))
+			assert!(!pkg.is_upgradable())
 		}
 	}
 
 	#[test]
 	fn installed() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().installed();
 		for pkg in cache.packages(&sort) {
@@ -111,10 +109,11 @@ mod sort {
 
 	#[test]
 	fn auto_installed() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().auto_installed();
 		for pkg in cache.packages(&sort) {
+			println!("{}", pkg.name());
 			assert!(pkg.is_auto_installed())
 		}
 
@@ -126,7 +125,7 @@ mod sort {
 
 	#[test]
 	fn auto_removable() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().auto_removable();
 		for pkg in cache.packages(&sort) {

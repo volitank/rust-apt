@@ -1,10 +1,10 @@
 mod records {
-	use rust_apt::cache::*;
+	use rust_apt::new_cache;
 	use rust_apt::records::RecordField;
 
 	#[test]
 	fn fields() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		// let pkg = cache.get("nala").unwrap();
 		let cand = pkg.candidate().unwrap();

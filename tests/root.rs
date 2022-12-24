@@ -1,6 +1,6 @@
 mod root {
-	use rust_apt::cache::*;
-	use rust_apt::progress::{raw, AcquireProgress, AptAcquireProgress, AptInstallProgress};
+	use rust_apt::new_cache;
+	use rust_apt::raw::progress::{raw, AcquireProgress, AptAcquireProgress, AptInstallProgress};
 	use rust_apt::util::*;
 
 	#[test]
@@ -18,7 +18,6 @@ mod root {
 
 	#[test]
 	fn update() {
-		let cache = Cache::new();
 		struct Progress {}
 
 		impl AcquireProgress for Progress {
@@ -89,9 +88,13 @@ mod root {
 			}
 		}
 
+		let cache = new_cache!().unwrap();
+
 		// Test a new impl for AcquireProgress
 		let mut progress: Box<dyn AcquireProgress> = Box::new(Progress {});
 		cache.update(&mut progress).unwrap();
+
+		let cache = new_cache!().unwrap();
 
 		// Test the default implementation for it
 		let mut progress = AptAcquireProgress::new_box();
@@ -100,7 +103,7 @@ mod root {
 
 	#[test]
 	fn install_and_remove() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 
 		let pkg = cache.get("neofetch").unwrap();
 
@@ -114,9 +117,11 @@ mod root {
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 		// After commit a new cache must be created for more operations
-		cache.clear().unwrap();
+		let cache = new_cache!().unwrap();
 
-		// Segmentation fault if the cache isn't remapped properly
+		// I need to pick a better package. This removes my neofetch every time!
+		let pkg = cache.get("neofetch").unwrap();
+
 		pkg.mark_delete(true);
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
@@ -124,11 +129,11 @@ mod root {
 
 	#[test]
 	fn install_with_debs() {
-		let cache = Cache::debs(&[
+		let debs = [
 			"tests/files/cache/dep-pkg1_0.0.1.deb",
 			"tests/files/cache/dep-pkg2_0.0.1.deb",
-		])
-		.unwrap();
+		];
+		let cache = new_cache!(&debs).unwrap();
 
 		let pkg1 = cache.get("dep-pkg1").unwrap();
 		let pkg2 = cache.get("dep-pkg2").unwrap();
@@ -141,7 +146,12 @@ mod root {
 		let mut inst_progress = AptInstallProgress::new_box();
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 
-		cache.clear().unwrap();
+		// You have to get a new cache after using commit.
+		let cache = new_cache!(&debs).unwrap();
+
+		// New packages will be required as well.
+		let pkg1 = cache.get("dep-pkg1").unwrap();
+		let pkg2 = cache.get("dep-pkg2").unwrap();
 
 		// Leave no trace
 		pkg1.mark_delete(true);

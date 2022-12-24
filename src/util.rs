@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 pub use cxx::Exception;
 
 use crate::config;
+use crate::raw::util::raw;
 
 /// Get the terminal's height, i.e. the number of rows it has.
 ///
@@ -71,10 +72,11 @@ pub enum NumSys {
 /// Converts bytes into human readable output.
 ///
 /// ```
-/// use rust_apt::cache::Cache;
+/// use rust_apt::new_cache;
 /// use rust_apt::util::{unit_str, NumSys};
-/// let cache = Cache::new();
-/// let version = cache.get("apt").unwrap().candidate().unwrap();
+/// let cache = new_cache!().unwrap();
+/// let pkg = cache.get("apt").unwrap();
+/// let version = pkg.candidate().unwrap();
 ///
 /// println!("{}", unit_str(version.size(), NumSys::Decimal));
 /// ```
@@ -190,45 +192,4 @@ pub fn apt_unlock_inner() {
 pub fn apt_is_locked() -> bool {
 	config::init_config_system();
 	raw::apt_is_locked()
-}
-
-/// This module contains the bindings and structs shared with c++
-#[cxx::bridge]
-pub mod raw {
-
-	unsafe extern "C++" {
-		include!("rust-apt/apt-pkg-c/util.h");
-
-		/// Compares two package versions, `ver1` and `ver2`. The returned
-		/// integer's value is mapped to one of the following integers:
-		/// - Less than 0: `ver1` is less than `ver2`.
-		/// - Equal to 0: `ver1` is equal to `ver2`.
-		/// - Greater than 0: `ver1` is greater than `ver2`.
-		///
-		/// Unless you have a specific need for otherwise, you should probably
-		/// use [`crate::util::cmp_versions`] instead.
-		pub fn cmp_versions(ver1: String, ver2: String) -> i32;
-
-		/// Return an APT-styled progress bar (`[####..]`).
-		pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String;
-
-		/// Lock the lockfile.
-		// TODO: There's `unlock_inner` functions in the Python APT library, but I have no clue how
-		// we'd implement them in regard to our structs and such in this library. They seem to only
-		// be used to have a lock on dpkg between calls, which shouldn't be an issue in most cases,
-		// though it should probably be looked into.
-		pub fn apt_lock() -> Result<()>;
-
-		/// Unock the lockfile.
-		pub fn apt_unlock();
-
-		/// Lock the Dpkg lockfile.
-		pub fn apt_lock_inner() -> Result<()>;
-
-		/// Unlock the Dpkg lockfile.
-		pub fn apt_unlock_inner();
-
-		/// Check if the lockfile is locked.
-		pub fn apt_is_locked() -> bool;
-	}
 }

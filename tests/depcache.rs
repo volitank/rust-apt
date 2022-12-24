@@ -1,10 +1,11 @@
 mod depcache {
-	use rust_apt::cache::{Cache, Upgrade};
-	use rust_apt::package::Mark;
+	use rust_apt::cache::Upgrade;
+	use rust_apt::new_cache;
+	// use rust_apt::package::Mark;
 
 	#[test]
 	fn mark_reinstall() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 
 		dbg!(pkg.marked_reinstall());
@@ -13,45 +14,12 @@ mod depcache {
 	}
 
 	#[test]
-	fn mark_all() {
-		// This test assumes that apt is installed
-		let cache = Cache::new();
-		let pkg = cache.get("apt").unwrap();
-
-		let marks = [
-			Mark::Keep,
-			Mark::Auto,
-			Mark::Manual,
-			Mark::Remove,
-			Mark::Purge,
-			// Since apt is already installed these will not work
-			// The only way they will is if it's able to be upgraded
-			// Mark::Install,
-			Mark::Reinstall,
-			Mark::NoReinstall,
-			// Mark::Upgrade,
-		];
-
-		// Set each mark, and then check the value based on the bool from setting.
-		for mark in marks {
-			if pkg.set(&mark) {
-				assert!(pkg.state(&mark));
-			} else {
-				assert!(!pkg.state(&mark));
-			}
-			// Clear all the marks after each test
-			// To ensure that the package states are clear
-			cache.clear_marked().unwrap();
-		}
-	}
-
-	#[test]
 	fn upgrade() {
 		// There isn't a great way to test if upgrade is working properly
 		// as this is dynamic depending on the system.
 		// This test will always pass, but print the status of the changes.
 		// Occasionally manually compare the output to apt full-upgrade.
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		cache.upgrade(&Upgrade::FullUpgrade).unwrap();
 
 		for pkg in cache.get_changes(true) {

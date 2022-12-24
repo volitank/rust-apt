@@ -1,4 +1,5 @@
-#include "rust-apt/src/progress.rs"
+#include "rust-apt/src/raw/progress.rs"
+#include "progress.h"
 #include <apt-pkg/acquire-worker.h>
 #include <apt-pkg/error.h>
 

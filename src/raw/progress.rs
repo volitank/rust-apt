@@ -5,6 +5,7 @@ use std::io::{stdout, Write};
 use cxx::ExternType;
 
 use crate::config::Config;
+// use crate::config::Config;
 use crate::util::{
 	get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys,
 };
@@ -57,6 +58,25 @@ pub trait AcquireProgress {
 pub trait OperationProgress {
 	fn update(&mut self, operation: String, percent: f32);
 	fn done(&mut self);
+}
+
+/// Internal struct to pass into [`self::Cache::resolve`]. The C++ library for
+/// this wants a progress parameter for this, but it doesn't appear to be doing
+/// anything. Furthermore, [the Python-APT implementation doesn't accept a
+/// parameter for their dependency resolution funcionality](https://apt-team.pages.debian.net/python-apt/library/apt_pkg.html#apt_pkg.ProblemResolver.resolve),
+/// so we should be safe to remove it here.
+pub(crate) struct NoOpProgress {}
+
+impl NoOpProgress {
+	/// Return the AptAcquireProgress in a box
+	/// To easily pass through for progress
+	pub fn new_box() -> Box<dyn OperationProgress> { Box::new(NoOpProgress {}) }
+}
+
+impl OperationProgress for NoOpProgress {
+	fn update(&mut self, _: String, _: f32) {}
+
+	fn done(&mut self) {}
 }
 
 /// Trait you can impl on any struct to customize the output of installation
@@ -552,9 +572,9 @@ pub mod raw {
 	}
 
 	unsafe extern "C++" {
-		type DynAcquireProgress = Box<dyn crate::progress::AcquireProgress>;
-		type DynOperationProgress = Box<dyn crate::progress::OperationProgress>;
-		type DynInstallProgress = Box<dyn crate::progress::InstallProgress>;
+		type DynAcquireProgress = Box<dyn crate::raw::progress::AcquireProgress>;
+		type DynOperationProgress = Box<dyn crate::raw::progress::OperationProgress>;
+		type DynInstallProgress = Box<dyn crate::raw::progress::InstallProgress>;
 
 		include!("rust-apt/apt-pkg-c/progress.h");
 	}
