@@ -24,7 +24,7 @@ mod root {
 			fn pulse_interval(&self) -> usize { 0 }
 
 			fn hit(&mut self, id: u32, description: String) {
-				println!("\rHit:{} {}", id, description);
+				println!("\rHit:{id} {description}");
 			}
 
 			fn fetch(&mut self, id: u32, description: String, file_size: u64) {

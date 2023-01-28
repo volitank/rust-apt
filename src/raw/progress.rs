@@ -163,7 +163,7 @@ impl AcquireProgress for AptAcquireProgress {
 
 		self.clear_last_line(terminal_width() - 1);
 
-		println!("\rHit:{} {}", id, description);
+		println!("\rHit:{id} {description}");
 	}
 
 	/// Called when an Item has started to download
@@ -422,7 +422,7 @@ impl InstallProgress for AptInstallProgress {
 		print!("\x1b7");
 
 		// Go to the progress reporting line.
-		print!("\x1b[{};0f", term_height);
+		print!("\x1b[{term_height};0f");
 		std::io::stdout().flush().unwrap();
 
 		// Convert the float to a percentage string.
@@ -450,10 +450,7 @@ impl InstallProgress for AptInstallProgress {
 		const BG_COLOR_RESET: &str = "\x1b[49m";
 		const FG_COLOR_RESET: &str = "\x1b[39m";
 
-		print!(
-			"{}{}Progress: [{}%]{}{} ",
-			bg_color, fg_color, percent_str, BG_COLOR_RESET, FG_COLOR_RESET
-		);
+		print!("{bg_color}{fg_color}Progress: [{percent_str}%]{BG_COLOR_RESET}{FG_COLOR_RESET} ");
 
 		// The length of "Progress: [100%] ".
 		const PROGRESS_STR_LEN: usize = 17;
