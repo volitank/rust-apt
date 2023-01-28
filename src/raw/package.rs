@@ -73,7 +73,7 @@ pub mod raw {
 		/// Get the fullname of the package.
 		///
 		/// Pretty is a bool that will omit the native arch.
-		pub fn full_name(self: &Package, pretty: bool) -> String;
+		pub fn fullname(self: &Package, pretty: bool) -> String;
 
 		/// Get the ID of a package.
 		pub fn id(self: &Package) -> u32;
@@ -423,7 +423,7 @@ mod raw_tests {
 			println!("ID: {}", pkg.id());
 			println!("Name: {}", pkg.name());
 			println!("Arch: {}", pkg.arch());
-			println!("FullName: {}", pkg.full_name(false));
+			println!("FullName: {}", pkg.fullname(false));
 			println!("current_state: {}", pkg.current_state());
 			println!("inst_state: {}", pkg.inst_state());
 			println!("selected_state: {}\n", pkg.selected_state());
@@ -573,7 +573,7 @@ mod raw_tests {
 
 		for pkg in cache.begin().unwrap() {
 			if depcache.marked_upgrade(&pkg) {
-				println!("Upgrade => {}", pkg.full_name(false));
+				println!("Upgrade => {}", pkg.fullname(false));
 			}
 		}
 	}

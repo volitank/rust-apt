@@ -14,7 +14,7 @@ mod cache {
 			println!("ID: {}", pkg.id());
 			println!("Name: {}", pkg.name());
 			println!("Arch: {}", pkg.arch());
-			println!("FullName: {}", pkg.full_name(false));
+			println!("FullName: {}", pkg.fullname(false));
 			println!("current_state: {}", pkg.current_state());
 			println!("inst_state: {}", pkg.inst_state());
 			println!("selected_state: {}\n", pkg.selected_state());

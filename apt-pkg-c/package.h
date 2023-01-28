@@ -231,7 +231,7 @@ inline Version Version::unique() const noexcept {
 
 inline rust::Str Package::name() const noexcept { return ptr->Name(); }
 inline rust::Str Package::arch() const noexcept { return ptr->Arch(); }
-inline rust::String Package::full_name(bool Pretty) const noexcept {
+inline rust::String Package::fullname(bool Pretty) const noexcept {
 	return ptr->FullName(Pretty);
 }
 
