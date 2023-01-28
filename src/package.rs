@@ -21,8 +21,8 @@ impl<'a> Package<'a> {
 	pub fn new(cache: &'a Cache, ptr: RawPackage) -> Package<'a> { Package { ptr, cache } }
 
 	/// Internal Method for generating the version list.
-	fn raw_versions(&self) -> impl Iterator<Item = RawVersion> + '_ {
-		self.version_list().expect("Null PkgBegin!")
+	fn raw_versions(&self) -> impl Iterator<Item = RawVersion> {
+		self.version_list().into_iter().flatten()
 	}
 
 	/// Return either a Version or None
