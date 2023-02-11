@@ -9,7 +9,7 @@
 
 inline rust::Str Provider::name() const noexcept { return ptr->Name(); }
 
-inline rust::Str Provider::version() const {
+inline rust::Str Provider::version_str() const {
 	return handle_str(ptr->ProvideVersion());
 }
 

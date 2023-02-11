@@ -9,7 +9,7 @@ use std::ops::Deref;
 use once_cell::unsync::OnceCell;
 
 use crate::cache::Cache;
-use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawVersion};
+use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion};
 use crate::util::cmp_versions;
 
 pub struct Package<'a> {
@@ -66,8 +66,16 @@ impl<'a> Package<'a> {
 
 	/// Returns a version list
 	/// starting with the newest and ending with the oldest.
-	pub fn versions(&'a self) -> impl Iterator<Item = Version<'a>> + '_ {
+	pub fn versions(&'a self) -> impl Iterator<Item = Version<'a>> {
 		self.raw_versions().map(|ver| Version::new(ver, self))
+	}
+
+	/// Returns a list of providers
+	pub fn provides(&'a self) -> impl Iterator<Item = Provider<'a>> {
+		self.provides_list()
+			.into_iter()
+			.flatten()
+			.map(|provider| Provider::new(provider, self.cache))
 	}
 
 	/// Check if the package is upgradable.
@@ -228,6 +236,14 @@ impl<'a> Version<'a> {
 			cache: parent.cache,
 			depends_map: OnceCell::new(),
 		}
+	}
+
+	/// Returns a list of providers
+	pub fn provides(&'a self) -> impl Iterator<Item = Provider<'a>> {
+		self.provides_list()
+			.into_iter()
+			.flatten()
+			.map(|provider| Provider::new(provider, self.cache))
 	}
 
 	/// Returns an iterator of PackageFiles (Origins) for the version
@@ -551,4 +567,34 @@ impl<'a, 'b> Dependency<'a, 'b> {
 
 	/// Returns a reference to the first BaseDep
 	pub fn first(&self) -> &BaseDep { &self.base_deps[0] }
+}
+
+pub struct Provider<'a> {
+	ptr: RawProvider,
+	cache: &'a Cache,
+	target_pkg: Package<'a>,
+}
+
+impl<'a> Provider<'a> {
+	pub fn new(ptr: RawProvider, cache: &'a Cache) -> Provider<'a> {
+		let target_pkg = Package::new(cache, ptr.target_pkg());
+		Provider {
+			ptr,
+			cache,
+			target_pkg,
+		}
+	}
+
+	/// Return the Target Package of the provider.
+	pub fn package(&self) -> Package<'a> { Package::new(self.cache, self.target_pkg()) }
+
+	/// Return the Target Version of the provider.
+	pub fn version(&'a self) -> Version<'a> { Version::new(self.target_ver(), &self.target_pkg) }
+}
+
+impl<'a> Deref for Provider<'a> {
+	type Target = RawProvider;
+
+	#[inline]
+	fn deref(&self) -> &RawProvider { &self.ptr }
 }

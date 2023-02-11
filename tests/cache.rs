@@ -235,7 +235,7 @@ mod cache {
 		// If it ever doesn't, this test will break.
 		let provide = provides_list.get(0).unwrap();
 		assert!(provide.name() == "apt-transport-https");
-		assert!(provide.version().unwrap() == cand.version());
+		assert!(provide.version_str().unwrap() == cand.version());
 	}
 
 	/// This test is tied pretty closely to the currently available versions in
@@ -257,15 +257,17 @@ mod cache {
 
 			let parent = provides_pkg.target_pkg();
 			assert!(parent.name().contains("apt"));
-			assert_eq!(provides_pkg.version().unwrap(), ver.version());
+			assert_eq!(provides_pkg.version_str().unwrap(), ver.version());
 		}
 
 		{
 			let mut rev_provides_list =
-				pkg.provides_list().unwrap().filter(|p| match p.version() {
-					Err(_) => false,
-					Ok(version) => version == ver.version(),
-				});
+				pkg.provides_list()
+					.unwrap()
+					.filter(|p| match p.version_str() {
+						Err(_) => false,
+						Ok(version) => version == ver.version(),
+					});
 
 			let provides_pkg = rev_provides_list.next().unwrap();
 			assert!(rev_provides_list.next().is_none());
@@ -273,15 +275,17 @@ mod cache {
 			let parent = provides_pkg.target_pkg();
 			assert_eq!(parent.name(), "apt");
 
-			assert_eq!(provides_pkg.version().unwrap(), ver.version());
+			assert_eq!(provides_pkg.version_str().unwrap(), ver.version());
 		}
 
 		{
 			let mut rev_provides_list =
-				pkg.provides_list().unwrap().filter(|p| match p.version() {
-					Err(_) => false,
-					Ok(version) => version == "50000000000.0.0",
-				});
+				pkg.provides_list()
+					.unwrap()
+					.filter(|p| match p.version_str() {
+						Err(_) => false,
+						Ok(version) => version == "50000000000.0.0",
+					});
 			assert!(rev_provides_list.next().is_none());
 		}
 

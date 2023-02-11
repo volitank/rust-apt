@@ -181,7 +181,7 @@ pub mod raw {
 		/// The name of what this provider provides
 		pub fn name(self: &Provider) -> &str;
 
-		pub fn version(self: &Provider) -> Result<&str>;
+		pub fn version_str(self: &Provider) -> Result<&str>;
 
 		/// The Target Package that can satisfy this provides
 		pub fn target_pkg(self: &Provider) -> Package;
