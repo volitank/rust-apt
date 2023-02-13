@@ -58,7 +58,10 @@ impl<'a> Package<'a> {
 	/// If there isn't a candidate, returns None
 	pub fn candidate(&'a self) -> Option<Version<'a>> {
 		// Cxx error here just indicates that the Version doesn't exist
-		Some(Version::new(self.cache.candidate_version(self)?, self))
+		Some(Version::new(
+			self.cache.depcache().candidate_version(self)?,
+			self,
+		))
 	}
 
 	/// Returns a version list

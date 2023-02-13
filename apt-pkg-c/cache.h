@@ -44,13 +44,6 @@ inline std::unique_ptr<Records> Cache::create_records() const noexcept {
 	return Records::Unique(ptr);
 }
 
-/// Return the candidate version of the package.
-/// Ptr will be NULL if there isn't a candidate.
-inline Version Cache::unsafe_candidate_version(const Package& pkg) const noexcept {
-	return Version{ std::make_unique<VerIterator>(
-	ptr->GetPolicy()->GetCandidateVer(*pkg.ptr)) };
-}
-
 inline void Cache::find_index(PackageFile& pkg_file) const noexcept {
 	if (!pkg_file.index_file) {
 		pkgIndexFile* index;

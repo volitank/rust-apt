@@ -1,6 +1,6 @@
 //! Contains Cache related structs.
 
-use super::package::{RawPackage, RawVersion};
+use super::package::RawPackage;
 
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
@@ -67,27 +67,12 @@ pub mod raw {
 		/// Return the pointer to the start of the PkgIterator.
 		pub fn begin(self: &Cache) -> Result<Package>;
 
-		/// Get a pointer to the version that is set to be installed.
-		///
-		/// Safety: If there is no candidate the inner pointer will be null.
-		/// This will cause segfaults if methods are used on a Null Version.
-		pub fn unsafe_candidate_version(self: &Cache, pkg: &Package) -> Version;
-
 	}
 }
 
 impl raw::Cache {
 	pub fn find_pkg(&self, name: &str) -> Option<RawPackage> {
 		let ptr = self.unsafe_find_pkg(name.to_string());
-
-		match ptr.end() {
-			true => None,
-			false => Some(ptr),
-		}
-	}
-
-	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
-		let ptr = self.unsafe_candidate_version(pkg);
 
 		match ptr.end() {
 			true => None,

@@ -13,6 +13,26 @@ mod depcache {
 		assert!(pkg.marked_reinstall());
 	}
 
+	// Make a test for getting the candidate after you set a candidate.
+	// Make sure it's the expected version.
+	// We had to change to getting the candidate from the depcache.
+	// https://gitlab.com/volian/rust-apt/-/issues/14
+
+	// #[test]
+	// fn changes_test() {
+	// 	let cache = new_cache!().unwrap();
+
+	// 	let pkg = cache.get("nala").unwrap();
+
+	// 	let ver = pkg.get_version("0.12.1").unwrap();
+
+	// 	ver.set_candidate();
+
+	// 	let cand = pkg.candidate().unwrap();
+
+	// 	println!("Version is {}", cand.version())
+	// }
+
 	#[test]
 	fn upgrade() {
 		// There isn't a great way to test if upgrade is working properly

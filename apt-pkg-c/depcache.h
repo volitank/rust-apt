@@ -142,6 +142,13 @@ inline void DepCache::set_candidate_version(const Version& ver) const noexcept {
 	(*ptr)->SetCandidateVersion(*ver.ptr);
 }
 
+/// Return the candidate version of the package.
+/// Ptr will be NULL if there isn't a candidate.
+inline Version DepCache::unsafe_candidate_version(const Package& pkg) const noexcept {
+	return Version{ std::make_unique<VerIterator>(
+	(*ptr)->GetCandidateVersion(*pkg.ptr)) };
+}
+
 /// Mark a package for reinstallation
 ///
 /// To:

@@ -1,3 +1,5 @@
+use super::package::{RawPackage, RawVersion};
+
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
@@ -131,6 +133,12 @@ pub mod raw {
 		/// Set a version to be the candidate of it's package.
 		pub fn set_candidate_version(self: &DepCache, ver: &Version);
 
+		/// Get a pointer to the version that is set to be installed.
+		///
+		/// Safety: If there is no candidate the inner pointer will be null.
+		/// This will cause segfaults if methods are used on a Null Version.
+		pub fn unsafe_candidate_version(self: &DepCache, pkg: &Package) -> Version;
+
 		/// # Mark a package for reinstallation.
 		///
 		/// ## Returns:
@@ -168,5 +176,16 @@ pub mod raw {
 		/// i.e. the Installed-Size of all packages marked for installation"
 		/// minus the Installed-Size of all packages for removal."
 		pub fn disk_size(self: &DepCache) -> i64;
+	}
+}
+
+impl raw::DepCache {
+	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
+		let ptr = self.unsafe_candidate_version(pkg);
+
+		match ptr.end() {
+			true => None,
+			false => Some(ptr),
+		}
 	}
 }

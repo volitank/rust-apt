@@ -513,9 +513,10 @@ mod raw_tests {
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
+		let depcache = cache.create_depcache();
 
 		// Apt should have a candidate as well as current version
-		assert!(cache.candidate_version(&pkg).is_some());
+		assert!(!depcache.unsafe_candidate_version(&pkg).ptr.is_null());
 
 		let ver_files: Vec<RawVersionFile> = cand.version_files().unwrap().collect();
 
@@ -594,7 +595,8 @@ mod raw_tests {
 		let debs: Vec<String> = vec![];
 		let cache = create_cache(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
-		let cand = cache.candidate_version(&pkg).unwrap();
+		let depcache = cache.create_depcache();
+		let cand = depcache.unsafe_candidate_version(&pkg);
 
 		dbg!(cache.priority(&cand));
 	}
@@ -606,7 +608,8 @@ mod raw_tests {
 		let debs: Vec<String> = vec![];
 		let cache = create_cache(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
-		let cand = cache.candidate_version(&pkg).unwrap();
+		let depcache = cache.create_depcache();
+		let cand = depcache.unsafe_candidate_version(&pkg);
 
 		let records = cache.create_records();
 
