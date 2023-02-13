@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 use once_cell::unsync::OnceCell;
@@ -598,3 +599,15 @@ impl<'a> Deref for Provider<'a> {
 	#[inline]
 	fn deref(&self) -> &RawProvider { &self.ptr }
 }
+
+// Implementation allowing structs to be put into a hashmap
+impl<'a> Hash for Package<'a> {
+	fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
+}
+
+impl<'a> Hash for Version<'a> {
+	fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
+}
+
+impl<'a> Eq for Package<'a> {}
+impl<'a> Eq for Version<'a> {}

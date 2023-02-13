@@ -5,6 +5,7 @@ pub type RawDependency = raw::Dependency;
 pub type RawVersionFile = raw::VersionFile;
 pub type RawDescriptionFile = raw::DescriptionFile;
 pub type RawPackageFile = raw::PackageFile;
+use std::hash::{Hash, Hasher};
 
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
@@ -399,6 +400,25 @@ raw_iter!(RawProvider);
 raw_iter!(RawDependency);
 raw_iter!(RawVersionFile);
 raw_iter!(RawDescriptionFile);
+
+// TODO: Maybe make some internal macros and export them so
+// this can be used in the higher level package.rs
+macro_rules! raw_hash {
+	($structname: ident) => {
+		impl Hash for $structname {
+			fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
+		}
+
+		impl PartialEq for $structname {
+			fn eq(&self, other: &$structname) -> bool { self.id() == other.id() }
+		}
+
+		impl Eq for $structname {}
+	};
+}
+
+raw_hash!(RawPackage);
+raw_hash!(RawVersion);
 
 #[cfg(test)]
 mod raw_tests {

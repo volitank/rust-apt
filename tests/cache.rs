@@ -1,4 +1,5 @@
 mod cache {
+	use std::collections::HashMap;
 	use std::fmt::Write as _;
 
 	use rust_apt::cache::*;
@@ -221,6 +222,35 @@ mod cache {
 			}
 		}
 		println!("{dep_str}");
+	}
+
+	#[test]
+	fn test_hashmap() {
+		let cache = new_cache!().unwrap();
+		let mut pkg_map = HashMap::new();
+
+		// clippy thinks that the version is mutable
+		// But it only hashes the ID and you can't really mutate a version
+		#[allow(clippy::mutable_key_type)]
+		let mut ver_map = HashMap::new();
+
+		let sort = PackageSort::default();
+
+		// Iterate the package cache and add them to a hashmap
+		for pkg in cache.packages(&sort) {
+			let value = pkg.arch().to_string();
+			pkg_map.insert(pkg, value);
+		}
+
+		// Iterate the package map and add all the candidates into a hashmap
+		for (pkg, _arch) in pkg_map.iter() {
+			if let Some(cand) = pkg.candidate() {
+				let value = cand.arch().to_string();
+				ver_map.insert(cand, value);
+			}
+		}
+		// Doesn't need an assert. It won't compile
+		// if the structs can't go into a hashmap
 	}
 
 	#[test]
