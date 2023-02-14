@@ -1,10 +1,9 @@
 stages:
   - test
+  - publish
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
-  APT_STATE: ${CI_PROJECT_DIR}/apt/state
-  APT_CACHE: ${CI_PROJECT_DIR}/apt/cache
   PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/${CARGO_HOME}/bin"
   USER: "root"
 
@@ -17,22 +16,13 @@ test:
     paths:
       - ".cargo/"
       - target/
-      - apt/
 
   script:
     # Debian/Ubuntu docker images contain some docker-specific configs that mess with rust-apt tests, so remove them here first.
     # https://github.com/GoogleContainerTools/base-images-docker/blob/master/debian/reproducible/overlay/etc/apt/apt.conf.d/docker-gzip-indexes
     - rm -f /etc/apt/apt.conf.d/docker*
-
-    # Setup the CI apt config. If this gets too spicy make config file and move it
-    - echo -e
-      "Dir::State ${APT_STATE};\nDir::Cache ${APT_CACHE};" > /etc/apt/apt.conf.d/apt-ci
-
-    # Create partial directories in the cache
-    - mkdir -p
-      "${APT_STATE}/lists/partial"
-      "${APT_CACHE}/archive/partial"
-
+  
+    # Install needed packages
     - apt-get update
     - apt-get install eatmydata -y
     - eatmydata apt-get install -y
@@ -48,7 +38,8 @@ test:
 
     - rustup toolchain install nightly
     - rustup toolchain install stable
-
+    
+    # Run tests
     - cargo install just
     - eatmydata just check
     # Docker has 0777 for everything. Deb packages need to be 0755
@@ -56,3 +47,49 @@ test:
     # Create the test .debs then run the tests
     - eatmydata just create-test-debs
     - eatmydata cargo test --no-fail-fast -- --test-threads 1
+publish:
+  stage: publish
+  only:
+    - main
+  except:
+    - tags
+  image: debian:sid
+  environment:
+  cache:
+    key: build-cache
+    paths:
+      - ".cargo/"
+      - target/
+  script:
+    # Install rustup and other needed dependencies
+    - apt-get update
+    - apt-get install -y
+      build-essential
+      curl
+      git
+      jq
+      libapt-pkg-dev
+    - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
+    - rustup default stable
+    
+    # Create the Git tag and publish.
+    - |
+      git fetch --tags
+      current_version="$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')"
+      
+      if ! git tag | grep "^v${current_version}$"; then
+        project_url="$(echo "${CI_PROJECT_URL}" | sed "s|https://|https://oauth2:${WRITE_REPOSITORY}@|")"
+        git tag "v${current_version}"
+        git push -o ci.skip "${project_url}" "v${current_version}"
+
+        # We have the Cargo cache in `.cargo`, so add it to the `.gitignore` file so Cargo doesn't complain about a dirty working directory
+        git config user.email 'foobar@example.com'
+        git config user.name 'Foo Bar'
+        echo '.cargo' >> .gitignore
+        git commit -m "Updated .gitignore" .gitignore
+
+        # And now publish to crates.io
+        CARGO_REGISTRY_TOKEN="${CARGO_KEY}" cargo publish
+      else
+        echo "DEBUG: Git tag 'v${current_version}' already exists."
+      fi
