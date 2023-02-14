@@ -317,7 +317,6 @@ impl<'a> Version<'a> {
 
 				dep.raw_next();
 			}
-			dbg!(&dependencies);
 			dependencies
 		})
 	}
