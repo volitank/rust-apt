@@ -286,37 +286,40 @@ impl<'a> Version<'a> {
 	/// ```
 	pub fn depends_map(&self) -> &HashMap<DepType, Vec<Dependency>> {
 		self.depends_map.get_or_init(|| {
-			let dep = self.depends().expect("Dependency was null");
+			let dep = self.depends();
 			let mut dependencies: HashMap<DepType, Vec<Dependency>> = HashMap::new();
 
-			while !dep.end() {
-				let mut or_deps = vec![];
-				or_deps.push(BaseDep::new(dep.unique(), self.parent));
+			if let Some(dep) = dep {
+				while !dep.end() {
+					let mut or_deps = vec![];
+					or_deps.push(BaseDep::new(dep.unique(), self.parent));
 
-				// This means that more than one thing can satisfy a dependency.
-				if dep.compare_op() {
-					loop {
-						dep.raw_next();
-						or_deps.push(BaseDep::new(dep.unique(), self.parent));
-						// This is the last of the Or group
-						if !dep.compare_op() {
-							break;
+					// This means that more than one thing can satisfy a dependency.
+					if dep.compare_op() {
+						loop {
+							dep.raw_next();
+							or_deps.push(BaseDep::new(dep.unique(), self.parent));
+							// This is the last of the Or group
+							if !dep.compare_op() {
+								break;
+							}
 						}
 					}
+
+					let dep_type = DepType::from(dep.dep_type());
+
+					// If the entry already exists in the map append it.
+					if let Some(vec) = dependencies.get_mut(&dep_type) {
+						vec.push(Dependency { base_deps: or_deps })
+					} else {
+						// Doesn't exist so we create it
+						dependencies.insert(dep_type, vec![Dependency { base_deps: or_deps }]);
+					}
+
+					dep.raw_next();
 				}
-
-				let dep_type = DepType::from(dep.dep_type());
-
-				// If the entry already exists in the map append it.
-				if let Some(vec) = dependencies.get_mut(&dep_type) {
-					vec.push(Dependency { base_deps: or_deps })
-				} else {
-					// Doesn't exist so we create it
-					dependencies.insert(dep_type, vec![Dependency { base_deps: or_deps }]);
-				}
-
-				dep.raw_next();
 			}
+
 			dependencies
 		})
 	}

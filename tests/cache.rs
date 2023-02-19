@@ -58,6 +58,21 @@ mod cache {
 	}
 
 	#[test]
+	fn empty_deps() {
+		// This would fail before https://gitlab.com/volian/rust-apt/-/merge_requests/29
+		let cache = new_cache!().unwrap();
+		let sort = PackageSort::default();
+
+		// Iterate through all of the package and versions
+		for pkg in cache.packages(&sort) {
+			for version in pkg.versions() {
+				// Call depends_map to check for panic on null dependencies.
+				version.depends_map();
+			}
+		}
+	}
+
+	#[test]
 	fn parent_pkg() {
 		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
