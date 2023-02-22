@@ -405,6 +405,24 @@ impl Cache {
 			.resolve(fix_broken, &mut NoOpProgress::new_box())
 	}
 
+	/// Autoinstall every broken package and run the problem resolver
+	/// Returns false if the problem resolver fails.
+	///
+	/// # Example:
+	///
+	/// ```
+	/// use rust_apt::new_cache;
+	///
+	/// let cache = new_cache!().unwrap();
+	///
+	/// cache.fix_broken();
+	///
+	/// for pkg in cache.get_changes(false) {
+	///     println!("Pkg Name: {}", pkg.name())
+	/// }
+	/// ```
+	pub fn fix_broken(&self) -> bool { self.depcache().fix_broken() }
+
 	/// Fetch any archives needed to complete the transaction.
 	///
 	/// # Returns:

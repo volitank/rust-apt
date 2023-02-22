@@ -15,6 +15,12 @@ inline void DepCache::init(DynOperationProgress& callback) const {
 	handle_errors();
 }
 
+/// Autoinstall every broken package and run the problem resolver
+/// Returns false if the problem resolver fails.
+inline bool DepCache::fix_broken() const noexcept {
+	return pkgFixBroken(**ptr);
+}
+
 /// Is the Package upgradable?
 ///
 /// `skip_depcache = true` increases performance by skipping the pkgDepCache

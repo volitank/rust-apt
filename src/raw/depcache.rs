@@ -21,6 +21,10 @@ pub mod raw {
 
 		pub fn init(self: &DepCache, callback: &mut DynOperationProgress) -> Result<()>;
 
+		/// Autoinstall every broken package and run the problem resolver
+		/// Returns false if the problem resolver fails.
+		pub fn fix_broken(self: &DepCache) -> bool;
+
 		/// Perform a Full Upgrade.
 		/// Remove and install new packages if necessary.
 		pub fn full_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
