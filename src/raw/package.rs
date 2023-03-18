@@ -103,6 +103,8 @@ pub mod raw {
 		/// Get the providers of this package
 		pub fn unsafe_provides(self: &Package) -> Provider;
 
+		pub fn unsafe_rev_depends(self: &Package) -> Dependency;
+
 		/// True if the package is essential.
 		pub fn is_essential(self: &Package) -> bool;
 
@@ -186,6 +188,8 @@ pub mod raw {
 
 		/// The Target Package that can satisfy this provides
 		pub fn target_pkg(self: &Provider) -> Package;
+
+		pub fn parent_pkg(self: &Dependency) -> Package;
 
 		/// The Target Version that can satisfy this provides
 		pub fn target_ver(self: &Provider) -> Version;
@@ -322,6 +326,15 @@ impl raw::Package {
 		match ver_list.end() {
 			true => None,
 			false => Some(ver_list),
+		}
+	}
+
+	pub fn rev_depends_list(&self) -> Option<RawDependency> {
+		let rev_dep_list = self.unsafe_rev_depends();
+
+		match rev_dep_list.end() {
+			true => None,
+			false => Some(rev_dep_list),
 		}
 	}
 

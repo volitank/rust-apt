@@ -20,6 +20,10 @@ inline Package Provider::target_pkg() const noexcept {
 	return Package{ std::make_unique<PkgIterator>(ptr->OwnerPkg()) };
 }
 
+inline Package Dependency::parent_pkg() const noexcept {
+	return Package{ std::make_unique<PkgIterator>(ptr->ParentPkg()) };
+}
+
 inline Version Provider::target_ver() const noexcept {
 	return Version{ std::make_unique<VerIterator>(ptr->OwnerVer()) };
 }
@@ -215,6 +219,10 @@ inline rust::Str Version::source_version() const noexcept {
 
 inline Dependency Version::unsafe_depends() const noexcept {
 	return Dependency{ std::make_unique<DepIterator>(ptr->DependsList()) };
+}
+
+inline Dependency Package::unsafe_rev_depends() const noexcept {
+	return Dependency{ std::make_unique<DepIterator>(ptr->RevDependsList()) };
 }
 
 

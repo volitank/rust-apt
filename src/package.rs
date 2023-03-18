@@ -26,6 +26,70 @@ impl<'a> Package<'a> {
 		self.version_list().into_iter().flatten()
 	}
 
+	/// Returns a Reverse Dependency Map of the package
+	///
+	/// Dependencies are in a `Vec<Dependency>`
+	///
+	/// The Dependency struct represents an Or Group of dependencies.
+	/// The base deps are located in `Dependency.base_deps`
+	///
+	/// For example where we use the `DepType::Depends` key:
+	///
+	/// ```
+	/// use rust_apt::new_cache;
+	/// use rust_apt::package::DepType;
+	/// let cache = new_cache!().unwrap();
+	/// let pkg = cache.get("apt").unwrap();
+	/// for dep in pkg.rdepends_map().get(&DepType::Depends).unwrap() {
+	///    if dep.is_or() {
+	///        for base_dep in &dep.base_deps {
+	///            println!("{}", base_dep.name())
+	///        }
+	///    } else {
+	///        // is_or is false so there is only one BaseDep
+	///        println!("{}", dep.first().name())
+	///    }
+	/// }
+	/// ```
+	pub fn rdepends_map(&'a self) -> HashMap<DepType, Vec<Dependency>> {
+		let dep = self.rev_depends_list();
+		let mut dependencies: HashMap<DepType, Vec<Dependency>> = HashMap::new();
+
+		if let Some(dep) = dep {
+			while !dep.end() {
+				let mut or_deps = vec![];
+				let base = BaseDep::new(dep.unique(), dep.parent_pkg(), true);
+				or_deps.push(base);
+
+				// This means that more than one thing can satisfy a dependency.
+				if dep.compare_op() {
+					loop {
+						dep.raw_next();
+						or_deps.push(BaseDep::new(dep.unique(), dep.parent_pkg(), true));
+						// This is the last of the Or group
+						if !dep.compare_op() {
+							break;
+						}
+					}
+				}
+
+				let dep_type = DepType::from(dep.dep_type());
+
+				// If the entry already exists in the map append it.
+				if let Some(vec) = dependencies.get_mut(&dep_type) {
+					vec.push(Dependency { base_deps: or_deps })
+				} else {
+					// Doesn't exist so we create it
+					dependencies.insert(dep_type, vec![Dependency { base_deps: or_deps }]);
+				}
+
+				dep.raw_next();
+			}
+		}
+
+		dependencies
+	}
+
 	/// Return either a Version or None
 	///
 	/// # Example:
@@ -226,11 +290,11 @@ pub struct Version<'a> {
 	ptr: RawVersion,
 	parent: &'a Package<'a>,
 	cache: &'a Cache,
-	depends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a, 'a>>>>,
+	depends_map: OnceCell<HashMap<DepType, Vec<Dependency>>>,
 }
 
 impl<'a> Version<'a> {
-	pub fn new(ptr: RawVersion, parent: &'a Package) -> Version<'a> {
+	pub fn new(ptr: RawVersion, parent: &'a Package<'a>) -> Version<'a> {
 		Version {
 			ptr,
 			parent,
@@ -240,7 +304,7 @@ impl<'a> Version<'a> {
 	}
 
 	/// Returns a list of providers
-	pub fn provides(&'a self) -> impl Iterator<Item = Provider<'a>> {
+	pub fn provides(&self) -> impl Iterator<Item = Provider<'a>> {
 		self.provides_list()
 			.into_iter()
 			.flatten()
@@ -256,7 +320,7 @@ impl<'a> Version<'a> {
 	}
 
 	/// Return the version's parent package.
-	pub fn parent(&'a self) -> &'a Package<'a> { self.parent }
+	pub fn parent(&self) -> &'a Package<'a> { self.parent }
 
 	/// Returns a reference to the Dependency Map owned by the Version
 	///
@@ -292,13 +356,13 @@ impl<'a> Version<'a> {
 			if let Some(dep) = dep {
 				while !dep.end() {
 					let mut or_deps = vec![];
-					or_deps.push(BaseDep::new(dep.unique(), self.parent));
+					or_deps.push(BaseDep::new(dep.unique(), self.parent.unique(), false));
 
 					// This means that more than one thing can satisfy a dependency.
 					if dep.compare_op() {
 						loop {
 							dep.raw_next();
-							or_deps.push(BaseDep::new(dep.unique(), self.parent));
+							or_deps.push(BaseDep::new(dep.unique(), self.parent.unique(), false));
 							// This is the last of the Or group
 							if !dep.compare_op() {
 								break;
@@ -327,16 +391,16 @@ impl<'a> Version<'a> {
 	/// Returns a reference Vector, if it exists, for the given key.
 	///
 	/// See the doc for `depends_map()` for more information.
-	pub fn get_depends(&'a self, key: &DepType) -> Option<&Vec<Dependency>> {
+	pub fn get_depends(&self, key: &DepType) -> Option<&Vec<Dependency>> {
 		self.depends_map().get(key)
 	}
 
 	/// Returns a Reference Vector, if it exists, for "Enhances".
-	pub fn enhances(&'a self) -> Option<&Vec<Dependency>> { self.get_depends(&DepType::Enhances) }
+	pub fn enhances(&self) -> Option<&Vec<Dependency>> { self.get_depends(&DepType::Enhances) }
 
 	/// Returns a Reference Vector, if it exists,
 	/// for "Depends" and "PreDepends".
-	pub fn dependencies(&'a self) -> Option<Vec<&Dependency>> {
+	pub fn dependencies(&self) -> Option<Vec<&Dependency>> {
 		let mut ret_vec: Vec<&Dependency> = Vec::new();
 
 		if let Some(dep_list) = self.get_depends(&DepType::Depends) {
@@ -356,12 +420,10 @@ impl<'a> Version<'a> {
 	}
 
 	/// Returns a Reference Vector, if it exists, for "Recommends".
-	pub fn recommends(&'a self) -> Option<&Vec<Dependency>> {
-		self.get_depends(&DepType::Recommends)
-	}
+	pub fn recommends(&self) -> Option<&Vec<Dependency>> { self.get_depends(&DepType::Recommends) }
 
 	/// Returns a Reference Vector, if it exists, for "suggests".
-	pub fn suggests(&'a self) -> Option<&Vec<Dependency>> { self.get_depends(&DepType::Suggests) }
+	pub fn suggests(&self) -> Option<&Vec<Dependency>> { self.get_depends(&DepType::Suggests) }
 
 	/// Get the translated long description
 	pub fn description(&self) -> Option<String> {
@@ -505,19 +567,30 @@ impl From<u8> for DepType {
 }
 
 /// A struct representing a Base Dependency.
-pub struct BaseDep<'a, 'b> {
+pub struct BaseDep {
 	ptr: RawDependency,
 	/// Reference to the Package this dependency belongs too.
-	pub parent: &'b Package<'a>,
+	pub parent: RawPackage,
+	is_rev: bool,
 }
 
-impl<'a, 'b> BaseDep<'a, 'b> {
-	pub fn new(ptr: RawDependency, parent: &'b Package<'a>) -> BaseDep<'a, 'b> {
-		BaseDep { ptr, parent }
+impl BaseDep {
+	pub fn new(ptr: RawDependency, parent: RawPackage, is_rev: bool) -> BaseDep {
+		BaseDep {
+			ptr,
+			parent,
+			is_rev,
+		}
 	}
 
 	/// This is the name of the dependency.
-	pub fn name(&self) -> String { self.target_pkg().name().to_string() }
+	pub fn name(&self) -> String {
+		if self.is_rev {
+			self.parent_pkg().name().to_string()
+		} else {
+			self.target_pkg().name().to_string()
+		}
+	}
 
 	/// The version of the dependency if specified.
 	pub fn version(&self) -> Option<&str> { self.target_ver().ok() }
@@ -525,27 +598,27 @@ impl<'a, 'b> BaseDep<'a, 'b> {
 	/// Comparison type of the dependency version, if specified.
 	pub fn comp(&self) -> Option<&str> { self.comp_type().ok() }
 
-	/// Iterate all Versions that are able to satisfy this dependency
-	pub fn all_targets(&self) -> impl Iterator<Item = Version> {
-		self.ptr
-			.all_targets()
-			.map(|ver| Version::new(ver, self.parent))
-	}
+	// Iterate all Versions that are able to satisfy this dependency
+	pub fn all_targets(&self) -> impl Iterator<Item = RawVersion> { self.ptr.all_targets() }
 }
 
-impl<'a, 'b> Deref for BaseDep<'a, 'b> {
+impl Deref for BaseDep {
 	type Target = RawDependency;
 
 	#[inline]
 	fn deref(&self) -> &RawDependency { &self.ptr }
 }
 
-impl<'a, 'b> Debug for BaseDep<'a, 'b> {
+impl Debug for BaseDep {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(
 			f,
 			"BaseDep <Name: '{}', Version: '{}', Comp: '{}', Type: '{}'>",
-			self.target_pkg().name(),
+			if self.is_rev {
+				self.parent_pkg().name().to_owned()
+			} else {
+				self.target_pkg().name().to_owned()
+			},
 			self.version().unwrap_or("None"),
 			self.comp().unwrap_or("None"),
 			self.dep_type(),
@@ -556,12 +629,12 @@ impl<'a, 'b> Debug for BaseDep<'a, 'b> {
 
 /// A struct representing an Or_Group of Dependencies.
 #[derive(Debug)]
-pub struct Dependency<'a, 'b> {
+pub struct Dependency {
 	/// Vector of BaseDeps that can satisfy this dependency.
-	pub base_deps: Vec<BaseDep<'a, 'b>>,
+	pub base_deps: Vec<BaseDep>,
 }
 
-impl<'a, 'b> Dependency<'a, 'b> {
+impl Dependency {
 	/// Return the Dep Type of this group. Depends, Pre-Depends.
 	pub fn dep_type(&self) -> DepType { DepType::from(self.base_deps[0].dep_type()) }
 
