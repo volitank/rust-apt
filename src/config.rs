@@ -6,6 +6,7 @@ use crate::raw::config::raw;
 ///
 /// All apt configuration methods do not require this struct.
 /// You can call the bindings directly from raw::apt if you would like.
+#[derive(Debug)]
 pub struct Config {}
 
 impl Default for Config {
