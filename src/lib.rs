@@ -24,4 +24,4 @@ pub mod tagfile;
 pub mod util;
 
 #[allow(unused_imports)]
-use progress::Worker;
+use raw::progress::Worker;

@@ -1,6 +1,10 @@
+use std::io::prelude::*;
+use std::{env, fs};
+use std::fs::File;
+
 fn main() {
 	// Set up 'defines.h' for our features.
-	let mut defines = fs::File::open("apt-pkg-c/defines.h").unwrap();
+	let mut defines = File::open("apt-pkg-c/defines.h").unwrap();
 	let mut defines_string = String::new();
 	defines.read_to_string(&mut defines_string).unwrap();
 
