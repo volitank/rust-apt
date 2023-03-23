@@ -23,3 +23,6 @@ termsize = "0.1.6"
 
 [build-dependencies]
 cxx-build = "1.0"
+
+[features]
+worker_sizes = []

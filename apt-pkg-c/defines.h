@@ -1,0 +1,1 @@
+#define RUST_APT_WORKER_SIZES 1

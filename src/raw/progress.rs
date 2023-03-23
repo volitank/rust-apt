@@ -332,9 +332,12 @@ impl AcquireProgress for AptAcquireProgress {
 				work_string.push_str(&worker.active_subprocess);
 			}
 
-			work_string.push(' ');
-			work_string.push_str(&unit_str(worker.current_size, NumSys::Decimal));
-
+			#[cfg(feature = "worker_sizes")]
+			{
+				work_string.push(' ');
+				work_string.push_str(&unit_str(worker.current_size, NumSys::Decimal));
+			}
+			#[cfg(feature = "worker_sizes")]
 			if worker.total_size > 0 && !worker.complete {
 				let _ = write!(
 					work_string,
@@ -492,7 +495,9 @@ pub mod raw {
 		id: u64,
 		short_desc: String,
 		active_subprocess: String,
+		#[cfg(feature = "worker_sizes")]
 		current_size: u64,
+		#[cfg(feature = "worker_sizes")]
 		total_size: u64,
 		complete: bool,
 	}

@@ -1,4 +1,5 @@
 #include "rust-apt/src/raw/progress.rs"
+#include "rust-apt/apt-pkg-c/defines.h"
 #include "progress.h"
 #include <apt-pkg/acquire-worker.h>
 #include <apt-pkg/error.h>
@@ -98,28 +99,23 @@ bool AcqTextStatus::Pulse(pkgAcquire* Owner) {
 
 		// There is no item running
 		if (I->CurrentItem == 0) {
-			list.push_back(Worker{
-			false,
-			I->Status,
-			0,
-			"",
-			"",
-			0,
-			0,
-			false,
+			list.push_back(Worker {
+				false, I->Status, 0, "", "",
+				#if RUST_APT_WORKER_SIZES == 1
+				0, 0,
+				#endif
+				false,
 			});
 			continue;
 		}
 
-		list.push_back(Worker{
-		true,
-		I->Status,
-		I->CurrentItem->Owner->ID,
-		I->CurrentItem->ShortDesc,
-		I->CurrentItem->Owner->ActiveSubprocess,
-		I->CurrentItem->CurrentSize,
-		I->CurrentItem->TotalSize,
-		I->CurrentItem->Owner->Complete,
+		list.push_back(Worker {
+			true, I->Status, I->CurrentItem->Owner->ID,
+			I->CurrentItem->ShortDesc, I->CurrentItem->Owner->ActiveSubprocess,
+			#if RUST_APT_WORKER_SIZES == 1
+			I->CurrentItem->CurrentSize, I->CurrentItem->TotalSize,
+			#endif
+			I->CurrentItem->Owner->Complete,
 		});
 	}
 

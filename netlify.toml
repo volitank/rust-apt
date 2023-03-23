@@ -20,7 +20,7 @@ for pkg in "${packages[@]}"; do
 done
 
 rustup toolchain install stable
-cargo doc --no-deps
+cargo doc --no-deps --all-features
 
 # Redirect the root URL to the rust_apt docs.
 echo '<html><head><meta http-equiv="refresh" content="0; URL=/rust_apt" /></head></html>' > target/doc/index.html
