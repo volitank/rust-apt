@@ -11,20 +11,21 @@ use crate::raw::util::raw;
 /// # Returns:
 /// * The terminal height, or `24` if it cannot be determined.
 pub fn terminal_height() -> usize {
-	if let Some(size) = termsize::get() {
-		usize::from(size.rows)
+	if let Some((_, Height(rows))) = terminal_size() {
+		usize::from(rows)
 	} else {
 		24
 	}
 }
+
 
 /// Get the terminal's width, i.e. the number of columns it has.
 ///
 /// # Returns:
 /// * The terminal width, or `80` if it cannot be determined.
 pub fn terminal_width() -> usize {
-	if let Some(size) = termsize::get() {
-		usize::from(size.cols)
+	if let Some((Width(cols), _)) = terminal_size() {
+		usize::from(cols)
 	} else {
 		80
 	}
