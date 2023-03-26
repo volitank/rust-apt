@@ -2,6 +2,7 @@
 use std::cmp::Ordering;
 
 pub use cxx::Exception;
+use terminal_size::{terminal_size, Height, Width};
 
 use crate::config;
 use crate::raw::util::raw;
@@ -17,7 +18,6 @@ pub fn terminal_height() -> usize {
 		24
 	}
 }
-
 
 /// Get the terminal's width, i.e. the number of columns it has.
 ///
