@@ -6,6 +6,7 @@ using PkgCacheFile = pkgCacheFile;
 // Needs to be * to prevent CXX from deleting it.
 using PkgDepCache = pkgDepCache*;
 using IndexFile = pkgIndexFile*;
+using PkgActionGroup = pkgDepCache::ActionGroup;
 using PkgIterator = pkgCache::PkgIterator;
 using VerIterator = pkgCache::VerIterator;
 using PrvIterator = pkgCache::PrvIterator;

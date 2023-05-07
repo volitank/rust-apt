@@ -7,6 +7,38 @@ pub mod raw {
 		ptr: UniquePtr<PkgDepCache>,
 	}
 
+	/// An action group is a group of actions that are currently being
+	/// performed. While an active group is active, certain routine
+	/// clean-up actions that would normally be performed after every
+	/// cache operation are delayed until the action group is
+	/// completed. This is necessary primarily to avoid inefficiencies
+	/// when modifying a large number of packages at once.
+	///
+	/// This struct represents an active action group. Creating an
+	/// instance will create an action group; destroying one will
+	/// destroy the corresponding action group.
+	///
+	/// The following operations are suppressed by this class:
+	///
+	///   - Keeping the Marked and Garbage flags up to date.
+	///
+	/// Here is an example of creating and releasing an ActionGroup.
+	///
+	/// ```
+	/// use rust_apt::new_cache;
+	/// use rust_apt::raw::progress::{AcquireProgress, AptAcquireProgress};
+	///
+	/// let cache = new_cache!().unwrap();
+	/// let action_group = cache.depcache().action_group();
+	///
+	/// // The C++ deconstructor will be run when the action group leaves scope.
+	/// // You can also call it explicitly.
+	/// action_group.release();
+	/// ```
+	pub struct ActionGroup {
+		ptr: UniquePtr<PkgActionGroup>,
+	}
+
 	unsafe extern "C++" {
 		include!("rust-apt/apt-pkg-c/types.h");
 		include!("rust-apt/apt-pkg-c/package.h");
@@ -15,6 +47,7 @@ pub mod raw {
 		include!("rust-apt/apt-pkg-c/depcache.h");
 
 		type PkgDepCache;
+		type PkgActionGroup;
 		type Package = crate::raw::package::raw::Package;
 		type Version = crate::raw::package::raw::Version;
 		type DynOperationProgress = crate::raw::progress::raw::DynOperationProgress;
@@ -24,6 +57,15 @@ pub mod raw {
 		/// Autoinstall every broken package and run the problem resolver
 		/// Returns false if the problem resolver fails.
 		pub fn fix_broken(self: &DepCache) -> bool;
+		/// Return a new [`ActionGroup`] of the current DepCache
+		///
+		/// ActionGroup will be released once it leaves scope
+		/// or ['ActionGroup::release'] is called
+		pub fn action_group(self: &DepCache) -> ActionGroup;
+
+		/// This will release the [`ActionGroup`] which will trigger a
+		/// MarkAndSweep
+		pub fn release(self: &ActionGroup);
 
 		/// Perform a Full Upgrade.
 		/// Remove and install new packages if necessary.

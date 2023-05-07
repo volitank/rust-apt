@@ -13,6 +13,15 @@ mod depcache {
 		assert!(pkg.marked_reinstall());
 	}
 
+	#[test]
+	fn action_groups() {
+		let cache = new_cache!().unwrap();
+		let action_group = cache.depcache().action_group();
+
+		// The C++ deconstructor will be run when the action group leaves scope.
+		action_group.release();
+	}
+
 	// Make a test for getting the candidate after you set a candidate.
 	// Make sure it's the expected version.
 	// We had to change to getting the candidate from the depcache.
