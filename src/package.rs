@@ -86,7 +86,7 @@ impl<'a> Package<'a> {
 	/// Returns the version object of the installed version.
 	///
 	/// If there isn't an installed version, returns None
-	pub fn installed(&self) -> Option<Version<'a>> {
+	pub fn installed(&self) -> Option<Version> {
 		// Cxx error here just indicates that the Version doesn't exist
 		Some(Version::new(self.current_version()?, self.cache))
 	}
@@ -94,7 +94,7 @@ impl<'a> Package<'a> {
 	/// Returns the version object of the candidate.
 	///
 	/// If there isn't a candidate, returns None
-	pub fn candidate(&self) -> Option<Version<'a>> {
+	pub fn candidate(&self) -> Option<Version> {
 		// Cxx error here just indicates that the Version doesn't exist
 		Some(Version::new(
 			self.cache.depcache().candidate_version(self)?,

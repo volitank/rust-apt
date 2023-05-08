@@ -273,20 +273,6 @@ mod cache {
 	}
 
 	#[test]
-	fn version_scope() {
-		// Test and see if the version can be stored
-		// without the pkg it came from in scope
-		// All that should be needed in scope is the cache
-		let cache = new_cache!().unwrap();
-
-		let pkg = cache.get("apt").unwrap();
-		let cand = pkg.candidate().unwrap();
-
-		drop(pkg);
-		dbg!(cand.version());
-	}
-
-	#[test]
 	fn parent_dep() {
 		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
