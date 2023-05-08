@@ -42,7 +42,7 @@ mod depcache {
 		let cache = new_cache!().unwrap();
 		cache.upgrade(&Upgrade::FullUpgrade).unwrap();
 
-		for pkg in cache.get_changes(true) {
+		for pkg in cache.get_changes(true).unwrap() {
 			if pkg.marked_install() {
 				println!("{} is marked install", pkg.name());
 				// If the package is marked install then it will also

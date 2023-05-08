@@ -24,11 +24,11 @@ inline void Cache::update(DynAcquireProgress& callback) const {
 // Return a package by name.
 inline Package Cache::unsafe_find_pkg(rust::string name) const noexcept {
 	return Package{ std::make_unique<PkgIterator>(
-	ptr->GetPkgCache()->FindPkg(name.c_str())) };
+	safe_get_pkg_cache(ptr.get())->FindPkg(name.c_str())) };
 }
 
 inline Package Cache::begin() const {
-	return Package{ std::make_unique<PkgIterator>(ptr->GetPkgCache()->PkgBegin()) };
+	return Package{ std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->PkgBegin()) };
 }
 
 /// The priority of the package as shown in `apt policy`.

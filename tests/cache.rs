@@ -11,7 +11,7 @@ mod cache {
 	fn test_raw_pkg() {
 		let cache = new_cache!().unwrap();
 
-		for pkg in cache.raw_pkgs() {
+		for pkg in cache.raw_pkgs().unwrap() {
 			println!("ID: {}", pkg.id());
 			println!("Name: {}", pkg.name());
 			println!("Arch: {}", pkg.arch());
@@ -64,7 +64,7 @@ mod cache {
 		let sort = PackageSort::default();
 
 		// Iterate through all of the package and versions
-		for pkg in cache.packages(&sort) {
+		for pkg in cache.packages(&sort).unwrap() {
 			for version in pkg.versions() {
 				// Call depends_map to check for panic on null dependencies.
 				version.depends_map();
@@ -100,8 +100,8 @@ mod cache {
 		let sort = PackageSort::default();
 
 		// All real packages should not be empty.
-		assert!(cache.packages(&sort).next().is_some());
-		for pkg in cache.packages(&sort) {
+		assert!(cache.packages(&sort).unwrap().next().is_some());
+		for pkg in cache.packages(&sort).unwrap() {
 			// impl display??
 			// println!("{pkg}")
 			println!("{}:{}", pkg.name(), pkg.arch())
@@ -178,7 +178,7 @@ mod cache {
 	fn shortname() {
 		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
-		for pkg in cache.packages(&sort) {
+		for pkg in cache.packages(&sort).unwrap() {
 			assert!(!pkg.name().contains(':'))
 		}
 	}
@@ -256,7 +256,7 @@ mod cache {
 		let sort = PackageSort::default();
 
 		// Iterate the package cache and add them to a hashmap
-		for pkg in cache.packages(&sort) {
+		for pkg in cache.packages(&sort).unwrap() {
 			let value = pkg.arch().to_string();
 			pkg_map.insert(pkg, value);
 		}
@@ -291,7 +291,7 @@ mod cache {
 		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
 
-		for pkg in cache.packages(&sort) {
+		for pkg in cache.packages(&sort).unwrap() {
 			// Iterate over the reverse depends
 			// Iterating rdepends could segfault.
 			// See: https://gitlab.com/volian/rust-apt/-/merge_requests/36
@@ -330,6 +330,34 @@ mod cache {
 		assert!(provide.name() == "apt-transport-https");
 		assert!(provide.version_str().unwrap() == cand.version());
 	}
+
+	// This Test is for https://gitlab.com/volian/rust-apt/-/issues/24
+	// TODO: refactor and enable this test so it can run in the CI to make sure we
+	// don't regress. We need to get the lists dir from the apt config, and then
+	// maybe pick a random InRelease file Back that up, do the editing and then
+	// restore it at the end of the test. cache.packages should be an error and not
+	// segfault.
+	//
+	// #[test]
+	// fn test_segfault() {
+	// 	use std::io::Write;
+
+	// 	let mut f = std::fs::OpenOptions::new()
+	// 		.write(true)
+	// 		.append(true)
+	// 		.open("/var/lib/apt/lists/deb.debian.org_debian_dists_sid_InRelease")
+	// 		.unwrap();
+
+	// 	f.write_all(b"\ndsadasdasdas\n").unwrap();
+	// 	f.flush().unwrap();
+
+	// 	drop(f);
+
+	// 	let cache = new_cache!().unwrap();
+
+	// 	let sort = PackageSort::default();
+
+	// assert!(cache.packages(&sort).is_err())
 
 	/// This test is tied pretty closely to the currently available versions in
 	/// the Ubuntu/Debian repos. Feel free to adjust if you can verify its

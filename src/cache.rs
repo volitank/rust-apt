@@ -190,9 +190,7 @@ impl Cache {
 	}
 
 	/// Internal Method for generating the package list.
-	pub fn raw_pkgs(&self) -> impl Iterator<Item = RawPackage> + '_ {
-		self.begin().expect("Null PkgBegin!")
-	}
+	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = RawPackage>, Exception> { self.begin() }
 
 	/// Get the DepCache
 	pub fn depcache(&self) -> &DepCache {
@@ -224,9 +222,9 @@ impl Cache {
 	}
 
 	/// An iterator of packages in the cache.
-	pub fn packages(&self, sort: &PackageSort) -> impl Iterator<Item = Package> + '_ {
+	pub fn packages(&self, sort: &PackageSort) -> Result<impl Iterator<Item = Package>, Exception> {
 		let mut pkg_list = vec![];
-		for pkg in self.raw_pkgs() {
+		for pkg in self.raw_pkgs()? {
 			match sort.virtual_pkgs {
 				// Virtual packages are enabled, include them.
 				// This works differently than the rest. I should probably change defaults.
@@ -329,7 +327,7 @@ impl Cache {
 			pkg_list.sort_by_cached_key(|pkg| pkg.name().to_string());
 		}
 
-		pkg_list.into_iter().map(|pkg| Package::new(self, pkg))
+		Ok(pkg_list.into_iter().map(|pkg| Package::new(self, pkg)))
 	}
 
 	/// Updates the package cache and returns a Result
@@ -417,7 +415,7 @@ impl Cache {
 	///
 	/// cache.fix_broken();
 	///
-	/// for pkg in cache.get_changes(false) {
+	/// for pkg in cache.get_changes(false).unwrap() {
 	///     println!("Pkg Name: {}", pkg.name())
 	/// }
 	/// ```
@@ -576,11 +574,11 @@ impl Cache {
 	/// # sort_name:
 	/// * [`true`] = Packages will be in alphabetical order
 	/// * [`false`] = Packages will not be sorted by name
-	pub fn get_changes(&self, sort_name: bool) -> impl Iterator<Item = Package> + '_ {
+	pub fn get_changes(&self, sort_name: bool) -> Result<impl Iterator<Item = Package>, Exception> {
 		let mut changed = Vec::new();
 		let depcache = self.depcache();
 
-		for pkg in self.raw_pkgs() {
+		for pkg in self.raw_pkgs()? {
 			if depcache.marked_install(&pkg)
 				|| depcache.marked_delete(&pkg)
 				|| depcache.marked_upgrade(&pkg)
@@ -597,9 +595,9 @@ impl Cache {
 			changed.sort_by_cached_key(|pkg| pkg.name().to_string());
 		}
 
-		changed
+		Ok(changed
 			.into_iter()
-			.map(|pkg_ptr| Package::new(self, pkg_ptr))
+			.map(|pkg_ptr| Package::new(self, pkg_ptr)))
 	}
 }
 

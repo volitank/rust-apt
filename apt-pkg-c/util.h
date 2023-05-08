@@ -1,6 +1,7 @@
 #pragma once
 #include "rust/cxx.h"
 #include <apt-pkg/algorithms.h>
+#include <apt-pkg/cachefile.h>
 #include <apt-pkg/install-progress.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/version.h>
@@ -36,6 +37,16 @@ inline const char* handle_str(const char* str) {
 		throw std::runtime_error("&str doesn't exist");
 	}
 	return str;
+}
+
+/// Getting the PkgCache can segfault if apt errors are not handled
+/// This function makes it safer as it will return a result in the event
+/// A package list or something is corrupt.
+/// See https://gitlab.com/volian/rust-apt/-/issues/24
+inline pkgCache* safe_get_pkg_cache(pkgCacheFile* cache) {
+	pkgCache* pkg_cache = cache->GetPkgCache();
+	handle_errors();
+	return pkg_cache;
 }
 
 /// Check if a string exists and return a Result to rust

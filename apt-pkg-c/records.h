@@ -78,7 +78,7 @@ struct Records {
 	}
 
 	Records(const std::unique_ptr<pkgCacheFile>& cache)
-	: records(*cache->GetPkgCache()), parser(0), last(0){};
+	: records(*safe_get_pkg_cache(cache.get())), parser(0), last(0){};
 
 	/// UniquePtr Constructor
 	static std::unique_ptr<Records> Unique(const std::unique_ptr<pkgCacheFile>& cache) {
