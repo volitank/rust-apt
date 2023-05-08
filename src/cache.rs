@@ -1,11 +1,14 @@
 //! Contains Cache related structs.
 
+use std::error::Error;
+use std::fs;
 use std::ops::Deref;
+use std::path::Path;
 
 use cxx::{Exception, UniquePtr};
 use once_cell::unsync::OnceCell;
 
-use crate::config::init_config_system;
+use crate::config::{init_config_system, Config};
 use crate::depcache::DepCache;
 use crate::package::Package;
 use crate::raw::cache::raw;
@@ -163,6 +166,7 @@ pub struct Cache {
 	records: OnceCell<RawRecords>,
 	pkgmanager: OnceCell<RawPkgManager>,
 	problem_resolver: OnceCell<RawProblemResolver>,
+	local_debs: Vec<String>,
 }
 
 impl Cache {
@@ -186,6 +190,7 @@ impl Cache {
 			records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
 			problem_resolver: OnceCell::new(),
+			local_debs: deb_files.iter().map(|d| d.to_string()).collect(),
 		})
 	}
 
@@ -540,9 +545,21 @@ impl Cache {
 		self,
 		progress: &mut Box<dyn AcquireProgress>,
 		install_progress: &mut Box<dyn InstallProgress>,
-	) -> Result<(), Exception> {
+	) -> Result<(), Box<dyn Error>> {
 		// Lock the whole thing so as to prevent tamper
 		apt_lock()?;
+
+		let config = Config::new();
+		let archive_dir = config.dir("Dir::Cache::Archives", "/var/cache/apt/archives/");
+
+		// Copy local debs into archives dir
+		for deb in &self.local_debs {
+			// If it reaches this point it really will be a valid filename, allegedly
+			if let Some(filename) = Path::new(deb).file_name() {
+				// Append the file name onto the archive dir
+				fs::copy(deb, archive_dir.to_string() + &filename.to_string_lossy())?;
+			}
+		}
 
 		// The archives can be grabbed during the apt lock.
 		self.get_archives(progress)?;
