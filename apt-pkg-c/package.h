@@ -137,6 +137,12 @@ inline rust::Str Dependency::target_ver() const {
 	return handle_str(ptr->TargetVer());
 }
 
+inline bool Dependency::is_reverse() const noexcept { return ptr->Reverse(); }
+
+inline Version Dependency::parent_ver() const noexcept {
+	return Version{ std::make_unique<VerIterator>(ptr->ParentVer()) };
+}
+
 inline Package Dependency::target_pkg() const noexcept {
 	return Package{ std::make_unique<PkgIterator>(ptr->TargetPkg()) };
 }
@@ -148,11 +154,17 @@ inline Version Dependency::all_targets() const noexcept {
 
 /// Increment the Dep Iterator once
 inline void Dependency::raw_next() const noexcept { ++(*ptr); }
+
 /// Is the pointer null, basically
 inline bool Dependency::end() const noexcept { return ptr->end(); }
 
 inline Dependency Dependency::unique() const noexcept {
 	return Dependency{ std::make_unique<DepIterator>(*ptr) };
+}
+
+/// The ID of the version.
+inline Package Version::parent_pkg() const noexcept {
+	return Package{ std::make_unique<PkgIterator>(ptr->ParentPkg()) };
 }
 
 /// The ID of the version.

@@ -215,7 +215,7 @@ mod cache {
 				let mut or_str = String::new();
 				let total = dep.base_deps.len() - 1;
 				for (num, base_dep) in dep.base_deps.iter().enumerate() {
-					or_str.push_str(&base_dep.name());
+					or_str.push_str(base_dep.name());
 					if let Some(comp) = base_dep.comp() {
 						let _ = write!(or_str, "({} {})", comp, base_dep.version().unwrap());
 					}
@@ -228,7 +228,7 @@ mod cache {
 				dep_str.push_str(&or_str)
 			} else {
 				let lone_dep = dep.first();
-				dep_str.push_str(&lone_dep.name());
+				dep_str.push_str(lone_dep.name());
 
 				if let Some(comp) = lone_dep.comp() {
 					let _ = write!(dep_str, " ({} {})", comp, lone_dep.version().unwrap());
@@ -242,6 +242,10 @@ mod cache {
 	#[test]
 	fn test_hashmap() {
 		let cache = new_cache!().unwrap();
+
+		// clippy thinks that the package is mutable
+		// But it only hashes the ID and you can't really mutate a version
+		#[allow(clippy::mutable_key_type)]
 		let mut pkg_map = HashMap::new();
 
 		// clippy thinks that the version is mutable
@@ -266,6 +270,50 @@ mod cache {
 		}
 		// Doesn't need an assert. It won't compile
 		// if the structs can't go into a hashmap
+	}
+
+	#[test]
+	fn version_scope() {
+		// Test and see if the version can be stored
+		// without the pkg it came from in scope
+		// All that should be needed in scope is the cache
+		let cache = new_cache!().unwrap();
+
+		let pkg = cache.get("apt").unwrap();
+		let cand = pkg.candidate().unwrap();
+
+		drop(pkg);
+		dbg!(cand.version());
+	}
+
+	#[test]
+	fn parent_dep() {
+		let cache = new_cache!().unwrap();
+		let sort = PackageSort::default();
+
+		for pkg in cache.packages(&sort) {
+			// Iterate over the reverse depends
+			// Iterating rdepends could segfault.
+			// See: https://gitlab.com/volian/rust-apt/-/merge_requests/36
+			for deps in pkg.rdepends_map().values() {
+				for dep in deps {
+					let base_dep = dep.first();
+					// Reverse Dependencies always have a version
+					base_dep.version().unwrap();
+				}
+			}
+
+			// There should be a candidate to iterate its regular deps
+			if let Some(cand) = pkg.candidate() {
+				if let Some(deps) = cand.dependencies() {
+					for dep in &deps {
+						let base_dep = dep.first();
+						// Regular deps do not always have a version
+						base_dep.version();
+					}
+				}
+			}
+		}
 	}
 
 	#[test]

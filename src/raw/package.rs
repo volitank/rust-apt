@@ -10,6 +10,7 @@ use std::hash::{Hash, Hasher};
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
+
 	// Some weirdness exists in import order.
 	// SourceURI is defined here, but used in the cache.
 	// We need to impl vec so it can be put in one.
@@ -127,6 +128,9 @@ pub mod raw {
 		/// The Arch of the version. "amd64".
 		pub fn arch(self: &Version) -> &str;
 
+		/// Return the version's parent RawPackage.
+		pub fn parent_pkg(self: &Version) -> Package;
+
 		/// The ID of the version.
 		pub fn id(self: &Version) -> u32;
 
@@ -191,6 +195,8 @@ pub mod raw {
 
 		pub fn parent_pkg(self: &Dependency) -> Package;
 
+		pub fn parent_ver(self: &Dependency) -> Version;
+
 		/// The Target Version that can satisfy this provides
 		pub fn target_ver(self: &Provider) -> Version;
 
@@ -229,6 +235,10 @@ pub mod raw {
 
 		/// Increment the Dep Iterator once
 		pub fn raw_next(self: &Dependency);
+
+		/// Return True if the dep is reverse, false if normal
+		pub fn is_reverse(self: &Dependency) -> bool;
+
 		/// Is the pointer null, basically
 		pub fn end(self: &Dependency) -> bool;
 
