@@ -312,7 +312,7 @@ mod cache {
 		assert!(provides_list.len() == 1);
 		// 'apt' seems to always provide for 'apt-transport-https' at APT's version.
 		// If it ever doesn't, this test will break.
-		let provide = provides_list.get(0).unwrap();
+		let provide = provides_list.first().unwrap();
 		assert!(provide.name() == "apt-transport-https");
 		assert!(provide.version_str().unwrap() == cand.version());
 	}
