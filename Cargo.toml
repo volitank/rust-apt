@@ -18,7 +18,6 @@ edition = "2021"
 
 [dependencies]
 cxx = "1.0"
-once_cell = "1.10.0"
 terminal_size = "0.2.5"
 
 [build-dependencies]

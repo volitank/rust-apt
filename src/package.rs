@@ -6,8 +6,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-
-use once_cell::unsync::OnceCell;
+use std::cell::OnceCell;
 
 use crate::cache::Cache;
 use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion};
