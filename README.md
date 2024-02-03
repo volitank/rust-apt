@@ -15,7 +15,7 @@ As `rust-apt` doesn't have a Major, breaking change will be on the Minor. Never 
 `src/raw` contains the direct C++ bindings to `libapt-pkg` that are defined in `apt-pkg-c`
 
 These are generally considered safe, but may cause segfaults if you do something wrong.
-We offer no saftey guarantees for using the `raw` bindings directly.
+We offer no safety guarantees for using the `raw` bindings directly.
 
 If you find a way to segfault without using the `raw` bindings directly, please report this as a bug.
 

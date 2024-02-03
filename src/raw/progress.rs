@@ -63,7 +63,7 @@ pub trait OperationProgress {
 /// Internal struct to pass into [`self::Cache::resolve`]. The C++ library for
 /// this wants a progress parameter for this, but it doesn't appear to be doing
 /// anything. Furthermore, [the Python-APT implementation doesn't accept a
-/// parameter for their dependency resolution funcionality](https://apt-team.pages.debian.net/python-apt/library/apt_pkg.html#apt_pkg.ProblemResolver.resolve),
+/// parameter for their dependency resolution functionality](https://apt-team.pages.debian.net/python-apt/library/apt_pkg.html#apt_pkg.ProblemResolver.resolve),
 /// so we should be safe to remove it here.
 pub(crate) struct NoOpProgress {}
 

@@ -54,7 +54,7 @@ create-test-debs:
 		dpkg-deb --build "${pkg}";
 	done
 
-	# Create an empty garbage pacakage to make sure it fails
+	# Create an empty garbage package to make sure it fails
 	echo "\n" > pkg.deb
 
 # Run all tests except for root
@@ -111,6 +111,6 @@ clippy +ARGS="":
 	echo Codebase formatted successfully!
 
 # Spellcheck the codebase
-spellcheck +ARGS="--skip target* --skip .git*":
+spellcheck +ARGS="--skip ./target --skip ./.git":
 	@codespell --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
 	@echo Spellings look good!
