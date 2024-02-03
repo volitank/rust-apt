@@ -1,10 +1,10 @@
 //! Contains Cache related structs.
 
+use std::cell::OnceCell;
 use std::error::Error;
 use std::fs;
 use std::ops::Deref;
 use std::path::Path;
-use std::cell::OnceCell;
 
 use cxx::{Exception, UniquePtr};
 

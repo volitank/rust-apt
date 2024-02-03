@@ -1,12 +1,12 @@
 //! Contains Package, Version and Dependency Structs.
 
+use std::cell::OnceCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::cell::OnceCell;
 
 use crate::cache::Cache;
 use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion};

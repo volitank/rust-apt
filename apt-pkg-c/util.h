@@ -7,8 +7,6 @@
 #include <apt-pkg/version.h>
 #include <cstdint>
 
-//#include "rust-apt/src/package.rs"
-
 /// Internal Helper Functions.
 /// Do not expose these on the Rust side - only for use on the C++ side.
 ///
