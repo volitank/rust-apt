@@ -9,3 +9,5 @@ apt-c/libapt-c.a
 compile_commands.json
 tests/files/cache/*.deb
 .gitlab-ci-local*
+# So Cargo doesn't complain about a dirty working directory in CI Publish
+.cargo
