@@ -72,11 +72,6 @@ pub mod raw {
 
 impl raw::Cache {
 	pub fn find_pkg(&self, name: &str) -> Option<RawPackage> {
-		let ptr = self.unsafe_find_pkg(name.to_string());
-
-		match ptr.end() {
-			true => None,
-			false => Some(ptr),
-		}
+		self.unsafe_find_pkg(name.to_string()).make_safe()
 	}
 }

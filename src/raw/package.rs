@@ -313,39 +313,15 @@ pub mod raw {
 
 impl raw::Package {
 	pub fn current_version(&self) -> Option<RawVersion> {
-		let ver_list = self.unsafe_current_version();
-
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
+		self.unsafe_current_version().make_safe()
 	}
 
-	pub fn version_list(&self) -> Option<RawVersion> {
-		let ver_list = self.unsafe_version_list();
+	pub fn version_list(&self) -> Option<RawVersion> { self.unsafe_version_list().make_safe() }
 
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
-	}
-
-	pub fn provides_list(&self) -> Option<RawProvider> {
-		let ver_list = self.unsafe_provides();
-
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
-	}
+	pub fn provides_list(&self) -> Option<RawProvider> { self.unsafe_provides().make_safe() }
 
 	pub fn rev_depends_list(&self) -> Option<RawDependency> {
-		let rev_dep_list = self.unsafe_rev_depends();
-
-		match rev_dep_list.end() {
-			true => None,
-			false => Some(rev_dep_list),
-		}
+		self.unsafe_rev_depends().make_safe()
 	}
 
 	/// True if the Package is installed.
@@ -361,40 +337,14 @@ impl raw::Package {
 }
 
 impl raw::Version {
-	pub fn provides_list(&self) -> Option<RawProvider> {
-		let ver_list = self.unsafe_provides();
+	pub fn provides_list(&self) -> Option<RawProvider> { self.unsafe_provides().make_safe() }
 
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
-	}
+	pub fn depends(&self) -> Option<RawDependency> { self.unsafe_depends().make_safe() }
 
-	pub fn depends(&self) -> Option<RawDependency> {
-		let ver_list = self.unsafe_depends();
-
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
-	}
-
-	pub fn version_files(&self) -> Option<RawVersionFile> {
-		let ver_list = self.unsafe_version_file();
-
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
-	}
+	pub fn version_files(&self) -> Option<RawVersionFile> { self.unsafe_version_file().make_safe() }
 
 	pub fn description_files(&self) -> Option<RawDescriptionFile> {
-		let ver_list = self.unsafe_description_file();
-
-		match ver_list.end() {
-			true => None,
-			false => Some(ver_list),
-		}
+		self.unsafe_description_file().make_safe()
 	}
 }
 
@@ -404,13 +354,22 @@ macro_rules! raw_iter {
 			type Item = $structname;
 
 			fn next(&mut self) -> Option<Self::Item> {
-				match self.end() {
-					true => None,
-					false => {
-						let ptr = self.unique();
-						self.raw_next();
-						Some(ptr)
-					},
+				if self.end() {
+					None
+				} else {
+					let ptr = self.unique();
+					self.raw_next();
+					Some(ptr)
+				}
+			}
+		}
+
+		impl $structname {
+			pub fn make_safe(self) -> Option<$structname> {
+				if self.end() {
+					None
+				} else {
+					Some(self)
 				}
 			}
 		}

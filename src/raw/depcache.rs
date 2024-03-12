@@ -227,11 +227,6 @@ pub mod raw {
 
 impl raw::DepCache {
 	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
-		let ptr = self.unsafe_candidate_version(pkg);
-
-		match ptr.end() {
-			true => None,
-			false => Some(ptr),
-		}
+		self.unsafe_candidate_version(pkg).make_safe()
 	}
 }
