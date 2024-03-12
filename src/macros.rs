@@ -25,7 +25,5 @@ macro_rules! new_cache {
 		let debs: Vec<String> = Vec::new();
 		$crate::cache::Cache::new(&debs)
 	}};
-	($slice:expr) => {{
-		$crate::cache::Cache::new($slice)
-	}};
+	($slice:expr) => {{ $crate::cache::Cache::new($slice) }};
 }

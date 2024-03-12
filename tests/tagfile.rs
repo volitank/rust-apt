@@ -12,10 +12,10 @@ mod tagfile {
 		assert!(tagfile::parse_tagfile(dpkg_status).is_ok());
 		assert!(tagfile::parse_tagfile(control_file).is_ok());
 		assert!(TagSection::new(control_file).is_err());
-		assert!(TagSection::new(
-			"This-Is-Not-A-Valid-Control-File-Because-Its-Not-Colon-Separated"
-		)
-		.is_err());
+		assert!(
+			TagSection::new("This-Is-Not-A-Valid-Control-File-Because-Its-Not-Colon-Separated")
+				.is_err()
+		);
 
 		assert_eq!(control_section_one.get("Package").unwrap(), "pkg1");
 		assert_eq!(control_section_one.get("Version").unwrap(), "1.0.0");
@@ -25,9 +25,11 @@ mod tagfile {
 			"Wow\n  This is\n  Multiple lines!"
 		);
 		assert_eq!(control_section_one.get("Back-To").unwrap(), "Normal");
-		assert!(control_section_one
-			.get("Not-A-Key-In-The-Control-File")
-			.is_none());
+		assert!(
+			control_section_one
+				.get("Not-A-Key-In-The-Control-File")
+				.is_none()
+		);
 
 		assert_eq!(control_section_two.get("Package").unwrap(), "pkg2");
 		assert_eq!(control_section_two.get("Version").unwrap(), "2.0.0");

@@ -366,11 +366,7 @@ macro_rules! raw_iter {
 
 		impl $structname {
 			pub fn make_safe(self) -> Option<$structname> {
-				if self.end() {
-					None
-				} else {
-					Some(self)
-				}
+				if self.end() { None } else { Some(self) }
 			}
 		}
 	};

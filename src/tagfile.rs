@@ -75,7 +75,7 @@ impl TagSection {
 						return Self::error(
 							"Line doesn't contain a ':' separator",
 							Some(line_number),
-						)
+						);
 					},
 				};
 
