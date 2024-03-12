@@ -456,10 +456,10 @@ mod cache {
 	}
 
 	#[test]
-	// This test relies on 'gobby' and 'gsasl-common' not being installed.
+	// This test relies on 'neofetch' and 'gsasl-common' not being installed.
 	fn good_resolution() {
 		let cache = new_cache!().unwrap();
-		let pkg = cache.get("gobby").unwrap();
+		let pkg = cache.get("neofetch").unwrap();
 
 		pkg.mark_install(true, true);
 		pkg.protect();
