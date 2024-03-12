@@ -31,6 +31,10 @@ pub mod raw {
 		/// Return a vector for an Apt configuration list.
 		pub fn config_find_vector(key: String) -> Vec<String>;
 
+		/// Return a vector of supported architectures on this system.
+		/// The main architecture is the first in the list.
+		pub fn config_get_architectures() -> Vec<String>;
+
 		/// Set the given key to the specified value.
 		pub fn config_set(key: String, value: String);
 

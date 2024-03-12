@@ -1,4 +1,6 @@
 mod config {
+	use std::process::Command;
+
 	use rust_apt::config::Config;
 
 	#[test]
@@ -76,5 +78,23 @@ mod config {
 		// Finally test and see if we can clear the entire list.
 		config.clear("rust_apt::aptlist");
 		assert!(config.find_vector("rust_apt::aptlist").is_empty());
+	}
+
+	#[test]
+	fn get_architectures() {
+		let config = Config::new();
+
+		let output = dbg!(String::from_utf8(
+			Command::new("dpkg")
+				.arg("--print-architecture")
+				.output()
+				.unwrap()
+				.stdout,
+		)
+		.unwrap());
+
+		let arches = dbg!(config.get_architectures());
+
+		assert!(arches.contains(&output.strip_suffix('\n').unwrap().to_string()));
 	}
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "rust/cxx.h"
+#include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
@@ -57,6 +58,19 @@ rust::vec<rust::string> config_find_vector(rust::string key) {
 
 	return rust_vector;
 }
+
+/// Return a vector of supported architectures on this system.
+/// The main architecture is the first in the list.
+rust::vec<rust::string> config_get_architectures() {
+	rust::vec<rust::string> rust_vector;
+
+	for (const std::string& str : APT::Configuration::getArchitectures()) {
+		rust_vector.push_back(str);
+	}
+
+	return rust_vector;
+}
+
 
 /// Set the given key to the specified value.
 void config_set(rust::string key, rust::string value) {

@@ -122,6 +122,10 @@ impl Config {
 	/// An example of a common key that contains a list `raw::NeverAutoRemove`.
 	pub fn find_vector(&self, key: &str) -> Vec<String> { raw::config_find_vector(key.to_string()) }
 
+	/// Return a vector of supported architectures on this system.
+	/// The main architecture is the first in the list.
+	pub fn get_architectures(&self) -> Vec<String> { raw::config_get_architectures() }
+
 	/// Simply check if a key exists.
 	pub fn contains(&self, key: &str) -> bool { raw::config_exists(key.to_string()) }
 
