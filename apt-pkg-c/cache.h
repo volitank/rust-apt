@@ -1,5 +1,4 @@
 #pragma once
-#include "rust/cxx.h"
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/debfile.h>
 #include <apt-pkg/error.h>
@@ -9,6 +8,7 @@
 #include <apt-pkg/policy.h>
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/update.h>
+#include "rust/cxx.h"
 
 #include "rust-apt/src/raw/cache.rs"
 #include "rust-apt/src/raw/progress.rs"
@@ -23,12 +23,12 @@ inline void Cache::update(DynAcquireProgress& callback) const {
 
 // Return a package by name.
 inline Package Cache::unsafe_find_pkg(rust::string name) const noexcept {
-	return Package{ std::make_unique<PkgIterator>(
-	safe_get_pkg_cache(ptr.get())->FindPkg(name.c_str())) };
+	return Package{
+		std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->FindPkg(name.c_str()))};
 }
 
 inline Package Cache::begin() const {
-	return Package{ std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->PkgBegin()) };
+	return Package{std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->PkgBegin())};
 }
 
 /// The priority of the package as shown in `apt policy`.
@@ -37,7 +37,7 @@ inline int32_t Cache::priority(const Version& ver) const noexcept {
 }
 
 inline DepCache Cache::create_depcache() const noexcept {
-	return DepCache{ std::make_unique<PkgDepCache>(ptr->GetDepCache()) };
+	return DepCache{std::make_unique<PkgDepCache>(ptr->GetDepCache())};
 }
 
 inline std::unique_ptr<Records> Cache::create_records() const noexcept {
@@ -70,7 +70,7 @@ inline rust::Vec<SourceURI> Cache::source_uris() const noexcept {
 	ptr->GetSourceList()->GetIndexes(&fetcher, true);
 	pkgAcquire::UriIterator I = fetcher.UriBegin();
 	for (; I != fetcher.UriEnd(); ++I) {
-		list.push_back(SourceURI{ I->URI, flNotDir(I->Owner->DestFile) });
+		list.push_back(SourceURI{I->URI, flNotDir(I->Owner->DestFile)});
 	}
 	return list;
 }
@@ -89,13 +89,12 @@ inline Cache create_cache(rust::Slice<const rust::String> deb_files) {
 
 		// Add the deb to the cache.
 		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
-			_error->Error(
-			"%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
+			_error->Error("%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
 			handle_errors();
 		}
 
 		handle_errors();
 	}
 
-	return Cache{ std::move(cache) };
+	return Cache{std::move(cache)};
 }

@@ -1,10 +1,10 @@
 #pragma once
-#include "rust/cxx.h"
 #include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
 #include <sstream>
+#include "rust/cxx.h"
 
 /// The configuration pointer is global.
 /// We do not need to make a new unique one.
@@ -71,11 +71,8 @@ rust::vec<rust::string> config_get_architectures() {
 	return rust_vector;
 }
 
-
 /// Set the given key to the specified value.
-void config_set(rust::string key, rust::string value) {
-	_config->Set(key.c_str(), value.c_str());
-}
+void config_set(rust::string key, rust::string value) { _config->Set(key.c_str(), value.c_str()); }
 
 /// Simply check if a key exists.
 bool config_exists(rust::string key) { return _config->Exists(key.c_str()); }

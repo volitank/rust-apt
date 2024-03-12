@@ -1,8 +1,8 @@
 #pragma once
-#include "rust/cxx.h"
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/upgrade.h>
 #include <memory>
+#include "rust/cxx.h"
 
 #include "rust-apt/src/raw/depcache.rs"
 
@@ -17,12 +17,10 @@ inline void DepCache::init(DynOperationProgress& callback) const {
 
 /// Autoinstall every broken package and run the problem resolver
 /// Returns false if the problem resolver fails.
-inline bool DepCache::fix_broken() const noexcept {
-	return pkgFixBroken(**ptr);
-}
+inline bool DepCache::fix_broken() const noexcept { return pkgFixBroken(**ptr); }
 
 inline ActionGroup DepCache::action_group() const noexcept {
-	return ActionGroup{ std::make_unique<PkgActionGroup>(**ptr) };
+	return ActionGroup{std::make_unique<PkgActionGroup>(**ptr)};
 }
 
 inline void ActionGroup::release() const noexcept { ptr->release(); }
@@ -84,7 +82,8 @@ inline bool DepCache::marked_reinstall(const Package& pkg) const noexcept {
 
 /// Mark a package as automatically installed.
 ///
-/// MarkAuto = true will mark the package as automatically installed and false will mark it as manual
+/// MarkAuto = true will mark the package as automatically installed and false will mark it as
+/// manual
 inline void DepCache::mark_auto(const Package& pkg, bool mark_auto) const noexcept {
 	(*ptr)->MarkAuto(*pkg.ptr, mark_auto);
 }
@@ -144,8 +143,8 @@ inline bool DepCache::mark_delete(const Package& pkg, bool purge) const noexcept
 ///     No one needs access to this. Additionally Depth cannot be over 3000.
 ///
 /// ForceImportantDeps = TODO: Study what this does.
-inline bool DepCache::mark_install(
-const Package& pkg, bool auto_inst, bool from_user) const noexcept {
+inline bool DepCache::mark_install(const Package& pkg, bool auto_inst, bool from_user)
+	const noexcept {
 	return (*ptr)->MarkInstall(*pkg.ptr, auto_inst, 0, from_user, false);
 }
 
@@ -157,8 +156,7 @@ inline void DepCache::set_candidate_version(const Version& ver) const noexcept {
 /// Return the candidate version of the package.
 /// Ptr will be NULL if there isn't a candidate.
 inline Version DepCache::unsafe_candidate_version(const Package& pkg) const noexcept {
-	return Version{ std::make_unique<VerIterator>(
-	(*ptr)->GetCandidateVersion(*pkg.ptr)) };
+	return Version{std::make_unique<VerIterator>((*ptr)->GetCandidateVersion(*pkg.ptr))};
 }
 
 /// Mark a package for reinstallation
@@ -181,37 +179,25 @@ inline bool DepCache::is_inst_broken(const Package& pkg) const noexcept {
 }
 
 /// The number of packages marked for installation.
-inline u_int32_t DepCache::install_count() const noexcept {
-	return (*ptr)->InstCount();
-}
+inline u_int32_t DepCache::install_count() const noexcept { return (*ptr)->InstCount(); }
 
 /// The number of packages marked for removal.
-inline u_int32_t DepCache::delete_count() const noexcept {
-	return (*ptr)->DelCount();
-}
+inline u_int32_t DepCache::delete_count() const noexcept { return (*ptr)->DelCount(); }
 
 /// The number of packages marked for keep.
-inline u_int32_t DepCache::keep_count() const noexcept {
-	return (*ptr)->KeepCount();
-}
+inline u_int32_t DepCache::keep_count() const noexcept { return (*ptr)->KeepCount(); }
 
 /// The number of packages with broken dependencies in the cache.
-inline u_int32_t DepCache::broken_count() const noexcept {
-	return (*ptr)->BrokenCount();
-}
+inline u_int32_t DepCache::broken_count() const noexcept { return (*ptr)->BrokenCount(); }
 
 /// The size of all packages to be downloaded.
-inline u_int64_t DepCache::download_size() const noexcept {
-	return (*ptr)->DebSize();
-}
+inline u_int64_t DepCache::download_size() const noexcept { return (*ptr)->DebSize(); }
 
 /// The amount of space required for installing/removing the packages,"
 ///
 /// i.e. the Installed-Size of all packages marked for installation"
 /// minus the Installed-Size of all packages for removal."
-inline int64_t DepCache::disk_size() const noexcept {
-	return (*ptr)->UsrSize();
-}
+inline int64_t DepCache::disk_size() const noexcept { return (*ptr)->UsrSize(); }
 
 /// Perform a Full Upgrade. Remove and install new packages if necessary.
 inline void DepCache::full_upgrade(DynOperationProgress& callback) const {
@@ -228,9 +214,10 @@ inline void DepCache::safe_upgrade(DynOperationProgress& callback) const {
 	OpProgressWrapper op_progress(callback);
 
 	// This is equivalent to `apt-get upgrade`
-	APT::Upgrade::Upgrade(**ptr,
-	APT::Upgrade::FORBID_REMOVE_PACKAGES | APT::Upgrade::FORBID_INSTALL_NEW_PACKAGES,
-	&op_progress);
+	APT::Upgrade::Upgrade(
+		**ptr, APT::Upgrade::FORBID_REMOVE_PACKAGES | APT::Upgrade::FORBID_INSTALL_NEW_PACKAGES,
+		&op_progress
+	);
 	handle_errors();
 }
 

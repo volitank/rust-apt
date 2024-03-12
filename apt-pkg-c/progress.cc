@@ -1,14 +1,13 @@
 #include "rust-apt/src/raw/progress.rs"
-#include "progress.h"
 #include <apt-pkg/acquire-worker.h>
 #include <apt-pkg/error.h>
+#include "progress.h"
 
 /// AcqTextStatus modeled from in apt-private/acqprogress.cc
 ///
 /// AcqTextStatus::AcqTextStatus - Constructor
 AcqTextStatus::AcqTextStatus(DynAcquireProgress& callback)
-: pkgAcquireStatus(), callback(callback) {}
-
+	: pkgAcquireStatus(), callback(callback) {}
 
 /// Called when progress has started.
 ///
@@ -20,7 +19,6 @@ void AcqTextStatus::Start() {
 	ID = 1;
 }
 
-
 /// Internal function to assign the correct ID to an Item.
 ///
 /// We can likely move this into the rust side with a refactor of the items.
@@ -29,18 +27,15 @@ void AcqTextStatus::AssignItemID(pkgAcquire::ItemDesc& Itm) {
 	if (Itm.Owner->ID == 0) Itm.Owner->ID = ID++;
 }
 
-
 /// Called when an item is confirmed to be up-to-date.
 ///
 /// Prints out the short description and the expected size.
 void AcqTextStatus::IMSHit(pkgAcquire::ItemDesc& Itm) {
-
 	AssignItemID(Itm);
 
 	hit(callback, Itm.Owner->ID, Itm.Description);
 	Update = true;
 }
-
 
 /// Called when an Item has started to download
 ///
@@ -53,7 +48,6 @@ void AcqTextStatus::Fetch(pkgAcquire::ItemDesc& Itm) {
 	fetch(callback, Itm.Owner->ID, Itm.Description, Itm.Owner->FileSize);
 }
 
-
 /// Called when an item is successfully and completely fetched.
 ///
 /// We don't print anything here to remain consistent with apt.
@@ -62,7 +56,6 @@ void AcqTextStatus::Done(pkgAcquire::ItemDesc& Itm) {
 	AssignItemID(Itm);
 	done(callback);
 }
-
 
 /// Called when an Item fails to download.
 ///
@@ -74,7 +67,6 @@ void AcqTextStatus::Fail(pkgAcquire::ItemDesc& Itm) {
 	Update = true;
 }
 
-
 /// Called when progress has finished.
 ///
 /// prints out the bytes downloaded and the overall average line speed.
@@ -83,7 +75,6 @@ void AcqTextStatus::Stop() {
 
 	stop(callback, FetchedBytes, ElapsedTime, CurrentCPS, _error->PendingError());
 }
-
 
 /// Called periodically to provide the overall progress information
 ///
@@ -95,31 +86,30 @@ bool AcqTextStatus::Pulse(pkgAcquire* Owner) {
 
 	rust::vec<Worker> list;
 	for (pkgAcquire::Worker* I = Owner->WorkersBegin(); I != 0; I = Owner->WorkerStep(I)) {
-
 		// There is no item running
 		if (I->CurrentItem == 0) {
 			list.push_back(Worker{
-			false,
-			I->Status,
-			0,
-			"",
-			"",
-			0,
-			0,
-			false,
+				false,
+				I->Status,
+				0,
+				"",
+				"",
+				0,
+				0,
+				false,
 			});
 			continue;
 		}
 
 		list.push_back(Worker{
-		true,
-		I->Status,
-		I->CurrentItem->Owner->ID,
-		I->CurrentItem->ShortDesc,
-		I->CurrentItem->Owner->ActiveSubprocess,
-		I->CurrentItem->CurrentSize,
-		I->CurrentItem->TotalSize,
-		I->CurrentItem->Owner->Complete,
+			true,
+			I->Status,
+			I->CurrentItem->Owner->ID,
+			I->CurrentItem->ShortDesc,
+			I->CurrentItem->Owner->ActiveSubprocess,
+			I->CurrentItem->CurrentSize,
+			I->CurrentItem->TotalSize,
+			I->CurrentItem->Owner->Complete,
 		});
 	}
 
@@ -127,7 +117,6 @@ bool AcqTextStatus::Pulse(pkgAcquire* Owner) {
 	Update = true;
 	return true;
 }
-
 
 /// Not Yet Implemented
 ///
@@ -170,14 +159,15 @@ bool AcqTextStatus::MediaChange(std::string Media, std::string Drive) {
 	return false;
 }
 
-
 /// Not Yet Implemented
 ///
 /// Ask the user for confirmation of changes to infos about a repository
 /// Must return true if the user accepts or false if not
-bool AcqTextStatus::ReleaseInfoChanges(metaIndex const* const L,
-metaIndex const* const N,
-std::vector<ReleaseInfoChange>&& Changes) {
+bool AcqTextStatus::ReleaseInfoChanges(
+	metaIndex const* const L,
+	metaIndex const* const N,
+	std::vector<ReleaseInfoChange>&& Changes
+) {
 	(void)L;
 	(void)N;
 	(void)Changes;
@@ -194,31 +184,38 @@ std::vector<ReleaseInfoChange>&& Changes) {
 	// _error->DumpErrors(out, GlobalError::NOTICE, false);
 	// _error->RevertToStack();
 
-	// return YnPrompt(_("Do you want to accept these changes and continue updating from this repository?"), false, false, out, out);
+	// return YnPrompt(_("Do you want to accept these changes and continue updating from this
+	// repository?"), false, false, out, out);
 
 	// Not yet implemented. Remove return true when it is.
 	return true;
 }
 
 /// Calls for OpProgress usage.
-OpProgressWrapper::OpProgressWrapper(DynOperationProgress& callback)
-: callback(callback) {}
+OpProgressWrapper::OpProgressWrapper(DynOperationProgress& callback) : callback(callback) {}
 
 void OpProgressWrapper::Update() { op_update(callback, Op, Percent); }
 
 void OpProgressWrapper::Done() { op_done(callback); }
 
 /// Calls for InstallProgress usage.
-PackageManagerWrapper::PackageManagerWrapper(DynInstallProgress& callback)
-: callback(callback) {}
+PackageManagerWrapper::PackageManagerWrapper(DynInstallProgress& callback) : callback(callback) {}
 
 bool PackageManagerWrapper::StatusChanged(
-std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string action) {
+	std::string pkgname,
+	unsigned int steps_done,
+	unsigned int total_steps,
+	std::string action
+) {
 	inst_status_changed(callback, pkgname, steps_done, total_steps, action);
 	return true;
 }
 
 void PackageManagerWrapper::Error(
-std::string pkgname, unsigned int steps_done, unsigned int total_steps, std::string error) {
+	std::string pkgname,
+	unsigned int steps_done,
+	unsigned int total_steps,
+	std::string error
+) {
 	inst_error(callback, pkgname, steps_done, total_steps, error);
 }

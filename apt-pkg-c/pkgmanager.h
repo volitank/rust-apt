@@ -12,19 +12,22 @@ struct PackageManager {
 	pkgPackageManager mutable* pkgmanager;
 
 	inline void get_archives(
-	const Cache& cache, const Records& records, DynAcquireProgress& callback) const {
+		const Cache& cache,
+		const Records& records,
+		DynAcquireProgress& callback
+	) const {
 		AcqTextStatus archive_progress(callback);
 		pkgAcquire acquire(&archive_progress);
 
 		// We probably need to let the user set their own pkgSourceList,
 		// but there hasn't been a need to expose such in the Rust interface
 		// yet. pkgSourceList sourcelist = *cache->GetSourceList();
-		if (!pkgmanager->GetArchives(
-			&acquire, cache.ptr->GetSourceList(), &records.records)) {
+		if (!pkgmanager->GetArchives(&acquire, cache.ptr->GetSourceList(), &records.records)) {
 			handle_errors();
 			throw std::runtime_error(
-			"Internal Issue with rust-apt in pkgmanager_get_archives."
-			" Please report this as an issue.");
+				"Internal Issue with rust-apt in pkgmanager_get_archives."
+				" Please report this as an issue."
+			);
 		}
 
 		pkgAcquire::RunResult result = acquire.Run(pulse_interval(callback));
@@ -47,40 +50,41 @@ struct PackageManager {
 		} else if (res == pkgPackageManager::OrderResult::Failed) {
 			handle_errors();
 			throw std::runtime_error(
-			"Internal Issue with rust-apt in pkgmanager_do_install."
-			" DoInstall has failed but there was no error from apt."
-			" Please report this as an issue.");
+				"Internal Issue with rust-apt in pkgmanager_do_install."
+				" DoInstall has failed but there was no error from apt."
+				" Please report this as an issue."
+			);
 		} else if (res == pkgPackageManager::OrderResult::Incomplete) {
 			// It's not clear that there would be any apt errors here,
 			// But we'll try anyway. This is believed to be only for media swapping
 			handle_errors();
 			throw std::runtime_error(
-			"Internal Issue with rust-apt in pkgmanager_do_install."
-			" DoInstall returned Incomplete, media swaps are unsupported."
-			" Please request media swapping as a feature.");
+				"Internal Issue with rust-apt in pkgmanager_do_install."
+				" DoInstall returned Incomplete, media swaps are unsupported."
+				" Please request media swapping as a feature."
+			);
 		} else {
 			// If for whatever reason we manage to make it here (We shouldn't)
 			// Attempt to handle any apt errors
 			// And then fallback with a message to report with the result code.
 			handle_errors();
 			throw std::runtime_error(
-			"Internal Issue with rust-apt in pkgmanager_do_install."
-			" Please report this as an issue. OrderResult: " +
-			res);
+				"Internal Issue with rust-apt in pkgmanager_do_install."
+				" Please report this as an issue. OrderResult: " +
+				res
+			);
 		}
 	}
 
-	PackageManager(pkgDepCache* depcache)
-	: pkgmanager(_system->CreatePM(depcache)){};
+	PackageManager(pkgDepCache* depcache) : pkgmanager(_system->CreatePM(depcache)){};
 };
 
 struct ProblemResolver {
 	pkgProblemResolver mutable resolver;
 
-	/// Mark a package as protected, i.e. don't let its installation/removal state change when modifying packages during resolution.
-	inline void protect(const Package& pkg) const {
-		resolver.Protect(*pkg.ptr);
-	}
+	/// Mark a package as protected, i.e. don't let its installation/removal state change when
+	/// modifying packages during resolution.
+	inline void protect(const Package& pkg) const { resolver.Protect(*pkg.ptr); }
 
 	/// Try to resolve dependency problems by marking packages for installation and removal.
 	inline void resolve(bool fix_broken, DynOperationProgress& callback) const {

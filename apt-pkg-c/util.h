@@ -1,11 +1,11 @@
 #pragma once
-#include "rust/cxx.h"
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/install-progress.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/version.h>
 #include <cstdint>
+#include "rust/cxx.h"
 
 /// Internal Helper Functions.
 /// Do not expose these on the Rust side - only for use on the C++ side.
@@ -31,9 +31,7 @@ inline void handle_errors() {
 
 /// Handle the situation where a string is null and return a result to rust
 inline const char* handle_str(const char* str) {
-	if (!str || !strcmp(str, "")) {
-		throw std::runtime_error("&str doesn't exist");
-	}
+	if (!str || !strcmp(str, "")) { throw std::runtime_error("&str doesn't exist"); }
 	return str;
 }
 
@@ -49,9 +47,7 @@ inline pkgCache* safe_get_pkg_cache(pkgCacheFile* cache) {
 
 /// Check if a string exists and return a Result to rust
 inline rust::string handle_string(std::string string) {
-	if (string.empty()) {
-		throw std::runtime_error("String doesn't exist");
-	}
+	if (string.empty()) { throw std::runtime_error("String doesn't exist"); }
 	return string;
 }
 
@@ -64,9 +60,7 @@ inline int32_t cmp_versions(rust::String ver1_rust, rust::String ver2_rust) {
 	const char* ver1 = ver1_rust.c_str();
 	const char* ver2 = ver2_rust.c_str();
 
-	if (!_system) {
-		pkgInitSystem(*_config, _system);
-	}
+	if (!_system) { pkgInitSystem(*_config, _system); }
 
 	return _system->VS->DoCmpVersion(ver1, ver1 + strlen(ver1), ver2, ver2 + strlen(ver2));
 }
