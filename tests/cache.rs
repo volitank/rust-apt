@@ -273,6 +273,51 @@ mod cache {
 	}
 
 	#[test]
+	fn debug_interfaces() {
+		let cache = new_cache!().unwrap();
+		let pkg = cache.get("apt").unwrap();
+		println!("{pkg:?}");
+		println!("{pkg:#?}");
+
+		let cand = pkg.candidate().unwrap();
+		println!("{cand:?}");
+		println!("{cand:#?}");
+
+		for dep_vec in cand.depends_map().values() {
+			for dep in dep_vec {
+				println!("{dep:#?}");
+			}
+		}
+
+		let pkg = cache.get("python3:any").unwrap();
+		for provider in pkg.provides() {
+			println!("{provider:#?}")
+		}
+	}
+
+	#[test]
+	fn display_interfaces() {
+		let cache = new_cache!().unwrap();
+		let pkg = cache.get("apt").unwrap();
+
+		println!("{pkg}");
+
+		let cand = pkg.candidate().unwrap();
+		println!("{cand}");
+
+		for dep_vec in cand.depends_map().values() {
+			for dep in dep_vec {
+				println!("{dep}");
+			}
+		}
+
+		let pkg = cache.get("python3:any").unwrap();
+		for provider in pkg.provides() {
+			println!("{provider}")
+		}
+	}
+
+	#[test]
 	fn parent_dep() {
 		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default();
