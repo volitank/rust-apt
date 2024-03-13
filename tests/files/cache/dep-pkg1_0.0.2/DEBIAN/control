@@ -1,0 +1,10 @@
+Package: dep-pkg1
+Version: 0.0.2
+Section: base
+Priority: optional
+Architecture: all
+Depends: htop, python3-rich
+Maintainer: Your Name <you@email.com>
+Description: Rust FTW
+ This is only used for testing.
+ Why would you install this?

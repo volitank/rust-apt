@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use cxx::Exception;
 
+use crate::package::{Package, Version};
 use crate::raw::depcache::raw;
 use crate::raw::progress::NoOpProgress;
 use crate::util::DiskSpace;
@@ -31,6 +32,20 @@ impl DepCache {
 			return DiskSpace::Free(-size as u64);
 		}
 		DiskSpace::Require(size as u64)
+	}
+
+	/// Returns the installed version if it exists.
+	///
+	/// # This differs from [`crate::package::Package::installed`] in the
+	/// # following ways:
+	///
+	/// * If a version is marked for install this will return the version to be
+	///   installed.
+	/// * If an installed package is marked for removal, this will return
+	///   [`None`].
+	pub fn install_version<'a>(&self, pkg: &'a Package) -> Option<Version<'a>> {
+		// Cxx error here just indicates that the Version doesn't exist
+		Some(Version::new(self.ptr.install_version(pkg)?, pkg.cache))
 	}
 }
 

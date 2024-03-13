@@ -159,6 +159,16 @@ inline Version DepCache::unsafe_candidate_version(const Package& pkg) const noex
 	return Version{std::make_unique<VerIterator>((*ptr)->GetCandidateVersion(*pkg.ptr))};
 }
 
+/// Returns the installed version if it exists.
+/// * If a version is marked for install this will return the version to be
+///   installed.
+/// * If an installed package is marked for removal, this will return [`None`].
+inline Version DepCache::unsafe_install_version(const Package& pkg) const noexcept {
+	pkgCache& cache = (*ptr)->GetCache();
+
+	return Version{std::make_unique<VerIterator>((**ptr)[*pkg.ptr].InstVerIter(cache))};
+}
+
 /// Mark a package for reinstallation
 ///
 /// To:

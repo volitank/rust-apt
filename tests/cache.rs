@@ -579,4 +579,35 @@ mod cache {
 			// println!("{pkg_file}");
 		}
 	}
+
+	#[test]
+	fn depcache_install_ver() {
+		let cache = new_cache!(&[
+			"tests/files/cache/dep-pkg1_0.0.1.deb",
+			"tests/files/cache/dep-pkg1_0.0.2.deb",
+		])
+		.unwrap();
+
+		let pkg = cache.get("dep-pkg1").unwrap();
+		pkg.mark_install(false, false);
+
+		// This package is not installed, only marked
+		assert!(pkg.installed().is_none());
+
+		// This package is not installed
+		// but this will return the version to be installed
+		let install_ver = cache.depcache().install_version(&pkg).unwrap();
+
+		// The version should match the latest because it's the default candidate.
+		assert!(install_ver.version() == "0.0.2");
+
+		let old_ver = pkg.get_version("0.0.1").unwrap();
+		old_ver.set_candidate();
+		pkg.mark_install(false, false);
+
+		let install_ver = cache.depcache().install_version(&pkg).unwrap();
+
+		// Now it should match the old version we just marked.
+		assert!(install_ver.version() == "0.0.1");
+	}
 }

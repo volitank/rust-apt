@@ -13,7 +13,7 @@ use crate::util::cmp_versions;
 
 pub struct Package<'a> {
 	ptr: RawPackage,
-	cache: &'a Cache,
+	pub(crate) cache: &'a Cache,
 	rdepends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 

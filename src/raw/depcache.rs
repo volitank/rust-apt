@@ -185,6 +185,16 @@ pub mod raw {
 		/// This will cause segfaults if methods are used on a Null Version.
 		pub fn unsafe_candidate_version(self: &DepCache, pkg: &Package) -> Version;
 
+		/// Get a pointer to the version that is installed.
+		///
+		/// * If a version is marked for install this will return the version to
+		///   be installed.
+		/// * If an installed package is marked for removal, this will segfault.
+		///
+		/// Safety: If there is no candidate the inner pointer will be null.
+		/// This will cause segfaults if methods are used on a Null Version.
+		pub fn unsafe_install_version(self: &DepCache, pkg: &Package) -> Version;
+
 		/// # Mark a package for reinstallation.
 		///
 		/// ## Returns:
@@ -228,5 +238,9 @@ pub mod raw {
 impl raw::DepCache {
 	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
 		self.unsafe_candidate_version(pkg).make_safe()
+	}
+
+	pub fn install_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
+		self.unsafe_install_version(pkg).make_safe()
 	}
 }
