@@ -50,6 +50,7 @@ pub mod raw {
 		type PkgActionGroup;
 		type Package = crate::raw::package::raw::Package;
 		type Version = crate::raw::package::raw::Version;
+		type Dependency = crate::raw::package::raw::Dependency;
 		type DynOperationProgress = crate::raw::progress::raw::DynOperationProgress;
 
 		pub fn init(self: &DepCache, callback: &mut DynOperationProgress) -> Result<()>;
@@ -194,6 +195,18 @@ pub mod raw {
 		/// Safety: If there is no candidate the inner pointer will be null.
 		/// This will cause segfaults if methods are used on a Null Version.
 		pub fn unsafe_install_version(self: &DepCache, pkg: &Package) -> Version;
+
+		/// Returns the state of the dependency as u8
+		pub fn dep_state(self: &DepCache, dep: &Dependency) -> u8;
+
+		/// Checks if the dependency is important.
+		///
+		/// Depends, PreDepends, Conflicts, Obsoletes, Breaks
+		/// will return [true].
+		///
+		/// Suggests, Recommends will return [true] if they are
+		/// configured to be installed.
+		pub fn is_important_dep(self: &DepCache, dep: &Dependency) -> bool;
 
 		/// # Mark a package for reinstallation.
 		///

@@ -8,6 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 use crate::cache::Cache;
+pub use crate::raw::package::DepType;
 use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion};
 use crate::util::cmp_versions;
 
@@ -546,7 +547,7 @@ pub fn create_depends_map(
 				}
 			}
 
-			let dep_type = DepType::from(dep.dep_type());
+			let dep_type = dep.dep_type();
 
 			// If the entry already exists in the map append it.
 			if let Some(vec) = dependencies.get_mut(&dep_type) {
@@ -559,52 +560,6 @@ pub fn create_depends_map(
 		}
 	}
 	dependencies
-}
-
-#[derive(fmt::Debug, Eq, PartialEq, Hash)]
-pub enum DepType {
-	Depends,
-	PreDepends,
-	Suggests,
-	Recommends,
-	Conflicts,
-	Replaces,
-	Obsoletes,
-	Breaks,
-	Enhances,
-}
-
-impl From<u8> for DepType {
-	fn from(value: u8) -> Self {
-		match value {
-			1 => DepType::Depends,
-			2 => DepType::PreDepends,
-			3 => DepType::Suggests,
-			4 => DepType::Recommends,
-			5 => DepType::Conflicts,
-			6 => DepType::Replaces,
-			7 => DepType::Obsoletes,
-			8 => DepType::Breaks,
-			9 => DepType::Enhances,
-			_ => panic!("Dependency is malformed?"),
-		}
-	}
-}
-
-impl AsRef<str> for DepType {
-	fn as_ref(&self) -> &str {
-		match self {
-			DepType::Depends => "Depends",
-			DepType::PreDepends => "PreDepends",
-			DepType::Suggests => "Suggests",
-			DepType::Recommends => "Recommends",
-			DepType::Conflicts => "Conflicts",
-			DepType::Replaces => "Replaces",
-			DepType::Obsoletes => "Obsoletes",
-			DepType::Breaks => "Breaks",
-			DepType::Enhances => "Enhances",
-		}
-	}
 }
 
 /// A struct representing a Base Dependency.
@@ -681,7 +636,7 @@ impl<'a> fmt::Debug for BaseDep<'a> {
 			.field("name", &self.name())
 			.field("comp", &self.comp())
 			.field("version", &self.version())
-			.field("dep_type", &DepType::from(self.dep_type()))
+			.field("dep_type", &self.dep_type())
 			.field("is_reverse", &self.is_reverse())
 			.finish()
 	}
@@ -696,7 +651,7 @@ pub struct Dependency<'a> {
 
 impl<'a> Dependency<'a> {
 	/// Return the Dep Type of this group. Depends, Pre-Depends.
-	pub fn dep_type(&self) -> DepType { DepType::from(self.base_deps[0].dep_type()) }
+	pub fn dep_type(&self) -> DepType { self.base_deps[0].dep_type() }
 
 	/// Returns True if there are multiple dependencies that can satisfy this
 	pub fn is_or(&self) -> bool { self.base_deps.len() > 1 }

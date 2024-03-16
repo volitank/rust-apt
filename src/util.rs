@@ -4,7 +4,10 @@ use std::cmp::Ordering;
 pub use cxx::Exception;
 use terminal_size::{terminal_size, Height, Width};
 
+use crate::cache::Cache;
 use crate::config;
+use crate::package::Package;
+use crate::raw::package::DepFlags;
 use crate::raw::util::raw;
 
 /// Get the terminal's height, i.e. the number of rows it has.
@@ -193,4 +196,87 @@ pub fn apt_unlock_inner() {
 pub fn apt_is_locked() -> bool {
 	config::init_config_system();
 	raw::apt_is_locked()
+}
+
+/// Reference implementation to print broken packages just like apt does.
+///
+/// ## Returns [`None`] if the package is not considered broken
+///
+/// ## now:
+///   * [true] = When checking broken packages before modifying the cache.
+///   * [false] = When checking broken packages after modifying the cache.
+pub fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Option<String> {
+	// If the package isn't broken for the state Return None
+	if (now && !pkg.is_now_broken()) || (!now && !pkg.is_inst_broken()) {
+		return None;
+	};
+
+	let mut broken_string = String::new();
+
+	broken_string += &format!(" {pkg} :");
+
+	// Pick the proper version based on now status.
+	// else Return with just the package name like Apt does.
+	let Some(ver) = (match now {
+		true => pkg.installed(),
+		false => cache.depcache().install_version(pkg),
+	}) else {
+		broken_string += "\n";
+		return Some(broken_string);
+	};
+
+	let indent = pkg.name().len() + 3;
+	let mut first = true;
+
+	// ShowBrokenDeps
+	for dep in ver.depends_map().values().flatten() {
+		for (i, base_dep) in dep.base_deps.iter().enumerate() {
+			if !cache.depcache().is_important_dep(base_dep) {
+				continue;
+			}
+
+			let dep_flag = if now { DepFlags::DepGnow } else { DepFlags::DepInstall };
+
+			if cache.depcache().dep_state(base_dep) & dep_flag == dep_flag {
+				continue;
+			}
+
+			if !first {
+				broken_string += &" ".repeat(indent);
+			}
+			first = false;
+
+			// If it's the first or Dep
+			if i > 0 {
+				broken_string += &" ".repeat(base_dep.dep_type().as_ref().len() + 3);
+			} else {
+				broken_string += &format!(" {}: ", base_dep.dep_type())
+			}
+
+			broken_string += base_dep.target_package().name();
+
+			if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp()) {
+				broken_string += &format!(" ({comp} {ver_str})");
+			}
+
+			let target = base_dep.target_package();
+			if !target.has_provides() {
+				if let Some(target_ver) = cache.depcache().install_version(target) {
+					broken_string += &format!(" but {target_ver} is to be installed")
+				} else if target.candidate().is_some() {
+					broken_string += " but it is not going to be installed";
+				} else if target.has_provides() {
+					broken_string += " but it is a virtual package";
+				} else {
+					broken_string += " but it is not installable";
+				}
+			}
+
+			if i + 1 != dep.base_deps.len() {
+				broken_string += " or"
+			}
+			broken_string += "\n";
+		}
+	}
+	Some(broken_string)
 }

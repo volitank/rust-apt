@@ -610,4 +610,33 @@ mod cache {
 		// Now it should match the old version we just marked.
 		assert!(install_ver.version() == "0.0.1");
 	}
+
+	#[test]
+	fn broken_pkgs() {
+		let cache = new_cache!(&["tests/files/cache/broken-or-dep_0.0.1.deb"]).unwrap();
+
+		let pkg = cache.get("broken-or-dep").unwrap();
+
+		// let config = Config::new();
+		// config.set("Debug::pkgProblemResolver", "1");
+
+		pkg.protect();
+		pkg.mark_install(false, true);
+
+		let expected = concat!(
+			" broken-or-dep : Depends: not-exist (>= 3.6.1) but it is not installable or\n",
+			"                          really-not-exist but it is not installable\n",
+			"                 Depends: python3-not-exist but it is not installable\n",
+		);
+
+		let err = cache.resolve(false).unwrap_err();
+
+		for pkg in &cache {
+			if let Some(broken) = show_broken_pkg(&cache, &pkg, false) {
+				assert_eq!(broken, expected);
+				println!("{broken}");
+			}
+		}
+		println!("{}", err.what());
+	}
 }

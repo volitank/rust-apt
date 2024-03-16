@@ -5,6 +5,7 @@ pub type RawDependency = raw::Dependency;
 pub type RawVersionFile = raw::VersionFile;
 pub type RawDescriptionFile = raw::DescriptionFile;
 pub type RawPackageFile = raw::PackageFile;
+use std::fmt;
 use std::hash::{Hash, Hasher};
 
 /// This module contains the bindings and structs shared with c++
@@ -218,10 +219,8 @@ pub mod raw {
 
 		pub fn index(self: &Dependency) -> u32;
 
-		/// Should probably maybe potentially convert this to a method in rust?
-		/// Just gets the dependency type. Taken from 'pkgcache.cc
-		/// pkgCache::DepType'
-		pub fn dep_type(self: &Dependency) -> u8;
+		// Get the dependency type as a u8
+		pub fn u8_dep_type(self: &Dependency) -> u8;
 
 		pub fn target_ver(self: &Dependency) -> Result<&str>;
 
@@ -346,6 +345,93 @@ impl raw::Version {
 	pub fn description_files(&self) -> Option<RawDescriptionFile> {
 		self.unsafe_description_file().make_safe()
 	}
+}
+
+impl raw::Dependency {
+	/// The Dependency Type. Depends, Recommends, etc.
+	pub fn dep_type(&self) -> DepType { DepType::from(self.u8_dep_type()) }
+
+	/// Returns true if the dependency type is critical.
+	///
+	/// Depends, PreDepends, Conflicts, Obsoletes, Breaks
+	/// will return [true].
+	///
+	/// Suggests, Recommends, Replaces and Enhances
+	/// will return [false].
+	pub fn is_critical(&self) -> bool {
+		match self.dep_type() {
+			DepType::Depends => true,
+			DepType::PreDepends => true,
+			DepType::Suggests => false,
+			DepType::Recommends => false,
+			DepType::Conflicts => true,
+			DepType::Replaces => false,
+			DepType::Obsoletes => true,
+			DepType::Breaks => true,
+			DepType::Enhances => false,
+		}
+	}
+}
+
+/// DepFlags defined in depcache.h
+#[allow(non_upper_case_globals, non_snake_case)]
+pub mod DepFlags {
+	pub const DepNow: u8 = 1;
+	pub const DepInstall: u8 = 2;
+	pub const DepCVer: u8 = 4;
+	pub const DepGnow: u8 = 8;
+	pub const DepGInstall: u8 = 16;
+	pub const DeoGVer: u8 = 32;
+}
+
+#[derive(fmt::Debug, Eq, PartialEq, Hash)]
+pub enum DepType {
+	Depends,
+	PreDepends,
+	Suggests,
+	Recommends,
+	Conflicts,
+	Replaces,
+	Obsoletes,
+	Breaks,
+	Enhances,
+}
+
+impl From<u8> for DepType {
+	fn from(value: u8) -> Self {
+		match value {
+			1 => DepType::Depends,
+			2 => DepType::PreDepends,
+			3 => DepType::Suggests,
+			4 => DepType::Recommends,
+			5 => DepType::Conflicts,
+			6 => DepType::Replaces,
+			7 => DepType::Obsoletes,
+			8 => DepType::Breaks,
+			9 => DepType::Enhances,
+			_ => panic!("Dependency is malformed?"),
+		}
+	}
+}
+
+impl AsRef<str> for DepType {
+	fn as_ref(&self) -> &str {
+		match self {
+			DepType::Depends => "Depends",
+			DepType::PreDepends => "PreDepends",
+			DepType::Suggests => "Suggests",
+			DepType::Recommends => "Recommends",
+			DepType::Conflicts => "Conflicts",
+			DepType::Replaces => "Replaces",
+			DepType::Obsoletes => "Obsoletes",
+			DepType::Breaks => "Breaks",
+			DepType::Enhances => "Enhances",
+		}
+	}
+}
+
+impl fmt::Display for DepType {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.as_ref()) }
 }
 
 macro_rules! raw_iter {

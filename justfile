@@ -51,7 +51,7 @@ create-test-debs:
 	cd tests/files/cache
 	rm -f *.deb
 	for pkg in *; do
-		dpkg-deb --build "${pkg}";
+		dpkg-deb --build --nocheck "${pkg}";
 	done
 
 	# Create an empty garbage package to make sure it fails

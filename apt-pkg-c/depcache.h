@@ -169,6 +169,22 @@ inline Version DepCache::unsafe_install_version(const Package& pkg) const noexce
 	return Version{std::make_unique<VerIterator>((**ptr)[*pkg.ptr].InstVerIter(cache))};
 }
 
+/// Returns the state of the dependency as u8
+inline uint8_t DepCache::dep_state(const Dependency& dep) const noexcept {
+	return (**ptr)[*dep.ptr];
+}
+
+/// Checks if the dependency is important.
+///
+/// Depends, PreDepends, Conflicts, Obsoletes, Breaks
+/// will return [true].
+///
+/// Suggests, Recommends will return [true] if they are
+/// configured to be installed.
+inline bool DepCache::is_important_dep(const Dependency& dep) const noexcept {
+	return (*ptr)->IsImportantDep(*dep.ptr);
+}
+
 /// Mark a package for reinstallation
 ///
 /// To:

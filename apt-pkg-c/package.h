@@ -105,7 +105,7 @@ inline rust::Str Dependency::comp_type() const { return handle_str(ptr->CompType
 inline uint32_t Dependency::index() const noexcept { return ptr->Index(); }
 
 /// u8 representation of the DepType. Will be converted to Enum in rust
-inline uint8_t Dependency::dep_type() const noexcept { return (*ptr)->Type; }
+inline uint8_t Dependency::u8_dep_type() const noexcept { return (*ptr)->Type; }
 
 // Return true if this dep is Or'd with the next. The last dep in the or group will return False.
 inline bool Dependency::compare_op() const noexcept {
