@@ -166,7 +166,7 @@ pub mod raw {
 
 		// This is for backend records lookups.
 		// You can also get package files from here.
-		pub fn unsafe_description_file(self: &Version) -> DescriptionFile;
+		pub fn unsafe_description_file(self: &Version) -> Result<DescriptionFile>;
 
 		// You go through here to get the package files.
 		pub fn unsafe_version_file(self: &Version) -> VersionFile;
@@ -343,7 +343,7 @@ impl raw::Version {
 	pub fn version_files(&self) -> Option<RawVersionFile> { self.unsafe_version_file().make_safe() }
 
 	pub fn description_files(&self) -> Option<RawDescriptionFile> {
-		self.unsafe_description_file().make_safe()
+		self.unsafe_description_file().ok()?.make_safe()
 	}
 }
 

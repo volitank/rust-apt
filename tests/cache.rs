@@ -135,6 +135,19 @@ mod cache {
 		dbg!(cand_desc);
 	}
 
+	// This should not segfault, but has in the past.
+	// See https://gitlab.com/volian/rust-apt/-/issues/28
+	#[test]
+	fn no_description() {
+		let cache = new_cache!(&["tests/files/cache/no-description_0.0.1.deb"]).unwrap();
+
+		let pkg = cache.get("no-description").unwrap();
+		let cand = pkg.candidate().unwrap();
+		if let Some(desc) = cand.description() {
+			println!("{desc}");
+		}
+	}
+
 	#[test]
 	fn version_uris() {
 		let cache = new_cache!().unwrap();

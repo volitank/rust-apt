@@ -175,9 +175,13 @@ inline bool Version::is_downloadable() const noexcept { return ptr->Downloadable
 inline bool Version::is_installed() const noexcept { return ptr->ParentPkg().CurrentVer() == *ptr; }
 
 // This is for backend records lookups. You can also get package files from here.
-inline DescriptionFile Version::unsafe_description_file() const noexcept {
-	return DescriptionFile{
-		std::make_unique<DescFileIterator>(ptr->TranslatedDescription().FileList())};
+inline DescriptionFile Version::unsafe_description_file() const {
+	auto desc_file = ptr->TranslatedDescription();
+	// Must check if DescFileIterator is null first.
+	// See https://gitlab.com/volian/rust-apt/-/issues/28
+	if (desc_file.end()) { throw std::runtime_error("DescFile doesn't exist"); }
+
+	return DescriptionFile{std::make_unique<DescFileIterator>(desc_file.FileList())};
 }
 
 // You go through here to get the package files.
