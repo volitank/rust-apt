@@ -12,7 +12,7 @@ license = "GPL-3.0-or-later"
 name = "rust-apt"
 readme = "README.md"
 repository = "https://gitlab.com/volian/rust-apt"
-version = "0.6.0"
+version = "0.7.0"
 
 edition = "2021"
 
