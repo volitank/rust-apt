@@ -1,6 +1,7 @@
 //! Contains structs and functions to parse Debian-styled RFC 822 files.
 use core::iter::Iterator;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug)]
 /// The result of a parsing error.
@@ -9,8 +10,22 @@ pub struct ParserError {
 	pub line: Option<usize>,
 }
 
+impl fmt::Display for ParserError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		if let Some(num) = self.line {
+			write!(f, "{} at line '{num}'", self.msg)?
+		} else {
+			write!(f, "{}", self.msg)?
+		}
+		Ok(())
+	}
+}
+
+impl std::error::Error for ParserError {}
+
 /// A section in a TagFile. A TagFile is made up of double-newline (`\n\n`)
 /// separated paragraphs, each of which make up one of these sections.
+#[derive(Debug)]
 pub struct TagSection {
 	data: HashMap<String, String>,
 }
@@ -141,7 +156,17 @@ impl TagSection {
 	pub fn hashmap(&self) -> &HashMap<String, String> { &self.data }
 
 	/// Get the value of the specified key.
-	pub fn get(&self, key: &str) -> Option<&String> { self.data.get(&key.to_string()) }
+	pub fn get(&self, key: &str) -> Option<&String> { self.data.get(key) }
+
+	/// Get the value of the specified key,
+	///
+	/// Returns specified default on failure.
+	pub fn get_default<'a, 'b: 'a>(&'a self, key: &str, default: &'b str) -> &str {
+		if let Some(value) = self.data.get(key) {
+			return value;
+		}
+		default
+	}
 }
 
 /// Parses a TagFile: these are files such as Debian `control` and `Packages`
