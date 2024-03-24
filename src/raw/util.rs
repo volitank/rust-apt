@@ -19,10 +19,6 @@ pub mod raw {
 		pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String;
 
 		/// Lock the lockfile.
-		// TODO: There's `unlock_inner` functions in the Python APT library, but I have no clue how
-		// we'd implement them in regard to our structs and such in this library. They seem to only
-		// be used to have a lock on dpkg between calls, which shouldn't be an issue in most cases,
-		// though it should probably be looked into.
 		pub fn apt_lock() -> Result<()>;
 
 		/// Unock the lockfile.

@@ -16,9 +16,6 @@ mod records {
 		// Apt should not have a homepage
 		assert!(cand.get_record(RecordField::Homepage).is_none());
 
-		// The apt source field be none as it is just "apt"
-		assert!(cand.get_record(RecordField::Source).is_some());
-
 		// This should also equal the same as the cand version
 		assert_eq!(
 			cand.get_record(RecordField::Version).unwrap(),

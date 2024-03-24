@@ -14,7 +14,7 @@
 #include "rust-apt/src/raw/progress.rs"
 
 /// Update the package lists, handle errors and return a Result.
-inline void Cache::update(DynAcquireProgress& callback) const {
+inline void Cache::u_update(DynAcquireProgress& callback) const {
 	AcqTextStatus progress(callback);
 
 	ListUpdate(progress, *ptr->GetSourceList(), pulse_interval(callback));
@@ -22,13 +22,12 @@ inline void Cache::update(DynAcquireProgress& callback) const {
 }
 
 // Return a package by name.
-inline Package Cache::unsafe_find_pkg(rust::string name) const noexcept {
-	return Package{
-		std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->FindPkg(name.c_str()))};
+inline Package Cache::u_find_pkg(rust::string name) const noexcept {
+	return Package{std::make_unique<PkgIterator>(ptr->GetPkgCache()->FindPkg(name.c_str()))};
 }
 
-inline Package Cache::begin() const {
-	return Package{std::make_unique<PkgIterator>(safe_get_pkg_cache(ptr.get())->PkgBegin())};
+inline Package Cache::u_begin() const noexcept {
+	return Package{std::make_unique<PkgIterator>(ptr->GetPkgCache()->PkgBegin())};
 }
 
 /// The priority of the package as shown in `apt policy`.
@@ -75,7 +74,7 @@ inline rust::Vec<SourceURI> Cache::source_uris() const noexcept {
 	return list;
 }
 
-inline Cache create_cache(rust::Slice<const rust::String> deb_files) {
+inline Cache u_create_cache(rust::Slice<const rust::String> deb_files) {
 	std::unique_ptr<pkgCacheFile> cache = std::make_unique<pkgCacheFile>();
 
 	for (auto deb_str : deb_files) {
@@ -85,16 +84,18 @@ inline Cache create_cache(rust::Slice<const rust::String> deb_files) {
 		// signal: 11, SIGSEGV: invalid memory reference
 		FileFd fd(deb_string, FileFd::ReadOnly);
 		debDebFile debfile(fd);
-		handle_errors();
 
 		// Add the deb to the cache.
 		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
 			_error->Error("%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
-			handle_errors();
 		}
-
-		handle_errors();
 	}
+
+	// Building the pkg caches can cause an error that might not
+	// Get propagated until you get a pkg which shouldn't have errors.
+	// See https://gitlab.com/volian/rust-apt/-/issues/24
+	cache->GetPkgCache();
+	handle_errors();
 
 	return Cache{std::move(cache)};
 }

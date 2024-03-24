@@ -1,4 +1,5 @@
-use super::package::{RawPackage, RawVersion};
+use crate::raw::error::AptErrors;
+use crate::raw::package::{RawPackage, RawVersion};
 
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
@@ -53,7 +54,7 @@ pub mod raw {
 		type Dependency = crate::raw::package::raw::Dependency;
 		type DynOperationProgress = crate::raw::progress::raw::DynOperationProgress;
 
-		pub fn init(self: &DepCache, callback: &mut DynOperationProgress) -> Result<()>;
+		pub fn u_init(self: &DepCache, callback: &mut DynOperationProgress) -> Result<()>;
 
 		/// Autoinstall every broken package and run the problem resolver
 		/// Returns false if the problem resolver fails.
@@ -68,26 +69,16 @@ pub mod raw {
 		/// MarkAndSweep
 		pub fn release(self: &ActionGroup);
 
-		/// Perform a Full Upgrade.
-		/// Remove and install new packages if necessary.
-		pub fn full_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
+		pub fn u_full_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
 
-		/// Perform a Safe Upgrade. Neither remove or install new packages.
-		pub fn safe_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
+		pub fn u_safe_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
 
-		/// Perform an Install Upgrade.
-		/// New packages will be installed but nothing will be removed.
-		pub fn install_upgrade(self: &DepCache, progress: &mut DynOperationProgress) -> Result<()>;
+		pub fn u_install_upgrade(
+			self: &DepCache,
+			progress: &mut DynOperationProgress,
+		) -> Result<()>;
 
 		/// Check if the package is upgradable.
-		///
-		/// ## skip_depcache:
-		///
-		/// Skipping the DepCache is unnecessary if it's already been
-		/// initialized. If you're unsure use `false`
-		///
-		///   * [true] = Increases performance by skipping the pkgDepCache.
-		///   * [false] = Use DepCache to check if the package is upgradable
 		pub fn is_upgradable(self: &DepCache, pkg: &Package) -> bool;
 
 		/// Is the Package auto installed? Packages marked as auto installed are
@@ -180,22 +171,6 @@ pub mod raw {
 		/// Set a version to be the candidate of it's package.
 		pub fn set_candidate_version(self: &DepCache, ver: &Version);
 
-		/// Get a pointer to the version that is set to be installed.
-		///
-		/// Safety: If there is no candidate the inner pointer will be null.
-		/// This will cause segfaults if methods are used on a Null Version.
-		pub fn unsafe_candidate_version(self: &DepCache, pkg: &Package) -> Version;
-
-		/// Get a pointer to the version that is installed.
-		///
-		/// * If a version is marked for install this will return the version to
-		///   be installed.
-		/// * If an installed package is marked for removal, this will segfault.
-		///
-		/// Safety: If there is no candidate the inner pointer will be null.
-		/// This will cause segfaults if methods are used on a Null Version.
-		pub fn unsafe_install_version(self: &DepCache, pkg: &Package) -> Version;
-
 		/// Returns the state of the dependency as u8
 		pub fn dep_state(self: &DepCache, dep: &Dependency) -> u8;
 
@@ -245,15 +220,56 @@ pub mod raw {
 		/// i.e. the Installed-Size of all packages marked for installation"
 		/// minus the Installed-Size of all packages for removal."
 		pub fn disk_size(self: &DepCache) -> i64;
+
+		/// # Safety
+		///
+		/// If there is no candidate the inner pointer will be null.
+		/// This will cause segfaults if methods are used on a Null Version.
+		unsafe fn u_candidate_version(self: &DepCache, pkg: &Package) -> Version;
+		/// # Safety
+		///
+		/// If there is no version the inner pointer will be null.
+		/// This will cause segfaults if methods are used on a Null Version.
+		unsafe fn u_install_version(self: &DepCache, pkg: &Package) -> Version;
 	}
 }
 
 impl raw::DepCache {
-	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
-		self.unsafe_candidate_version(pkg).make_safe()
+	pub fn init(&self, callback: &mut raw::DynOperationProgress) -> Result<(), AptErrors> {
+		Ok(self.u_init(callback)?)
 	}
 
+	/// Get a pointer to the version that is set to be installed.
+	pub fn candidate_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
+		unsafe { self.u_candidate_version(pkg) }.make_safe()
+	}
+
+	/// Get a pointer to the version that is installed.
+	///
+	/// * If a version is marked for install this will return the version to be
+	///   installed.
+	/// * If an installed package is marked for removal, this will return None.
 	pub fn install_version(&self, pkg: &RawPackage) -> Option<RawVersion> {
-		self.unsafe_install_version(pkg).make_safe()
+		unsafe { self.u_install_version(pkg) }.make_safe()
+	}
+
+	/// Perform a Full Upgrade.
+	/// Remove and install new packages if necessary.
+	pub fn full_upgrade(&self, progress: &mut raw::DynOperationProgress) -> Result<(), AptErrors> {
+		Ok(self.u_full_upgrade(progress)?)
+	}
+
+	/// Perform a Safe Upgrade. Neither remove or install new packages.
+	pub fn safe_upgrade(&self, progress: &mut raw::DynOperationProgress) -> Result<(), AptErrors> {
+		Ok(self.u_safe_upgrade(progress)?)
+	}
+
+	/// Perform an Install Upgrade.
+	/// New packages will be installed but nothing will be removed.
+	pub fn install_upgrade(
+		&self,
+		progress: &mut raw::DynOperationProgress,
+	) -> Result<(), AptErrors> {
+		Ok(self.u_install_upgrade(progress)?)
 	}
 }

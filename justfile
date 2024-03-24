@@ -111,6 +111,6 @@ clippy +ARGS="":
 	echo Codebase formatted successfully!
 
 # Spellcheck the codebase
-spellcheck +ARGS="--skip ./target --skip ./.git":
+spellcheck +ARGS="--skip ./target --skip ./.git --skip ./.cargo":
 	@codespell --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
 	@echo Spellings look good!

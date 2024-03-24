@@ -19,7 +19,7 @@
 /// println!("{}", cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap().version());
 /// ```
 ///
-/// Returns `Result<rust_apt::cache::Cache, cxx::Exception>`
+/// Returns `Result<rust_apt::cache::Cache, AptErrors>`
 macro_rules! new_cache {
 	() => {{
 		let debs: Vec<String> = Vec::new();

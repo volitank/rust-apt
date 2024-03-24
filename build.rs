@@ -8,10 +8,12 @@ fn main() {
 		"src/raw/records.rs",
 		"src/raw/depcache.rs",
 		"src/raw/pkgmanager.rs",
+		"src/raw/error.rs",
 	];
 
 	cxx_build::bridges(source_files)
 		.file("apt-pkg-c/progress.cc")
+		.file("apt-pkg-c/error.cc")
 		.flag_if_supported("-std=c++14")
 		.compile("rust-apt");
 
@@ -24,8 +26,10 @@ fn main() {
 	println!("cargo:rerun-if-changed=src/raw/depcache.rs");
 	println!("cargo:rerun-if-changed=src/raw/package.rs");
 	println!("cargo:rerun-if-changed=src/raw/pkgmanager.rs");
+	println!("cargo:rerun-if-changed=src/raw/error.rs");
 
 	println!("cargo:rerun-if-changed=apt-pkg-c/progress.cc");
+	println!("cargo:rerun-if-changed=apt-pkg-c/error.cc");
 
 	println!("cargo:rerun-if-changed=apt-pkg-c/cache.h");
 	println!("cargo:rerun-if-changed=apt-pkg-c/progress.h");
@@ -35,4 +39,5 @@ fn main() {
 	println!("cargo:rerun-if-changed=apt-pkg-c/depcache.h");
 	println!("cargo:rerun-if-changed=apt-pkg-c/package.h");
 	println!("cargo:rerun-if-changed=apt-pkg-c/pkgmanager.h");
+	println!("cargo:rerun-if-changed=apt-pkg-c/error.h");
 }

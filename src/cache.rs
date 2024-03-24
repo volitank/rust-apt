@@ -1,7 +1,6 @@
 //! Contains Cache related structs.
 
 use std::cell::OnceCell;
-use std::error::Error;
 use std::fs;
 use std::ops::Deref;
 use std::path::Path;
@@ -12,6 +11,8 @@ use crate::config::{init_config_system, Config};
 use crate::depcache::DepCache;
 use crate::package::Package;
 use crate::raw::cache::raw;
+use crate::raw::error::raw::AptError;
+use crate::raw::error::AptErrors;
 use crate::raw::package::RawPackage;
 use crate::raw::pkgmanager::raw::{
 	create_pkgmanager, create_problem_resolver, PackageManager, ProblemResolver,
@@ -180,12 +181,12 @@ impl Cache {
 	///
 	/// Note that if you run [`Cache::commit`] or [`Cache::update`],
 	/// You will be required to make a new cache to perform any further changes
-	pub fn new<T: ToString>(deb_files: &[T]) -> Result<Cache, Exception> {
+	pub fn new<T: ToString>(deb_files: &[T]) -> Result<Cache, AptErrors> {
 		let deb_pkgs: Vec<_> = deb_files.iter().map(|d| d.to_string()).collect();
 
 		init_config_system();
 		Ok(Cache {
-			cache: raw::create_cache(&deb_pkgs)?,
+			cache: raw::Cache::new(&deb_pkgs)?,
 			depcache: OnceCell::new(),
 			records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
@@ -195,7 +196,7 @@ impl Cache {
 	}
 
 	/// Internal Method for generating the package list.
-	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = RawPackage>, Exception> { self.begin() }
+	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = RawPackage>, AptError> { self.begin() }
 
 	/// Get the DepCache
 	pub fn depcache(&self) -> &DepCache {
@@ -227,7 +228,7 @@ impl Cache {
 	}
 
 	/// An iterator of packages in the cache.
-	pub fn packages(&self, sort: &PackageSort) -> Result<impl Iterator<Item = Package>, Exception> {
+	pub fn packages(&self, sort: &PackageSort) -> Result<impl Iterator<Item = Package>, AptError> {
 		let mut pkg_list = vec![];
 		for pkg in self.raw_pkgs()? {
 			match sort.virtual_pkgs {
@@ -346,13 +347,12 @@ impl Cache {
 	/// let cache = new_cache!().unwrap();
 	/// let mut progress: Box<dyn AcquireProgress> = Box::new(AptAcquireProgress::new());
 
-	/// if let Err(error) = cache.update(&mut progress) {
-	///     for msg in error.what().split(';') {
-	///         if msg.starts_with("E:") {
-	///         println!("Error: {}", &msg[2..]);
-	///         }
-	///         if msg.starts_with("W:") {
-	///             println!("Warning: {}", &msg[2..]);
+	/// if let Err(e) = cache.update(&mut progress) {
+	///     for error in e.errors() {
+	///         if error.is_error {
+	///             println!("Error: {}", error.msg);
+	///         } else {
+	///             println!("Warning: {}", error.msg);
 	///         }
 	///     }
 	/// }
@@ -360,9 +360,8 @@ impl Cache {
 	/// # Known Errors:
 	/// * E:Could not open lock file /var/lib/apt/lists/lock - open (13: Permission denied)
 	/// * E:Unable to lock directory /var/lib/apt/lists/
-	pub fn update(self, progress: &mut Box<dyn AcquireProgress>) -> Result<(), Exception> {
-		self.cache.update(progress)?;
-		Ok(())
+	pub fn update(self, progress: &mut Box<dyn AcquireProgress>) -> Result<(), AptErrors> {
+		self.cache.update(progress)
 	}
 
 	/// Mark all packages for upgrade
@@ -377,7 +376,7 @@ impl Cache {
 	///
 	/// cache.upgrade(&Upgrade::FullUpgrade).unwrap();
 	/// ```
-	pub fn upgrade(&self, upgrade_type: &Upgrade) -> Result<(), Exception> {
+	pub fn upgrade(&self, upgrade_type: &Upgrade) -> Result<(), AptErrors> {
 		let mut progress = NoOpProgress::new_box();
 		match upgrade_type {
 			Upgrade::FullUpgrade => self.depcache().full_upgrade(&mut progress),
@@ -401,7 +400,7 @@ impl Cache {
 	///
 	/// Returns [`Err`] if there was an error reaching dependency resolution.
 	#[allow(clippy::result_unit_err)]
-	pub fn resolve(&self, fix_broken: bool) -> Result<(), Exception> {
+	pub fn resolve(&self, fix_broken: bool) -> Result<(), AptErrors> {
 		// Use our dummy OperationProgress struct. See
 		// [`crate::cache::OperationProgress`] for why we need this.
 		self.resolver()
@@ -545,7 +544,7 @@ impl Cache {
 		self,
 		progress: &mut Box<dyn AcquireProgress>,
 		install_progress: &mut Box<dyn InstallProgress>,
-	) -> Result<(), Box<dyn Error>> {
+	) -> Result<(), AptErrors> {
 		// Lock the whole thing so as to prevent tamper
 		apt_lock()?;
 
@@ -591,7 +590,7 @@ impl Cache {
 	/// # sort_name:
 	/// * [`true`] = Packages will be in alphabetical order
 	/// * [`false`] = Packages will not be sorted by name
-	pub fn get_changes(&self, sort_name: bool) -> Result<impl Iterator<Item = Package>, Exception> {
+	pub fn get_changes(&self, sort_name: bool) -> Result<impl Iterator<Item = Package>, AptError> {
 		let mut changed = Vec::new();
 		let depcache = self.depcache();
 

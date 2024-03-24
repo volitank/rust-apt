@@ -1,5 +1,7 @@
 //! Contains Cache related structs.
 
+use super::error::raw::AptError;
+use super::error::AptErrors;
 use super::package::RawPackage;
 
 /// This module contains the bindings and structs shared with c++
@@ -32,16 +34,9 @@ pub mod raw {
 
 		type DynAcquireProgress = crate::raw::progress::raw::DynAcquireProgress;
 
-		/// Create the CacheFile.
-		///
-		/// It is advised to init the config and system before creating the
-		/// cache. These bindings can be found in config::raw.
-		pub fn create_cache(deb_files: &[String]) -> Result<Cache>;
+		pub fn u_create_cache(deb_files: &[String]) -> Result<Cache>;
 
-		// TODO: What kind of errors can be returned here?
-		// TODO: Implement custom errors to match with apt errors
-		/// Update the package lists, handle errors and return a Result.
-		pub fn update(self: &Cache, progress: &mut DynAcquireProgress) -> Result<()>;
+		pub fn u_update(self: &Cache, progress: &mut DynAcquireProgress) -> Result<()>;
 
 		/// Returns an iterator of SourceURIs.
 		///
@@ -61,17 +56,44 @@ pub mod raw {
 		/// Return true if the PackageFile is trusted.
 		pub fn is_trusted(self: &Cache, pkg_file: &mut PackageFile) -> bool;
 
-		/// Return a package by name and optionally architecture.
-		pub fn unsafe_find_pkg(self: &Cache, name: String) -> Package;
+		/// # Safety
+		///
+		/// If the Internal Pkg Pointer is NULL, operations can segfault
+		unsafe fn u_find_pkg(self: &Cache, name: String) -> Package;
 
-		/// Return the pointer to the start of the PkgIterator.
-		pub fn begin(self: &Cache) -> Result<Package>;
-
+		/// # Safety
+		///
+		/// If the Internal Pkg Pointer is NULL, operations can segfault
+		unsafe fn u_begin(self: &Cache) -> Package;
 	}
 }
 
 impl raw::Cache {
+	/// Create the CacheFile.
+	///
+	/// It is advised to init the config and system before creating the
+	/// cache. These bindings can be found in config::raw.
+	pub fn new(deb_files: &[String]) -> Result<raw::Cache, AptErrors> {
+		Ok(raw::u_create_cache(deb_files)?)
+	}
+
+	/// Update the package lists, handle errors and return a Result.
+	pub fn update(&self, progress: &mut raw::DynAcquireProgress) -> Result<(), AptErrors> {
+		Ok(self.u_update(progress)?)
+	}
+
+	/// Return a package by name and optionally architecture.
 	pub fn find_pkg(&self, name: &str) -> Option<RawPackage> {
-		self.unsafe_find_pkg(name.to_string()).make_safe()
+		unsafe { self.u_find_pkg(name.to_string()).make_safe() }
+	}
+
+	/// Return the pointer to the start of the PkgIterator.
+	pub fn begin(&self) -> Result<raw::Package, AptError> {
+		unsafe {
+			self.u_begin().make_safe().ok_or(AptError {
+				is_error: true,
+				msg: "No Packages Found!".to_string(),
+			})
+		}
 	}
 }

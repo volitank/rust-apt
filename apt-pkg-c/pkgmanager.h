@@ -87,7 +87,7 @@ struct ProblemResolver {
 	inline void protect(const Package& pkg) const { resolver.Protect(*pkg.ptr); }
 
 	/// Try to resolve dependency problems by marking packages for installation and removal.
-	inline void resolve(bool fix_broken, DynOperationProgress& callback) const {
+	inline void u_resolve(bool fix_broken, DynOperationProgress& callback) const {
 		OpProgressWrapper op_progress(callback);
 		resolver.Resolve(fix_broken, &op_progress);
 		handle_errors();

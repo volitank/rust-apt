@@ -90,23 +90,6 @@ pub mod raw {
 		/// Get the selected state of a package.
 		pub fn selected_state(self: &Package) -> u8;
 
-		/// Get a pointer the the currently installed version
-		///
-		/// Safety: If Version.end() is true,
-		/// calling methods on the Version can segfault.
-		pub fn unsafe_current_version(self: &Package) -> Version;
-
-		/// Get a pointer to the beginning of the VerIterator
-		///
-		/// Safety: If Version.end() is true,
-		/// calling methods on the Version can segfault.
-		pub fn unsafe_version_list(self: &Package) -> Version;
-
-		/// Get the providers of this package
-		pub fn unsafe_provides(self: &Package) -> Provider;
-
-		pub fn unsafe_rev_depends(self: &Package) -> Dependency;
-
 		/// True if the package is essential.
 		pub fn is_essential(self: &Package) -> bool;
 
@@ -160,16 +143,7 @@ pub mod raw {
 		// even if it is the same as the binary version.
 		pub fn source_version(self: &Version) -> &str;
 
-		pub fn unsafe_provides(self: &Version) -> Provider;
-
-		pub fn unsafe_depends(self: &Version) -> Dependency;
-
-		// This is for backend records lookups.
-		// You can also get package files from here.
-		pub fn unsafe_description_file(self: &Version) -> Result<DescriptionFile>;
-
-		// You go through here to get the package files.
-		pub fn unsafe_version_file(self: &Version) -> VersionFile;
+		fn u_description_file(self: &Version) -> Result<DescriptionFile>;
 
 		/// Return the parent package. TODO: This probably isn't going to work
 		/// rn pub fn parent(self: &Package) -> bool;
@@ -307,20 +281,53 @@ pub mod raw {
 		// A simple way to clone the pointer
 		pub fn unique(self: &DescriptionFile) -> DescriptionFile;
 
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_current_version(self: &Package) -> Version;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_version_list(self: &Package) -> Version;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_provides(self: &Package) -> Provider;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_rev_depends(self: &Package) -> Dependency;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_provides(self: &Version) -> Provider;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_depends(self: &Version) -> Dependency;
+		/// # Safety
+		///
+		/// If the inner pointer is null segfaults can occur.
+		unsafe fn u_version_file(self: &Version) -> VersionFile;
 	}
 }
 
 impl raw::Package {
+	/// Get a pointer the the currently installed version
 	pub fn current_version(&self) -> Option<RawVersion> {
-		self.unsafe_current_version().make_safe()
+		unsafe { self.u_current_version().make_safe() }
 	}
 
-	pub fn version_list(&self) -> Option<RawVersion> { self.unsafe_version_list().make_safe() }
+	/// Get a pointer to the beginning of the VerIterator
+	pub fn version_list(&self) -> Option<RawVersion> {
+		unsafe { self.u_version_list().make_safe() }
+	}
 
-	pub fn provides_list(&self) -> Option<RawProvider> { self.unsafe_provides().make_safe() }
+	/// Get the providers of this package
+	pub fn provides_list(&self) -> Option<RawProvider> { unsafe { self.u_provides().make_safe() } }
 
 	pub fn rev_depends_list(&self) -> Option<RawDependency> {
-		self.unsafe_rev_depends().make_safe()
+		unsafe { self.u_rev_depends().make_safe() }
 	}
 
 	/// True if the Package is installed.
@@ -336,14 +343,21 @@ impl raw::Package {
 }
 
 impl raw::Version {
-	pub fn provides_list(&self) -> Option<RawProvider> { self.unsafe_provides().make_safe() }
+	/// Returns a list of providers if they exist
+	pub fn provides_list(&self) -> Option<RawProvider> { unsafe { self.u_provides().make_safe() } }
 
-	pub fn depends(&self) -> Option<RawDependency> { self.unsafe_depends().make_safe() }
+	/// Get the raw dependencies if they exist
+	pub fn depends(&self) -> Option<RawDependency> { unsafe { self.u_depends().make_safe() } }
 
-	pub fn version_files(&self) -> Option<RawVersionFile> { self.unsafe_version_file().make_safe() }
+	// You go through here to get the package files.
+	pub fn version_files(&self) -> Option<RawVersionFile> {
+		unsafe { self.u_version_file().make_safe() }
+	}
 
+	// This is for backend records lookups.
+	// You can also get package files from here.
 	pub fn description_files(&self) -> Option<RawDescriptionFile> {
-		self.unsafe_description_file().ok()?.make_safe()
+		self.u_description_file().ok()?.make_safe()
 	}
 }
 
@@ -486,7 +500,7 @@ raw_hash!(RawVersion);
 
 #[cfg(test)]
 mod raw_tests {
-	use crate::raw::cache::raw::create_cache;
+	use crate::raw::cache::raw::Cache;
 	use crate::raw::package::RawVersionFile;
 
 	#[test]
@@ -494,7 +508,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		dbg!(pkg.name());
@@ -538,7 +552,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 
 		// Check Native Arch
 		let pkg = cache.find_pkg("www-browser").unwrap();
@@ -571,7 +585,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
@@ -593,14 +607,14 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
 		let depcache = cache.create_depcache();
 
 		// Apt should have a candidate as well as current version
-		assert!(!depcache.unsafe_candidate_version(&pkg).ptr.is_null());
+		assert!(depcache.candidate_version(&pkg).is_some());
 
 		let ver_files: Vec<RawVersionFile> = cand.version_files().unwrap().collect();
 
@@ -640,7 +654,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 
@@ -668,7 +682,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 		dbg!(cache.source_uris());
 	}
 
@@ -677,10 +691,10 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
 		let depcache = cache.create_depcache();
-		let cand = depcache.unsafe_candidate_version(&pkg);
+		let cand = unsafe { depcache.u_candidate_version(&pkg) };
 
 		dbg!(cache.priority(&cand));
 	}
@@ -690,10 +704,10 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
 		let depcache = cache.create_depcache();
-		let cand = depcache.unsafe_candidate_version(&pkg);
+		let cand = unsafe { depcache.u_candidate_version(&pkg) };
 
 		let records = cache.create_records();
 
@@ -716,7 +730,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 		let mut progress = crate::raw::progress::AptAcquireProgress::new_box();
 
 		cache.update(&mut progress).unwrap();
@@ -727,7 +741,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = create_cache(&debs).unwrap();
+		let cache = Cache::new(&debs).unwrap();
 		let _pacman = crate::raw::pkgmanager::raw::create_pkgmanager(&cache);
 		let _resolve = crate::raw::pkgmanager::raw::create_problem_resolver(&cache);
 	}

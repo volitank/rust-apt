@@ -7,7 +7,7 @@
 #include "rust-apt/src/raw/depcache.rs"
 
 /// Clear any marked changes in the DepCache.
-inline void DepCache::init(DynOperationProgress& callback) const {
+inline void DepCache::u_init(DynOperationProgress& callback) const {
 	OpProgressWrapper op_progress(callback);
 
 	(*ptr)->Init(&op_progress);
@@ -155,7 +155,7 @@ inline void DepCache::set_candidate_version(const Version& ver) const noexcept {
 
 /// Return the candidate version of the package.
 /// Ptr will be NULL if there isn't a candidate.
-inline Version DepCache::unsafe_candidate_version(const Package& pkg) const noexcept {
+inline Version DepCache::u_candidate_version(const Package& pkg) const noexcept {
 	return Version{std::make_unique<VerIterator>((*ptr)->GetCandidateVersion(*pkg.ptr))};
 }
 
@@ -163,7 +163,7 @@ inline Version DepCache::unsafe_candidate_version(const Package& pkg) const noex
 /// * If a version is marked for install this will return the version to be
 ///   installed.
 /// * If an installed package is marked for removal, this will return [`None`].
-inline Version DepCache::unsafe_install_version(const Package& pkg) const noexcept {
+inline Version DepCache::u_install_version(const Package& pkg) const noexcept {
 	pkgCache& cache = (*ptr)->GetCache();
 
 	return Version{std::make_unique<VerIterator>((**ptr)[*pkg.ptr].InstVerIter(cache))};
@@ -226,7 +226,7 @@ inline u_int64_t DepCache::download_size() const noexcept { return (*ptr)->DebSi
 inline int64_t DepCache::disk_size() const noexcept { return (*ptr)->UsrSize(); }
 
 /// Perform a Full Upgrade. Remove and install new packages if necessary.
-inline void DepCache::full_upgrade(DynOperationProgress& callback) const {
+inline void DepCache::u_full_upgrade(DynOperationProgress& callback) const {
 	OpProgressWrapper op_progress(callback);
 
 	// This is equivalent to `apt full-upgrade` and `apt-get dist-upgrade`
@@ -236,7 +236,7 @@ inline void DepCache::full_upgrade(DynOperationProgress& callback) const {
 }
 
 /// Perform a Safe Upgrade. Neither remove or install new packages.
-inline void DepCache::safe_upgrade(DynOperationProgress& callback) const {
+inline void DepCache::u_safe_upgrade(DynOperationProgress& callback) const {
 	OpProgressWrapper op_progress(callback);
 
 	// This is equivalent to `apt-get upgrade`
@@ -248,7 +248,7 @@ inline void DepCache::safe_upgrade(DynOperationProgress& callback) const {
 }
 
 /// Perform an Install Upgrade. New packages will be installed but nothing will be removed.
-inline void DepCache::install_upgrade(DynOperationProgress& callback) const {
+inline void DepCache::u_install_upgrade(DynOperationProgress& callback) const {
 	OpProgressWrapper op_progress(callback);
 
 	// This is equivalent to `apt upgrade`

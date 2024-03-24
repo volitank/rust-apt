@@ -1,9 +1,8 @@
 use std::ops::Deref;
 
-use cxx::Exception;
-
 use crate::package::{Package, Version};
 use crate::raw::depcache::raw;
+use crate::raw::error::AptErrors;
 use crate::raw::progress::NoOpProgress;
 use crate::util::DiskSpace;
 
@@ -17,7 +16,7 @@ impl DepCache {
 	pub fn new(ptr: RawDepCache) -> DepCache { DepCache { ptr } }
 
 	/// Clear any marked changes in the DepCache.
-	pub fn clear_marked(&self) -> Result<(), Exception> {
+	pub fn clear_marked(&self) -> Result<(), AptErrors> {
 		// Use our dummy OperationProgress struct.
 		self.init(&mut NoOpProgress::new_box())
 	}

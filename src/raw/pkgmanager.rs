@@ -1,5 +1,6 @@
 //! Contains types and bindings for fetching and installing packages from the
 //! cache.
+use super::error::AptErrors;
 
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
@@ -36,13 +37,20 @@ pub mod raw {
 
 		pub fn protect(self: &ProblemResolver, pkg: &Package);
 
-		// TODO: What kind of errors can be returned here?
-		// Research and update higher level structs as well
-		// TODO: Create custom errors when we have better information
-		pub fn resolve(
+		fn u_resolve(
 			self: &ProblemResolver,
 			fix_broken: bool,
 			op_progress: &mut DynOperationProgress,
 		) -> Result<()>;
+	}
+}
+
+impl raw::ProblemResolver {
+	pub fn resolve(
+		&self,
+		fix_broken: bool,
+		op_progress: &mut raw::DynOperationProgress,
+	) -> Result<(), AptErrors> {
+		Ok(self.u_resolve(fix_broken, op_progress)?)
 	}
 }

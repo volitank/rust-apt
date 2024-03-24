@@ -1,12 +1,12 @@
 //! Contains miscellaneous helper utilities.
 use std::cmp::Ordering;
 
-pub use cxx::Exception;
 use terminal_size::{terminal_size, Height, Width};
 
 use crate::cache::Cache;
 use crate::config;
 use crate::package::Package;
+use crate::raw::error::AptErrors;
 use crate::raw::package::DepFlags;
 use crate::raw::util::raw;
 
@@ -161,9 +161,9 @@ pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String {
 ///   Permission denied)`
 /// * `E:Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend),
 ///   are you root?`
-pub fn apt_lock() -> Result<(), Exception> {
+pub fn apt_lock() -> Result<(), AptErrors> {
 	config::init_config_system();
-	raw::apt_lock()
+	Ok(raw::apt_lock()?)
 }
 
 /// Unlock the APT lockfile.
@@ -178,9 +178,9 @@ pub fn apt_unlock() {
 /// and then [`apt_unlock_inner`] should be called after.
 ///
 /// This Function Requires root
-pub fn apt_lock_inner() -> Result<(), Exception> {
+pub fn apt_lock_inner() -> Result<(), AptErrors> {
 	config::init_config_system();
-	raw::apt_lock_inner()
+	Ok(raw::apt_lock_inner()?)
 }
 
 /// Unlock the Dpkg lockfile.

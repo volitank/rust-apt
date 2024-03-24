@@ -650,6 +650,6 @@ mod cache {
 				println!("{broken}");
 			}
 		}
-		println!("{}", err.what());
+		println!("{err}");
 	}
 }

@@ -5,7 +5,6 @@ use std::io::{stdout, Write};
 use cxx::ExternType;
 
 use crate::config::Config;
-// use crate::config::Config;
 use crate::util::{
 	get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys,
 };

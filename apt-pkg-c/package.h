@@ -175,7 +175,7 @@ inline bool Version::is_downloadable() const noexcept { return ptr->Downloadable
 inline bool Version::is_installed() const noexcept { return ptr->ParentPkg().CurrentVer() == *ptr; }
 
 // This is for backend records lookups. You can also get package files from here.
-inline DescriptionFile Version::unsafe_description_file() const {
+inline DescriptionFile Version::u_description_file() const {
 	auto desc_file = ptr->TranslatedDescription();
 	// Must check if DescFileIterator is null first.
 	// See https://gitlab.com/volian/rust-apt/-/issues/28
@@ -185,7 +185,7 @@ inline DescriptionFile Version::unsafe_description_file() const {
 }
 
 // You go through here to get the package files.
-inline VersionFile Version::unsafe_version_file() const noexcept {
+inline VersionFile Version::u_version_file() const noexcept {
 	return VersionFile{std::make_unique<VerFileIterator>(ptr->FileList())};
 }
 
@@ -198,15 +198,15 @@ inline rust::Str Version::source_name() const noexcept { return ptr->SourcePkgNa
 // Always contains the version string, even if it is the same as the binary version
 inline rust::Str Version::source_version() const noexcept { return ptr->SourceVerStr(); }
 
-inline Dependency Version::unsafe_depends() const noexcept {
+inline Dependency Version::u_depends() const noexcept {
 	return Dependency{std::make_unique<DepIterator>(ptr->DependsList())};
 }
 
-inline Dependency Package::unsafe_rev_depends() const noexcept {
+inline Dependency Package::u_rev_depends() const noexcept {
 	return Dependency{std::make_unique<DepIterator>(ptr->RevDependsList())};
 }
 
-inline Provider Version::unsafe_provides() const noexcept {
+inline Provider Version::u_provides() const noexcept {
 	return Provider{std::make_unique<PrvIterator>(ptr->ProvidesList())};
 }
 
@@ -227,7 +227,7 @@ inline u_int8_t Package::selected_state() const noexcept { return (*ptr)->Select
 
 /// Return the installed version of the package.
 /// Ptr will be NULL if it's not installed.
-inline Version Package::unsafe_current_version() const noexcept {
+inline Version Package::u_current_version() const noexcept {
 	return Version{std::make_unique<VerIterator>(ptr->CurrentVer())};
 }
 
@@ -236,11 +236,11 @@ inline bool Package::is_essential() const noexcept {
 	return ((*ptr)->Flags & pkgCache::Flag::Essential) != 0;
 }
 
-inline Version Package::unsafe_version_list() const noexcept {
+inline Version Package::u_version_list() const noexcept {
 	return Version{std::make_unique<VerIterator>(ptr->VersionList())};
 }
 
-inline Provider Package::unsafe_provides() const noexcept {
+inline Provider Package::u_provides() const noexcept {
 	return Provider{std::make_unique<PrvIterator>(ptr->ProvidesList())};
 }
 
