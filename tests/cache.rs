@@ -5,6 +5,7 @@ mod cache {
 	use rust_apt::cache::*;
 	use rust_apt::new_cache;
 	use rust_apt::package::DepType;
+	use rust_apt::raw::package::IntoRawIter;
 	use rust_apt::util::*;
 
 	#[test]
@@ -206,7 +207,7 @@ mod cache {
 		for deps in cand.dependencies().unwrap() {
 			for dep in &deps.base_deps {
 				// Apt Dependencies should have targets
-				assert!(dep.all_targets().next().is_some());
+				assert!(dep.all_targets().first().is_some());
 			}
 		}
 		assert!(cand.recommends().is_some());
@@ -365,7 +366,7 @@ mod cache {
 		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		let cand = pkg.candidate().unwrap();
-		let provides_list = cand.provides_list().unwrap().collect::<Vec<_>>();
+		let provides_list = cand.provides_list().unwrap().to_vec();
 
 		assert!(provides_list.len() == 1);
 		// 'apt' seems to always provide for 'apt-transport-https' at APT's version.
@@ -415,7 +416,7 @@ mod cache {
 		let pkg = cache.get("apt-transport-https").unwrap();
 
 		{
-			let mut rev_provides_list = pkg.provides_list().unwrap();
+			let mut rev_provides_list = pkg.provides_list().unwrap().raw_iter();
 			let provides_pkg = rev_provides_list.next().unwrap();
 
 			assert!(rev_provides_list.next().is_none());
@@ -426,13 +427,12 @@ mod cache {
 		}
 
 		{
-			let mut rev_provides_list =
-				pkg.provides_list()
-					.unwrap()
-					.filter(|p| match p.version_str() {
-						Err(_) => false,
-						Ok(version) => version == ver.version(),
-					});
+			let mut rev_provides_list = pkg.provides_list().unwrap().raw_iter().filter(|p| match p
+				.version_str()
+			{
+				Err(_) => false,
+				Ok(version) => version == ver.version(),
+			});
 
 			let provides_pkg = rev_provides_list.next().unwrap();
 			assert!(rev_provides_list.next().is_none());
@@ -444,20 +444,19 @@ mod cache {
 		}
 
 		{
-			let mut rev_provides_list =
-				pkg.provides_list()
-					.unwrap()
-					.filter(|p| match p.version_str() {
-						Err(_) => false,
-						Ok(version) => version == "50000000000.0.0",
-					});
+			let mut rev_provides_list = pkg.provides_list().unwrap().raw_iter().filter(|p| match p
+				.version_str()
+			{
+				Err(_) => false,
+				Ok(version) => version == "50000000000.0.0",
+			});
 			assert!(rev_provides_list.next().is_none());
 		}
 
 		// Test a virtual package with provides.
 		{
 			let pkg = cache.get("www-browser").unwrap();
-			assert!(pkg.provides_list().unwrap().next().is_some());
+			assert!(pkg.provides_list().unwrap().raw_iter().next().is_some());
 		}
 	}
 
@@ -565,10 +564,12 @@ mod cache {
 		// Package files should not be empty if we got a candidate from `apt`.
 		assert!(!pkg_files.is_empty());
 
-		for mut pkg_file in pkg_files {
+		for pkg_file in pkg_files {
 			// Apt should have all of these blocks in the package file.
 			assert!(pkg_file.filename().is_ok());
 			assert!(pkg_file.archive().is_ok());
+
+			println!("{}", pkg_file.filename().unwrap());
 
 			// If the archive is `/var/lib/dpkg/status` These will be None.
 			if pkg_file.archive().unwrap() != "now" {
@@ -587,7 +588,8 @@ mod cache {
 			assert_ne!(pkg_file.index(), 0);
 
 			// Apt should likely be from a trusted repository.
-			assert!(cache.is_trusted(&mut pkg_file));
+			let index = cache.find_index(&pkg_file);
+			assert!(cache.is_trusted(&index));
 			// Print it in case I want to see.
 			// println!("{pkg_file}");
 		}

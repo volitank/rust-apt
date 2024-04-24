@@ -18,6 +18,7 @@ edition = "2021"
 
 [dependencies]
 cxx = "1.0"
+paste = "1.0"
 terminal_size = "0.3.0"
 
 [build-dependencies]

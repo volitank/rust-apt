@@ -7,19 +7,23 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
+use cxx::UniquePtr;
+
 use crate::cache::Cache;
 pub use crate::raw::package::DepType;
-use crate::raw::package::{RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion};
+use crate::raw::package::{
+	IntoRawIter, RawDependency, RawPackage, RawPackageFile, RawProvider, RawVersion,
+};
 use crate::util::cmp_versions;
 
 pub struct Package<'a> {
-	ptr: RawPackage,
+	ptr: UniquePtr<RawPackage>,
 	pub(crate) cache: &'a Cache,
 	rdepends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
 impl<'a> Package<'a> {
-	pub fn new(cache: &'a Cache, ptr: RawPackage) -> Package<'a> {
+	pub fn new(cache: &'a Cache, ptr: UniquePtr<RawPackage>) -> Package<'a> {
 		Package {
 			ptr,
 			cache,
@@ -28,8 +32,8 @@ impl<'a> Package<'a> {
 	}
 
 	/// Internal Method for generating the version list.
-	fn raw_versions(&self) -> impl Iterator<Item = RawVersion> {
-		self.version_list().into_iter().flatten()
+	fn raw_versions(&self) -> impl Iterator<Item = UniquePtr<RawVersion>> {
+		self.version_list().into_iter().flat_map(|p| p.raw_iter())
 	}
 
 	/// Returns a Reverse Dependency Map of the package
@@ -111,8 +115,8 @@ impl<'a> Package<'a> {
 	pub fn provides(&self) -> impl Iterator<Item = Provider<'a>> {
 		self.provides_list()
 			.into_iter()
-			.flatten()
-			.map(|provider| Provider::new(provider, self.cache))
+			.flat_map(|p| p.raw_iter())
+			.map(|p| Provider::new(p, self.cache))
 	}
 
 	/// Check if the package is upgradable.
@@ -278,13 +282,13 @@ impl<'a> fmt::Debug for Package<'a> {
 }
 
 pub struct Version<'a> {
-	ptr: RawVersion,
+	ptr: UniquePtr<RawVersion>,
 	cache: &'a Cache,
 	depends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
 impl<'a> Version<'a> {
-	pub fn new(ptr: RawVersion, cache: &'a Cache) -> Version<'a> {
+	pub fn new(ptr: UniquePtr<RawVersion>, cache: &'a Cache) -> Version<'a> {
 		Version {
 			ptr,
 			cache,
@@ -296,16 +300,16 @@ impl<'a> Version<'a> {
 	pub fn provides(&self) -> impl Iterator<Item = Provider<'a>> {
 		self.provides_list()
 			.into_iter()
-			.flatten()
-			.map(|provider| Provider::new(provider, self.cache))
+			.flat_map(|p| p.raw_iter())
+			.map(|p| Provider::new(p, self.cache))
 	}
 
 	/// Returns an iterator of PackageFiles (Origins) for the version
-	pub fn package_files(&self) -> impl Iterator<Item = RawPackageFile> + '_ {
-		// TODO: We should probably not expect here.
+	pub fn package_files(&self) -> impl Iterator<Item = UniquePtr<RawPackageFile>> + '_ {
 		self.version_files()
-			.expect("No Version Files")
-			.map(|pkg_file| pkg_file.pkg_file())
+			.into_iter()
+			.flat_map(|v| v.raw_iter())
+			.map(|v| v.pkg_file())
 	}
 
 	/// Return the version's parent package.
@@ -383,7 +387,7 @@ impl<'a> Version<'a> {
 
 	/// Get the translated long description
 	pub fn description(&self) -> Option<String> {
-		if let Some(desc_file) = self.description_files()?.next() {
+		if let Some(desc_file) = self.description_files()?.raw_iter().next() {
 			self.cache.records().desc_file_lookup(&desc_file);
 			return self.cache.records().long_desc().ok();
 		}
@@ -392,7 +396,7 @@ impl<'a> Version<'a> {
 
 	/// Get the translated short description
 	pub fn summary(&self) -> Option<String> {
-		if let Some(desc_file) = self.description_files()?.next() {
+		if let Some(desc_file) = self.description_files()?.raw_iter().next() {
 			self.cache.records().desc_file_lookup(&desc_file);
 			return self.cache.records().short_desc().ok();
 		}
@@ -418,7 +422,7 @@ impl<'a> Version<'a> {
 	/// println!("{}", cand.get_record("Description-md5").unwrap());
 	/// ```
 	pub fn get_record<T: ToString + ?Sized>(&self, field: &T) -> Option<String> {
-		if let Some(ver_file) = self.version_files()?.next() {
+		if let Some(ver_file) = self.version_files()?.raw_iter().next() {
 			self.cache.records().ver_file_lookup(&ver_file);
 			return self.cache.records().get_field(field.to_string()).ok();
 		}
@@ -428,7 +432,7 @@ impl<'a> Version<'a> {
 	/// Get the hash specified. If there isn't one returns None
 	/// `version.hash("md5sum")`
 	pub fn hash<T: ToString + ?Sized>(&self, hash_type: &T) -> Option<String> {
-		if let Some(ver_file) = self.version_files()?.next() {
+		if let Some(ver_file) = self.version_files()?.raw_iter().next() {
 			self.cache.records().ver_file_lookup(&ver_file);
 			return self.cache.records().hash_find(hash_type.to_string()).ok();
 		}
@@ -445,20 +449,18 @@ impl<'a> Version<'a> {
 
 	/// Returns an iterator of URIs for the version
 	pub fn uris(&'a self) -> impl Iterator<Item = String> + '_ {
-		// TODO: Maybe remove Package_files method and make a map of ver_file pkg_file?
-		self.package_files().filter_map(|mut pkg_file| {
-			self.cache.find_index(&mut pkg_file);
-			let ver_file = self.version_files()?.next()?;
+		self.version_files().into_iter().flat_map(|v| {
+			v.raw_iter().filter_map(|file| {
+				let index = self.cache.find_index(&file.pkg_file());
+				self.cache.records().ver_file_lookup(&file);
 
-			self.cache.records().ver_file_lookup(&ver_file);
-
-			if let Ok(uri) = self.cache.records().ver_uri(&pkg_file) {
+				let uri = self.cache.records().ver_uri(&index).ok()?;
 				// Should match this from the configurations. Hardcoding is okay for now.
 				if !uri.ends_with("/var/lib/dpkg/status") {
 					return Some(uri);
 				}
-			}
-			None
+				None
+			})
 		})
 	}
 
@@ -523,11 +525,11 @@ impl<'a> fmt::Debug for Version<'a> {
 
 pub fn create_depends_map(
 	cache: &Cache,
-	dep: Option<RawDependency>,
+	dep: Option<UniquePtr<RawDependency>>,
 ) -> HashMap<DepType, Vec<Dependency>> {
 	let mut dependencies: HashMap<DepType, Vec<Dependency>> = HashMap::new();
 
-	if let Some(dep) = dep {
+	if let Some(mut dep) = dep {
 		while !dep.end() {
 			let mut or_deps = vec![];
 			or_deps.push(BaseDep::new(dep.unique(), cache));
@@ -538,7 +540,7 @@ pub fn create_depends_map(
 			// See: https://gitlab.com/volian/rust-apt/-/merge_requests/36
 			if dep.compare_op() && !dep.is_reverse() {
 				loop {
-					dep.raw_next();
+					dep.pin_mut().raw_next();
 					or_deps.push(BaseDep::new(dep.unique(), cache));
 					// This is the last of the Or group
 					if !dep.compare_op() {
@@ -556,7 +558,7 @@ pub fn create_depends_map(
 				// Doesn't exist so we create it
 				dependencies.insert(dep_type, vec![Dependency { base_deps: or_deps }]);
 			}
-			dep.raw_next();
+			dep.pin_mut().raw_next();
 		}
 	}
 	dependencies
@@ -564,14 +566,14 @@ pub fn create_depends_map(
 
 /// A struct representing a Base Dependency.
 pub struct BaseDep<'a> {
-	ptr: RawDependency,
+	pub ptr: UniquePtr<RawDependency>,
 	cache: &'a Cache,
 	target: OnceCell<Package<'a>>,
-	parent_ver: OnceCell<RawVersion>,
+	parent_ver: OnceCell<UniquePtr<RawVersion>>,
 }
 
 impl<'a> BaseDep<'a> {
-	pub fn new(ptr: RawDependency, cache: &'a Cache) -> BaseDep {
+	pub fn new(ptr: UniquePtr<RawDependency>, cache: &'a Cache) -> BaseDep {
 		BaseDep {
 			ptr,
 			cache,
@@ -609,7 +611,13 @@ impl<'a> BaseDep<'a> {
 	pub fn comp(&self) -> Option<&str> { self.comp_type().ok() }
 
 	// Iterate all Versions that are able to satisfy this dependency
-	pub fn all_targets(&self) -> impl Iterator<Item = RawVersion> { self.ptr.all_targets() }
+	pub fn all_targets(&self) -> Vec<Version> {
+		self.ptr
+			.all_targets()
+			.iter()
+			.map(|v| Version::new(v.unique(), self.cache))
+			.collect()
+	}
 }
 
 impl<'a> Deref for BaseDep<'a> {
@@ -682,12 +690,14 @@ impl<'a> fmt::Display for Dependency<'a> {
 }
 
 pub struct Provider<'a> {
-	ptr: RawProvider,
+	ptr: UniquePtr<RawProvider>,
 	cache: &'a Cache,
 }
 
 impl<'a> Provider<'a> {
-	pub fn new(ptr: RawProvider, cache: &'a Cache) -> Provider<'a> { Provider { ptr, cache } }
+	pub fn new(ptr: UniquePtr<RawProvider>, cache: &'a Cache) -> Provider<'a> {
+		Provider { ptr, cache }
+	}
 
 	/// Return the Target Package of the provider.
 	pub fn package(&self) -> Package<'a> { Package::new(self.cache, self.target_pkg()) }

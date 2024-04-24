@@ -8,21 +8,27 @@
 #include <apt-pkg/sourcelist.h>
 #include <memory>
 
+#include "cache.h"
+#include "progress.h"
+
 struct PackageManager {
 	pkgPackageManager mutable* pkgmanager;
 
 	inline void get_archives(
-		const Cache& cache,
-		const Records& records,
+		const PkgCacheFile& cache,
+		const PkgRecords& records,
 		DynAcquireProgress& callback
 	) const {
 		AcqTextStatus archive_progress(callback);
 		pkgAcquire acquire(&archive_progress);
 
-		// We probably need to let the user set their own pkgSourceList,
+		// We probably need to let the user set their own pkgSourcePkgCacheFileList,
 		// but there hasn't been a need to expose such in the Rust interface
 		// yet. pkgSourceList sourcelist = *cache->GetSourceList();
-		if (!pkgmanager->GetArchives(&acquire, cache.ptr->GetSourceList(), &records.records)) {
+
+		if (!pkgmanager->GetArchives(
+				&acquire, cache.unconst()->GetSourceList(), &records.records
+			)) {
 			handle_errors();
 			throw std::runtime_error(
 				"Internal Issue with rust-apt in pkgmanager_get_archives."
@@ -84,7 +90,7 @@ struct ProblemResolver {
 
 	/// Mark a package as protected, i.e. don't let its installation/removal state change when
 	/// modifying packages during resolution.
-	inline void protect(const Package& pkg) const { resolver.Protect(*pkg.ptr); }
+	inline void protect(const PkgIterator& pkg) const { resolver.Protect(pkg); }
 
 	/// Try to resolve dependency problems by marking packages for installation and removal.
 	inline void u_resolve(bool fix_broken, DynOperationProgress& callback) const {
@@ -97,11 +103,11 @@ struct ProblemResolver {
 };
 
 /// Create the problem resolver.
-std::unique_ptr<ProblemResolver> create_problem_resolver(const Cache& cache) {
-	return std::make_unique<ProblemResolver>(cache.ptr->GetDepCache());
+std::unique_ptr<ProblemResolver> create_problem_resolver(const PkgDepCache& cache) {
+	return std::make_unique<ProblemResolver>(cache.ptr);
 }
 
-std::unique_ptr<PackageManager> create_pkgmanager(const Cache& cache) {
+std::unique_ptr<PackageManager> create_pkgmanager(const PkgDepCache& cache) {
 	// Package Manager needs the DepCache initialized or else invalid memory reference.
-	return std::make_unique<PackageManager>(cache.ptr->GetDepCache());
+	return std::make_unique<PackageManager>(cache.ptr);
 }

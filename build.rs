@@ -11,33 +11,32 @@ fn main() {
 		"src/raw/error.rs",
 	];
 
-	cxx_build::bridges(source_files)
-		.file("apt-pkg-c/progress.cc")
-		.file("apt-pkg-c/error.cc")
-		.flag_if_supported("-std=c++14")
+	let mut cc_files = vec!["apt-pkg-c/progress.cc", "apt-pkg-c/error.cc"];
+
+	cxx_build::bridges(&source_files)
+		.files(&cc_files)
+		.flag_if_supported("-std=c++17")
 		.compile("rust-apt");
 
 	println!("cargo:rustc-link-lib=apt-pkg");
-	println!("cargo:rerun-if-changed=src/raw/cache.rs");
-	println!("cargo:rerun-if-changed=src/raw/progress.rs");
-	println!("cargo:rerun-if-changed=src/raw/config.rs");
-	println!("cargo:rerun-if-changed=src/raw/util.rs");
-	println!("cargo:rerun-if-changed=src/raw/records.rs");
-	println!("cargo:rerun-if-changed=src/raw/depcache.rs");
-	println!("cargo:rerun-if-changed=src/raw/package.rs");
-	println!("cargo:rerun-if-changed=src/raw/pkgmanager.rs");
-	println!("cargo:rerun-if-changed=src/raw/error.rs");
+	for file in source_files {
+		println!("cargo:rerun-if-changed={file}")
+	}
 
-	println!("cargo:rerun-if-changed=apt-pkg-c/progress.cc");
-	println!("cargo:rerun-if-changed=apt-pkg-c/error.cc");
+	cc_files.extend_from_slice(&[
+		"apt-pkg-c/cache.h",
+		"apt-pkg-c/progress.h",
+		"apt-pkg-c/configuration.h",
+		"apt-pkg-c/util.h",
+		"apt-pkg-c/records.h",
+		"apt-pkg-c/depcache.h",
+		"apt-pkg-c/package.h",
+		"apt-pkg-c/pkgmanager.h",
+		"apt-pkg-c/error.h",
+		"apt-pkg-c/types.h",
+	]);
 
-	println!("cargo:rerun-if-changed=apt-pkg-c/cache.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/progress.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/configuration.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/util.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/records.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/depcache.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/package.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/pkgmanager.h");
-	println!("cargo:rerun-if-changed=apt-pkg-c/error.h");
+	for file in cc_files {
+		println!("cargo:rerun-if-changed={file}")
+	}
 }

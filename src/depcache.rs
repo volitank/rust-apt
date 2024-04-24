@@ -1,19 +1,21 @@
 use std::ops::Deref;
 
+use cxx::UniquePtr;
+
 use crate::package::{Package, Version};
 use crate::raw::depcache::raw;
 use crate::raw::error::AptErrors;
 use crate::raw::progress::NoOpProgress;
 use crate::util::DiskSpace;
 
-type RawDepCache = raw::DepCache;
+type RawDepCache = raw::PkgDepCache;
 
 pub struct DepCache {
-	ptr: RawDepCache,
+	ptr: UniquePtr<RawDepCache>,
 }
 
 impl DepCache {
-	pub fn new(ptr: RawDepCache) -> DepCache { DepCache { ptr } }
+	pub fn new(ptr: UniquePtr<RawDepCache>) -> DepCache { DepCache { ptr } }
 
 	/// Clear any marked changes in the DepCache.
 	pub fn clear_marked(&self) -> Result<(), AptErrors> {

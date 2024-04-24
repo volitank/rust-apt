@@ -3,249 +3,217 @@
 #include <apt-pkg/policy.h>
 #include <memory>
 #include "rust/cxx.h"
-
-#include "rust-apt/src/raw/package.rs"
 #include "util.h"
 
-inline rust::Str Provider::name() const noexcept { return ptr->Name(); }
+struct VerIterator;
+struct PkgIterator;
 
-inline rust::Str Provider::version_str() const { return handle_str(ptr->ProvideVersion()); }
+class DepIterator : public pkgCache::DepIterator {
+   public:
+	void raw_next() { (*this)++; }
 
-inline void Provider::raw_next() const noexcept { ++(*ptr); }
-inline bool Provider::end() const noexcept { return ptr->end(); }
+	std::unique_ptr<DepIterator> unique() const { return std::make_unique<DepIterator>(*this); }
 
-inline Package Provider::target_pkg() const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->OwnerPkg())};
+	uint8_t u8_dep_type() const { return (*this)->Type; }
+	rust::str comp_type() const { return handle_str(this->CompType()); }
+	rust::str target_ver() const { return handle_str(this->TargetVer()); }
+
+	inline bool compare_op() const {
+		return ((*this)->CompareOp & pkgCache::Dep::Or) == pkgCache::Dep::Or;
+	}
+
+	std::unique_ptr<PkgIterator> parent_pkg() const;
+	std::unique_ptr<PkgIterator> target_pkg() const;
+	std::unique_ptr<VerIterator> parent_ver() const;
+	std::unique_ptr<std::vector<VerIterator>> all_targets() const;
+
+	DepIterator(const pkgCache::DepIterator& base) : pkgCache::DepIterator(base){};
+};
+
+class PrvIterator : public pkgCache::PrvIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	rust::str name() const { return this->Name(); }
+	rust::str version_str() const { return handle_str(this->ProvideVersion()); }
+
+	std::unique_ptr<PkgIterator> target_pkg() const;
+	std::unique_ptr<VerIterator> target_ver() const;
+
+	std::unique_ptr<PrvIterator> unique() const { return std::make_unique<PrvIterator>(*this); }
+
+	PrvIterator(const pkgCache::PrvIterator& base) : pkgCache::PrvIterator(base){};
+};
+
+class PkgFileIterator : public pkgCache::PkgFileIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	rust::str filename() const { return handle_str(this->FileName()); }
+	rust::str archive() const { return handle_str(this->Archive()); }
+	rust::str origin() const { return handle_str(this->Origin()); }
+	rust::str codename() const { return handle_str(this->Codename()); }
+	rust::str label() const { return handle_str(this->Label()); }
+	rust::str site() const { return handle_str(this->Site()); }
+	rust::str component() const { return handle_str(this->Component()); }
+	rust::str arch() const { return handle_str(this->Architecture()); }
+	rust::str index_type() const { return handle_str(this->IndexType()); }
+
+	std::unique_ptr<PkgFileIterator> unique() const {
+		return std::make_unique<PkgFileIterator>(*this);
+	}
+
+	PkgFileIterator(const pkgCache::PkgFileIterator& base) : pkgCache::PkgFileIterator(base){};
+};
+
+class VerFileIterator : public pkgCache::VerFileIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	std::unique_ptr<VerFileIterator> unique() const {
+		return std::make_unique<VerFileIterator>(*this);
+	}
+
+	std::unique_ptr<PkgFileIterator> pkg_file() const {
+		return std::make_unique<PkgFileIterator>(this->File());
+	};
+
+	VerFileIterator(const pkgCache::VerFileIterator& base) : pkgCache::VerFileIterator(base){};
+};
+
+class DescFileIterator : public pkgCache::DescFileIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	std::unique_ptr<DescFileIterator> unique() const {
+		return std::make_unique<DescFileIterator>(*this);
+	}
+
+	std::unique_ptr<PkgFileIterator> pkg_file() const {
+		return std::make_unique<PkgFileIterator>(this->File());
+	};
+
+	DescFileIterator(const pkgCache::DescFileIterator& base) : pkgCache::DescFileIterator(base){};
+};
+
+class VerIterator : public pkgCache::VerIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	rust::str version() const { return this->VerStr(); }
+	rust::str arch() const { return this->Arch(); }
+	rust::str section() const { return handle_str(this->Section()); }
+	rust::str priority_str() const { return handle_str(this->PriorityType()); }
+	rust::str source_name() const { return this->SourcePkgName(); }
+	rust::str source_version() const { return this->SourceVerStr(); }
+	uint32_t id() const { return (*this)->ID; }
+	uint64_t size() const { return (*this)->Size; }
+	uint64_t installed_size() const { return (*this)->InstalledSize; }
+	// TODO: Move this into rust?
+	bool is_installed() const { return this->ParentPkg().CurrentVer() == *this; }
+
+	std::unique_ptr<PkgIterator> parent_pkg() const;
+
+	// This is for backend records lookups. You can also get package files from here.
+	std::unique_ptr<DescFileIterator> u_description_file() const {
+		auto desc_file = this->TranslatedDescription();
+		// Must check if DescFileIterator is null first.
+		// See https://gitlab.com/volian/rust-apt/-/issues/28
+		if (desc_file.end()) { throw std::runtime_error("DescFile doesn't exist"); }
+
+		return std::make_unique<DescFileIterator>(desc_file.FileList());
+	}
+
+	// You go through here to get the package files.
+	std::unique_ptr<VerFileIterator> u_version_file() const {
+		return std::make_unique<VerFileIterator>(this->FileList());
+	}
+
+	std::unique_ptr<DepIterator> u_depends() const {
+		return std::make_unique<DepIterator>(this->DependsList());
+	}
+
+	std::unique_ptr<PrvIterator> u_provides() const {
+		return std::make_unique<PrvIterator>(this->ProvidesList());
+	}
+
+	std::unique_ptr<VerIterator> unique() const { return std::make_unique<VerIterator>(*this); }
+
+	VerIterator(const pkgCache::VerIterator& base) : pkgCache::VerIterator(base){};
+};
+
+class PkgIterator : public pkgCache::PkgIterator {
+   public:
+	void raw_next() { (*this)++; }
+
+	rust::str name() const { return this->Name(); }
+	rust::str arch() const { return this->Arch(); }
+	rust::string fullname(bool Pretty) const { return this->FullName(Pretty); }
+	u_int32_t id() const { return (*this)->ID; }
+	u_int8_t current_state() const { return (*this)->CurrentState; }
+	u_int8_t inst_state() const { return (*this)->InstState; }
+	u_int8_t selected_state() const { return (*this)->SelectedState; }
+
+	/// True if the package is essential.
+	bool is_essential() const { return ((*this)->Flags & pkgCache::Flag::Essential) != 0; }
+
+	std::unique_ptr<VerIterator> u_current_version() const {
+		return std::make_unique<VerIterator>(this->CurrentVer());
+	}
+
+	std::unique_ptr<VerIterator> u_version_list() const {
+		return std::make_unique<VerIterator>(this->VersionList());
+	}
+
+	std::unique_ptr<PrvIterator> u_provides() const {
+		return std::make_unique<PrvIterator>(this->ProvidesList());
+	}
+
+	std::unique_ptr<DepIterator> u_rev_depends() const {
+		return std::make_unique<DepIterator>(this->RevDependsList());
+	}
+
+	std::unique_ptr<PkgIterator> unique() const { return std::make_unique<PkgIterator>(*this); }
+
+	PkgIterator(const pkgCache::PkgIterator& base) : pkgCache::PkgIterator(base){};
+};
+
+inline std::unique_ptr<PkgIterator> PrvIterator::target_pkg() const {
+	return std::make_unique<PkgIterator>(this->OwnerPkg());
 }
 
-inline Package Dependency::parent_pkg() const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->ParentPkg())};
+inline std::unique_ptr<VerIterator> PrvIterator::target_ver() const {
+	return std::make_unique<VerIterator>(this->OwnerVer());
 }
 
-inline Version Provider::target_ver() const noexcept {
-	return Version{std::make_unique<VerIterator>(ptr->OwnerVer())};
+inline std::unique_ptr<PkgIterator> DepIterator::parent_pkg() const {
+	return std::make_unique<PkgIterator>(this->ParentPkg());
 }
 
-inline Provider Provider::unique() const noexcept {
-	return Provider{std::make_unique<PrvIterator>(*ptr)};
+inline std::unique_ptr<VerIterator> DepIterator::parent_ver() const {
+	return std::make_unique<VerIterator>(this->ParentVer());
 }
 
-/// The path to the PackageFile
-inline rust::Str PackageFile::filename() const { return handle_str(ptr->FileName()); }
-
-/// The Archive of the PackageFile. ex: unstable
-inline rust::Str PackageFile::archive() const { return handle_str(ptr->Archive()); }
-
-/// The Origin of the PackageFile. ex: Debian
-inline rust::Str PackageFile::origin() const { return handle_str(ptr->Origin()); }
-
-/// The Codename of the PackageFile. ex: main, non-free
-inline rust::Str PackageFile::codename() const { return handle_str(ptr->Codename()); }
-
-/// The Label of the PackageFile. ex: Debian
-inline rust::Str PackageFile::label() const { return handle_str(ptr->Label()); }
-
-/// The Hostname of the PackageFile. ex: deb.debian.org
-inline rust::Str PackageFile::site() const { return handle_str(ptr->Site()); }
-
-/// The Component of the PackageFile. ex: sid
-inline rust::Str PackageFile::component() const { return handle_str(ptr->Component()); }
-
-/// The Architecture of the PackageFile. ex: amd64
-inline rust::Str PackageFile::arch() const { return handle_str(ptr->Architecture()); }
-
-/// The Index Type of the PackageFile. Known values are:
-///
-/// Debian Package Index, Debian Translation Index, Debian dpkg status file,
-inline rust::Str PackageFile::index_type() const { return handle_str(ptr->IndexType()); }
-
-/// The Index number of the PackageFile
-inline uint64_t PackageFile::index() const noexcept { return ptr->Index(); }
-
-// Return the package file object.
-inline PackageFile DescriptionFile::pkg_file() const noexcept {
-	return PackageFile{std::make_unique<PkgFileIterator>(ptr->File()), NULL};
+inline std::unique_ptr<PkgIterator> DepIterator::target_pkg() const {
+	return std::make_unique<PkgIterator>(this->TargetPkg());
 }
 
-// Return the Index of the Package File.
-inline uint64_t DescriptionFile::index() const noexcept { return ptr->Index(); }
+inline std::unique_ptr<std::vector<VerIterator>> DepIterator::all_targets() const {
+	// pkgPrioSortList for sorting by priority?
+	//
+	// The version list returned is not a VerIterator.
+	// They are the lowest level Version structs. We need to iter these
+	// Convert them into our VerIterator, and then we can handle that in rust.
+	std::unique_ptr<pkgCache::Version*[]> VList(this->AllTargets());
+	std::vector<VerIterator> list;
 
-// Increment the iterator one
-inline void DescriptionFile::raw_next() const noexcept { ++(*ptr); }
+	for (pkgCache::Version** I = VList.get(); *I != 0; ++I) {
+		list.push_back(VerIterator(pkgCache::VerIterator(*this->Cache(), *I)));
+	}
 
-// Checks if the pointer is null meaning there is no more.
-inline bool DescriptionFile::end() const noexcept { return ptr->end(); }
-
-inline DescriptionFile DescriptionFile::unique() const noexcept {
-	return DescriptionFile{std::make_unique<DescFileIterator>(*ptr)};
+	return std::make_unique<std::vector<VerIterator>>(list);
 }
 
-// Return the VersionFile object.
-inline PackageFile VersionFile::pkg_file() const noexcept {
-	return PackageFile{std::make_unique<PkgFileIterator>(ptr->File()), NULL};
-}
-
-// Return the Index of the VersionFile.
-inline uint64_t VersionFile::index() const noexcept { return ptr->Index(); }
-
-// Increment the iterator one
-inline void VersionFile::raw_next() const noexcept { ++(*ptr); }
-
-// Checks if the pointer is null meaning there is no more.
-inline bool VersionFile::end() const noexcept { return ptr->end(); }
-
-inline VersionFile VersionFile::unique() const noexcept {
-	return VersionFile{std::make_unique<VerFileIterator>(*ptr)};
-}
-
-/// String representation of the dependency compare type
-/// "","<=",">=","<",">","=","!="
-inline rust::Str Dependency::comp_type() const { return handle_str(ptr->CompType()); }
-
-inline uint32_t Dependency::index() const noexcept { return ptr->Index(); }
-
-/// u8 representation of the DepType. Will be converted to Enum in rust
-inline uint8_t Dependency::u8_dep_type() const noexcept { return (*ptr)->Type; }
-
-// Return true if this dep is Or'd with the next. The last dep in the or group will return False.
-inline bool Dependency::compare_op() const noexcept {
-	return ((*ptr)->CompareOp & pkgCache::Dep::Or) == pkgCache::Dep::Or;
-}
-
-inline rust::Str Dependency::target_ver() const { return handle_str(ptr->TargetVer()); }
-
-inline bool Dependency::is_reverse() const noexcept { return ptr->Reverse(); }
-
-inline Version Dependency::parent_ver() const noexcept {
-	return Version{std::make_unique<VerIterator>(ptr->ParentVer())};
-}
-
-inline Package Dependency::target_pkg() const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->TargetPkg())};
-}
-
-// This should be tested. I'm not entirely sure this is even going to work.
-inline Version Dependency::all_targets() const noexcept {
-	return Version{std::make_unique<VerIterator>(*ptr->Cache(), *ptr->AllTargets())};
-}
-
-/// Increment the Dep Iterator once
-inline void Dependency::raw_next() const noexcept { ++(*ptr); }
-
-/// Is the pointer null, basically
-inline bool Dependency::end() const noexcept { return ptr->end(); }
-
-inline Dependency Dependency::unique() const noexcept {
-	return Dependency{std::make_unique<DepIterator>(*ptr)};
-}
-
-/// The ID of the version.
-inline Package Version::parent_pkg() const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->ParentPkg())};
-}
-
-/// The ID of the version.
-inline uint32_t Version::id() const noexcept { return (*ptr)->ID; }
-
-/// The version string of the version. "1.4.10"
-inline rust::Str Version::version() const noexcept { return ptr->VerStr(); }
-
-/// The architecture of a version.
-inline rust::Str Version::arch() const noexcept { return ptr->Arch(); }
-
-/// The section of the version as shown in `apt show`.
-inline rust::Str Version::section() const {
-	// Some packages, such as msft teams, doesn't have a section.
-	return handle_str(ptr->Section());
-}
-
-/// The priority string as shown in `apt show`.
-inline rust::Str Version::priority_str() const { return handle_str(ptr->PriorityType()); }
-
-/// The size of the .deb file.
-inline uint64_t Version::size() const noexcept { return (*ptr)->Size; }
-
-/// The uncompressed size of the .deb file.
-inline uint64_t Version::installed_size() const noexcept { return (*ptr)->InstalledSize; }
-
-/// True if the version is able to be downloaded.
-inline bool Version::is_downloadable() const noexcept { return ptr->Downloadable(); }
-
-/// True if the version is currently installed.
-inline bool Version::is_installed() const noexcept { return ptr->ParentPkg().CurrentVer() == *ptr; }
-
-// This is for backend records lookups. You can also get package files from here.
-inline DescriptionFile Version::u_description_file() const {
-	auto desc_file = ptr->TranslatedDescription();
-	// Must check if DescFileIterator is null first.
-	// See https://gitlab.com/volian/rust-apt/-/issues/28
-	if (desc_file.end()) { throw std::runtime_error("DescFile doesn't exist"); }
-
-	return DescriptionFile{std::make_unique<DescFileIterator>(desc_file.FileList())};
-}
-
-// You go through here to get the package files.
-inline VersionFile Version::u_version_file() const noexcept {
-	return VersionFile{std::make_unique<VerFileIterator>(ptr->FileList())};
-}
-
-// 	/// Return the parent package. TODO: This probably isn't going to work rn
-// 	inline pkgCache::PkgIterator parent() const noexcept { return ptr->ParentPkg(); }
-
-/// Always contains the name, even if it is the same as the binary name
-inline rust::Str Version::source_name() const noexcept { return ptr->SourcePkgName(); }
-
-// Always contains the version string, even if it is the same as the binary version
-inline rust::Str Version::source_version() const noexcept { return ptr->SourceVerStr(); }
-
-inline Dependency Version::u_depends() const noexcept {
-	return Dependency{std::make_unique<DepIterator>(ptr->DependsList())};
-}
-
-inline Dependency Package::u_rev_depends() const noexcept {
-	return Dependency{std::make_unique<DepIterator>(ptr->RevDependsList())};
-}
-
-inline Provider Version::u_provides() const noexcept {
-	return Provider{std::make_unique<PrvIterator>(ptr->ProvidesList())};
-}
-
-inline void Version::raw_next() const noexcept { ++(*ptr); }
-inline bool Version::end() const noexcept { return ptr->end(); }
-inline Version Version::unique() const noexcept {
-	return Version{std::make_unique<VerIterator>(*ptr)};
-}
-
-inline rust::Str Package::name() const noexcept { return ptr->Name(); }
-inline rust::Str Package::arch() const noexcept { return ptr->Arch(); }
-inline rust::String Package::fullname(bool Pretty) const noexcept { return ptr->FullName(Pretty); }
-
-inline u_int32_t Package::id() const noexcept { return (*ptr)->ID; }
-inline u_int8_t Package::current_state() const noexcept { return (*ptr)->CurrentState; }
-inline u_int8_t Package::inst_state() const noexcept { return (*ptr)->InstState; }
-inline u_int8_t Package::selected_state() const noexcept { return (*ptr)->SelectedState; }
-
-/// Return the installed version of the package.
-/// Ptr will be NULL if it's not installed.
-inline Version Package::u_current_version() const noexcept {
-	return Version{std::make_unique<VerIterator>(ptr->CurrentVer())};
-}
-
-/// True if the package is essential.
-inline bool Package::is_essential() const noexcept {
-	return ((*ptr)->Flags & pkgCache::Flag::Essential) != 0;
-}
-
-inline Version Package::u_version_list() const noexcept {
-	return Version{std::make_unique<VerIterator>(ptr->VersionList())};
-}
-
-inline Provider Package::u_provides() const noexcept {
-	return Provider{std::make_unique<PrvIterator>(ptr->ProvidesList())};
-}
-
-inline void Package::raw_next() const noexcept { ++(*ptr); }
-inline bool Package::end() const noexcept { return this->ptr->end(); }
-inline Package Package::unique() const noexcept {
-	return Package{std::make_unique<PkgIterator>(*ptr)};
+inline std::unique_ptr<PkgIterator> VerIterator::parent_pkg() const {
+	return std::make_unique<PkgIterator>(this->ParentPkg());
 }

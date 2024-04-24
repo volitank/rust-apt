@@ -13,15 +13,15 @@ use crate::package::Package;
 use crate::raw::cache::raw;
 use crate::raw::error::raw::AptError;
 use crate::raw::error::AptErrors;
-use crate::raw::package::RawPackage;
+use crate::raw::package::{IntoRawIter, IterRawPackage, RawPackage};
 use crate::raw::pkgmanager::raw::{
 	create_pkgmanager, create_problem_resolver, PackageManager, ProblemResolver,
 };
 use crate::raw::progress::{AcquireProgress, InstallProgress, OperationProgress};
-use crate::raw::records::raw::Records;
+use crate::raw::records::raw::PkgRecords;
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
 
-type RawRecords = UniquePtr<Records>;
+type RawRecords = UniquePtr<PkgRecords>;
 type RawPkgManager = UniquePtr<PackageManager>;
 type RawProblemResolver = UniquePtr<ProblemResolver>;
 
@@ -162,7 +162,7 @@ impl PackageSort {
 
 /// The main struct for accessing any and all `apt` data.
 pub struct Cache {
-	cache: raw::Cache,
+	cache: UniquePtr<raw::PkgCacheFile>,
 	depcache: OnceCell<DepCache>,
 	records: OnceCell<RawRecords>,
 	pkgmanager: OnceCell<RawPkgManager>,
@@ -186,7 +186,7 @@ impl Cache {
 
 		init_config_system();
 		Ok(Cache {
-			cache: raw::Cache::new(&deb_pkgs)?,
+			cache: raw::PkgCacheFile::new(&deb_pkgs)?,
 			depcache: OnceCell::new(),
 			records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
@@ -196,7 +196,9 @@ impl Cache {
 	}
 
 	/// Internal Method for generating the package list.
-	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = RawPackage>, AptError> { self.begin() }
+	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = UniquePtr<RawPackage>>, AptError> {
+		Ok(self.begin()?.raw_iter())
+	}
 
 	/// Get the DepCache
 	pub fn depcache(&self) -> &DepCache {
@@ -210,19 +212,19 @@ impl Cache {
 	/// Get the PkgManager
 	pub fn pkg_manager(&self) -> &RawPkgManager {
 		self.pkgmanager
-			.get_or_init(|| create_pkgmanager(&self.cache))
+			.get_or_init(|| create_pkgmanager(self.depcache()))
 	}
 
 	/// Get the ProblemResolver
 	pub fn resolver(&self) -> &RawProblemResolver {
 		self.problem_resolver
-			.get_or_init(|| create_problem_resolver(&self.cache))
+			.get_or_init(|| create_problem_resolver(self.depcache()))
 	}
 
 	/// Iterate through the packages in a random order
 	pub fn iter(&self) -> CacheIter {
 		CacheIter {
-			pkgs: self.begin().unwrap(),
+			pkgs: self.begin().unwrap().raw_iter(),
 			cache: self,
 		}
 	}
@@ -619,7 +621,7 @@ impl Cache {
 
 /// Iterator Implementation for the Cache.
 pub struct CacheIter<'a> {
-	pkgs: RawPackage,
+	pkgs: IterRawPackage,
 	cache: &'a Cache,
 }
 
@@ -639,8 +641,8 @@ impl<'a> IntoIterator for &'a Cache {
 /// Implementation to be able to call the raw cache methods from the high level
 /// struct
 impl Deref for Cache {
-	type Target = raw::Cache;
+	type Target = raw::PkgCacheFile;
 
 	#[inline]
-	fn deref(&self) -> &raw::Cache { &self.cache }
+	fn deref(&self) -> &raw::PkgCacheFile { &self.cache }
 }

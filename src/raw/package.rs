@@ -1,58 +1,32 @@
-pub type RawPackage = raw::Package;
-pub type RawVersion = raw::Version;
-pub type RawProvider = raw::Provider;
-pub type RawDependency = raw::Dependency;
-pub type RawVersionFile = raw::VersionFile;
-pub type RawDescriptionFile = raw::DescriptionFile;
-pub type RawPackageFile = raw::PackageFile;
+pub type RawPackage = raw::PkgIterator;
+pub type RawVersion = raw::VerIterator;
+pub type RawProvider = raw::PrvIterator;
+pub type RawDependency = raw::DepIterator;
+pub type RawVersionFile = raw::VerFileIterator;
+pub type RawDescriptionFile = raw::DescFileIterator;
+pub type RawPackageFile = raw::PkgFileIterator;
+
 use std::fmt;
 use std::hash::{Hash, Hasher};
+
+use cxx::UniquePtr;
+use paste::paste;
 
 /// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
 pub mod raw {
-
 	// Some weirdness exists in import order.
 	// SourceURI is defined here, but used in the cache.
 	// We need to impl vec so it can be put in one.
 	impl Vec<SourceURI> {}
 	#[derive(Debug)]
+
 	pub struct SourceURI {
 		pub uri: String,
 		pub path: String,
 	}
 
-	pub struct Package {
-		ptr: UniquePtr<PkgIterator>,
-	}
-
-	pub struct Version {
-		ptr: UniquePtr<VerIterator>,
-	}
-
-	pub struct Provider {
-		ptr: UniquePtr<PrvIterator>,
-	}
-
-	pub struct Dependency {
-		ptr: UniquePtr<DepIterator>,
-	}
-
-	pub struct VersionFile {
-		ptr: UniquePtr<VerFileIterator>,
-	}
-
-	pub struct DescriptionFile {
-		ptr: UniquePtr<DescFileIterator>,
-	}
-
-	pub struct PackageFile {
-		ptr: UniquePtr<PkgFileIterator>,
-		index_file: UniquePtr<IndexFile>,
-	}
-
 	unsafe extern "C++" {
-		include!("rust-apt/apt-pkg-c/types.h");
 		include!("rust-apt/apt-pkg-c/package.h");
 
 		type PkgIterator;
@@ -63,270 +37,253 @@ pub mod raw {
 		type VerFileIterator;
 		type DescFileIterator;
 		type PkgFileIterator;
-		type IndexFile;
+
+		type IndexFile = crate::raw::cache::raw::IndexFile;
 
 		// Package Declarations
 
 		/// Get the name of the package without the architecture.
-		pub fn name(self: &Package) -> &str;
+		pub fn name(self: &PkgIterator) -> &str;
 
 		/// Get the architecture of a package.
-		pub fn arch(self: &Package) -> &str;
+		pub fn arch(self: &PkgIterator) -> &str;
 
 		/// Get the fullname of the package.
 		///
 		/// Pretty is a bool that will omit the native arch.
-		pub fn fullname(self: &Package, pretty: bool) -> String;
+		pub fn fullname(self: &PkgIterator, pretty: bool) -> String;
 
 		/// Get the ID of a package.
-		pub fn id(self: &Package) -> u32;
+		pub fn id(self: &PkgIterator) -> u32;
 
 		/// Get the current state of a package.
-		pub fn current_state(self: &Package) -> u8;
+		pub fn current_state(self: &PkgIterator) -> u8;
 
 		/// Get the installed state of a package.
-		pub fn inst_state(self: &Package) -> u8;
+		pub fn inst_state(self: &PkgIterator) -> u8;
 
 		/// Get the selected state of a package.
-		pub fn selected_state(self: &Package) -> u8;
+		pub fn selected_state(self: &PkgIterator) -> u8;
 
 		/// True if the package is essential.
-		pub fn is_essential(self: &Package) -> bool;
+		pub fn is_essential(self: &PkgIterator) -> bool;
 
-		pub fn raw_next(self: &Package);
-
-		/// This will tell you if the inner PkgIterator is null
-		///
-		/// The cxx is_null function will still show non null because of
-		/// wrappers in c++
-		pub fn end(self: &Package) -> bool;
-
-		// A simple way to clone the pointer
-		pub fn unique(self: &Package) -> Package;
+		#[cxx_name = "Index"]
+		pub fn index(self: &PkgIterator) -> u64;
+		pub fn unique(self: &PkgIterator) -> UniquePtr<PkgIterator>;
+		pub fn raw_next(self: Pin<&mut PkgIterator>);
+		pub fn end(self: &PkgIterator) -> bool;
 
 		// Version Declarations
 
 		/// The version string of the version. "1.4.10".
-		pub fn version(self: &Version) -> &str;
+		pub fn version(self: &VerIterator) -> &str;
 
 		/// The Arch of the version. "amd64".
-		pub fn arch(self: &Version) -> &str;
+		pub fn arch(self: &VerIterator) -> &str;
 
-		/// Return the version's parent RawPackage.
-		pub fn parent_pkg(self: &Version) -> Package;
+		/// Return the version's parent PkgIterator.
+		pub fn parent_pkg(self: &VerIterator) -> UniquePtr<PkgIterator>;
 
 		/// The ID of the version.
-		pub fn id(self: &Version) -> u32;
+		pub fn id(self: &VerIterator) -> u32;
 
 		/// The section of the version as shown in `apt show`.
-		pub fn section(self: &Version) -> Result<&str>;
+		pub fn section(self: &VerIterator) -> Result<&str>;
 
 		/// The priority string as shown in `apt show`.
-		pub fn priority_str(self: &Version) -> Result<&str>;
+		pub fn priority_str(self: &VerIterator) -> Result<&str>;
 
 		/// The size of the .deb file.
-		pub fn size(self: &Version) -> u64;
+		pub fn size(self: &VerIterator) -> u64;
 
 		/// The uncompressed size of the .deb file.
-		pub fn installed_size(self: &Version) -> u64;
+		pub fn installed_size(self: &VerIterator) -> u64;
 
 		/// True if the version is able to be downloaded.
-		pub fn is_downloadable(self: &Version) -> bool;
+		#[cxx_name = "Downloadable"]
+		pub fn is_downloadable(self: &VerIterator) -> bool;
 
 		/// True if the version is currently installed
-		pub fn is_installed(self: &Version) -> bool;
+		pub fn is_installed(self: &VerIterator) -> bool;
 
 		/// Always contains the name, even if it is the same as the binary name
-		pub fn source_name(self: &Version) -> &str;
+		pub fn source_name(self: &VerIterator) -> &str;
 
 		// Always contains the version string,
 		// even if it is the same as the binary version.
-		pub fn source_version(self: &Version) -> &str;
+		pub fn source_version(self: &VerIterator) -> &str;
 
-		fn u_description_file(self: &Version) -> Result<DescriptionFile>;
+		pub fn u_description_file(self: &VerIterator) -> Result<UniquePtr<DescFileIterator>>;
 
-		/// Return the parent package. TODO: This probably isn't going to work
-		/// rn pub fn parent(self: &Package) -> bool;
-		pub fn raw_next(self: &Version);
-
-		/// This will tell you if the inner PkgIterator is null
-		///
-		/// The cxx is_null function will still show non null because of
-		/// wrappers in c++
-		pub fn end(self: &Version) -> bool;
-
-		// A simple way to clone the pointer
-		pub fn unique(self: &Version) -> Version;
+		#[cxx_name = "Index"]
+		pub fn index(self: &VerIterator) -> u64;
+		pub fn unique(self: &VerIterator) -> UniquePtr<VerIterator>;
+		pub fn raw_next(self: Pin<&mut VerIterator>);
+		pub fn end(self: &VerIterator) -> bool;
 
 		// Provider Declarations
 
 		/// The name of what this provider provides
-		pub fn name(self: &Provider) -> &str;
+		pub fn name(self: &PrvIterator) -> &str;
 
-		pub fn version_str(self: &Provider) -> Result<&str>;
+		pub fn version_str(self: &PrvIterator) -> Result<&str>;
 
 		/// The Target Package that can satisfy this provides
-		pub fn target_pkg(self: &Provider) -> Package;
+		pub fn target_pkg(self: &PrvIterator) -> UniquePtr<PkgIterator>;
 
-		pub fn parent_pkg(self: &Dependency) -> Package;
+		pub fn parent_pkg(self: &DepIterator) -> UniquePtr<PkgIterator>;
 
-		pub fn parent_ver(self: &Dependency) -> Version;
+		pub fn parent_ver(self: &DepIterator) -> UniquePtr<VerIterator>;
 
 		/// The Target Version that can satisfy this provides
-		pub fn target_ver(self: &Provider) -> Version;
+		pub fn target_ver(self: &PrvIterator) -> UniquePtr<VerIterator>;
 
-		pub fn raw_next(self: &Provider);
-
-		// A simple way to clone the pointer
-		pub fn unique(self: &Provider) -> Provider;
-
-		/// This will tell you if the inner PkgIterator is null
-		///
-		/// The cxx is_null function will still show non null because of
-		/// wrappers in c++
-		pub fn end(self: &Provider) -> bool;
+		#[cxx_name = "Index"]
+		pub fn index(self: &PrvIterator) -> u64;
+		pub fn unique(self: &PrvIterator) -> UniquePtr<PrvIterator>;
+		pub fn raw_next(self: Pin<&mut PrvIterator>);
+		pub fn end(self: &PrvIterator) -> bool;
 
 		// Dependency Declarations
 		/// String representation of the dependency compare type
 		/// "","<=",">=","<",">","=","!="
-		pub fn comp_type(self: &Dependency) -> Result<&str>;
-
-		pub fn index(self: &Dependency) -> u32;
+		pub fn comp_type(self: &DepIterator) -> Result<&str>;
 
 		// Get the dependency type as a u8
-		pub fn u8_dep_type(self: &Dependency) -> u8;
+		// #[cxx_name = "DepType"]
+		pub fn u8_dep_type(self: &DepIterator) -> u8;
 
-		pub fn target_ver(self: &Dependency) -> Result<&str>;
+		/// Return True if the dep is reverse, false if normal
+		#[cxx_name = "Reverse"]
+		pub fn is_reverse(self: &DepIterator) -> bool;
 
-		pub fn target_pkg(self: &Dependency) -> Package;
+		pub fn target_ver(self: &DepIterator) -> Result<&str>;
 
-		pub fn all_targets(self: &Dependency) -> Version;
+		pub fn target_pkg(self: &DepIterator) -> UniquePtr<PkgIterator>;
+
+		/// Returns a CxxVector of VerIterators.
+		///
+		/// These can not be owned and will need to be mapped with unique.
+		pub fn all_targets(self: &DepIterator) -> UniquePtr<CxxVector<VerIterator>>;
 
 		/// Return true if this dep is Or'd with the next. The last dep in the
 		/// or group will return False.
-		pub fn compare_op(self: &Dependency) -> bool;
+		pub fn compare_op(self: &DepIterator) -> bool;
 
-		/// Increment the Dep Iterator once
-		pub fn raw_next(self: &Dependency);
-
-		/// Return True if the dep is reverse, false if normal
-		pub fn is_reverse(self: &Dependency) -> bool;
-
-		/// Is the pointer null, basically
-		pub fn end(self: &Dependency) -> bool;
-
-		// A simple way to clone the pointer
-		pub fn unique(self: &Dependency) -> Dependency;
+		#[cxx_name = "Index"]
+		pub fn index(self: &DepIterator) -> u64;
+		pub fn unique(self: &DepIterator) -> UniquePtr<DepIterator>;
+		pub fn raw_next(self: Pin<&mut DepIterator>);
+		pub fn end(self: &DepIterator) -> bool;
 
 		// PackageFile Declarations
 
 		/// The path to the PackageFile
-		pub fn filename(self: &PackageFile) -> Result<&str>;
+		pub fn filename(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Archive of the PackageFile. ex: unstable
-		pub fn archive(self: &PackageFile) -> Result<&str>;
+		pub fn archive(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Origin of the PackageFile. ex: Debian
-		pub fn origin(self: &PackageFile) -> Result<&str>;
+		pub fn origin(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Codename of the PackageFile. ex: main, non-free
-		pub fn codename(self: &PackageFile) -> Result<&str>;
+		pub fn codename(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Label of the PackageFile. ex: Debian
-		pub fn label(self: &PackageFile) -> Result<&str>;
+		pub fn label(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Hostname of the PackageFile. ex: deb.debian.org
-		pub fn site(self: &PackageFile) -> Result<&str>;
+		pub fn site(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Component of the PackageFile. ex: sid
-		pub fn component(self: &PackageFile) -> Result<&str>;
+		pub fn component(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Architecture of the PackageFile. ex: amd64
-		pub fn arch(self: &PackageFile) -> Result<&str>;
+		pub fn arch(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Index Type of the PackageFile. Known values are:
 		///
 		/// Debian Package Index, Debian Translation Index, Debian dpkg status
 		/// file,
-		pub fn index_type(self: &PackageFile) -> Result<&str>;
+		pub fn index_type(self: &PkgFileIterator) -> Result<&str>;
 
 		/// The Index number of the PackageFile
-		pub fn index(self: &PackageFile) -> u64;
+		#[cxx_name = "Index"]
+		pub fn index(self: &PkgFileIterator) -> u64;
+		pub fn unique(self: &PkgFileIterator) -> UniquePtr<PkgFileIterator>;
+		pub fn raw_next(self: Pin<&mut PkgFileIterator>);
+		pub fn end(self: &PkgFileIterator) -> bool;
 
-		// /// VersionFile Declarations
-
-		/// Return the package file associated with this version file.
-		pub fn pkg_file(self: &VersionFile) -> PackageFile;
-
-		/// Increment the iterator
-		pub fn raw_next(self: &VersionFile);
-
-		pub fn index(self: &VersionFile) -> u64;
-
-		pub fn end(self: &VersionFile) -> bool;
-
-		// A simple way to clone the pointer
-		pub fn unique(self: &VersionFile) -> VersionFile;
+		/// VersionFile Declarations
 
 		/// Return the package file associated with this version file.
-		pub fn pkg_file(self: &DescriptionFile) -> PackageFile;
+		pub fn pkg_file(self: &VerFileIterator) -> UniquePtr<PkgFileIterator>;
 
-		/// Increment the iterator
-		pub fn raw_next(self: &DescriptionFile);
+		#[cxx_name = "Index"]
+		pub fn index(self: &VerFileIterator) -> u64;
+		pub fn unique(self: &VerFileIterator) -> UniquePtr<VerFileIterator>;
+		pub fn raw_next(self: Pin<&mut VerFileIterator>);
+		pub fn end(self: &VerFileIterator) -> bool;
 
-		pub fn index(self: &DescriptionFile) -> u64;
+		/// Return the package file associated with this desc file.
+		pub fn pkg_file(self: &DescFileIterator) -> UniquePtr<PkgFileIterator>;
 
-		pub fn end(self: &DescriptionFile) -> bool;
+		#[cxx_name = "Index"]
+		pub fn index(self: &DescFileIterator) -> u64;
+		pub fn unique(self: &DescFileIterator) -> UniquePtr<DescFileIterator>;
+		pub fn raw_next(self: Pin<&mut DescFileIterator>);
+		pub fn end(self: &DescFileIterator) -> bool;
 
-		// A simple way to clone the pointer
-		pub fn unique(self: &DescriptionFile) -> DescriptionFile;
-
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_current_version(self: &Package) -> Version;
+		unsafe fn u_current_version(self: &PkgIterator) -> UniquePtr<VerIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_version_list(self: &Package) -> Version;
+		unsafe fn u_version_list(self: &PkgIterator) -> UniquePtr<VerIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_provides(self: &Package) -> Provider;
+		unsafe fn u_provides(self: &PkgIterator) -> UniquePtr<PrvIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_rev_depends(self: &Package) -> Dependency;
+		unsafe fn u_rev_depends(self: &PkgIterator) -> UniquePtr<DepIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_provides(self: &Version) -> Provider;
+		unsafe fn u_provides(self: &VerIterator) -> UniquePtr<PrvIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_depends(self: &Version) -> Dependency;
+		unsafe fn u_depends(self: &VerIterator) -> UniquePtr<DepIterator>;
 		/// # Safety
 		///
 		/// If the inner pointer is null segfaults can occur.
-		unsafe fn u_version_file(self: &Version) -> VersionFile;
+		unsafe fn u_version_file(self: &VerIterator) -> UniquePtr<VerFileIterator>;
 	}
 }
 
-impl raw::Package {
+impl raw::PkgIterator {
 	/// Get a pointer the the currently installed version
-	pub fn current_version(&self) -> Option<RawVersion> {
+	pub fn current_version(&self) -> Option<UniquePtr<RawVersion>> {
 		unsafe { self.u_current_version().make_safe() }
 	}
 
 	/// Get a pointer to the beginning of the VerIterator
-	pub fn version_list(&self) -> Option<RawVersion> {
+	pub fn version_list(&self) -> Option<UniquePtr<RawVersion>> {
 		unsafe { self.u_version_list().make_safe() }
 	}
 
 	/// Get the providers of this package
-	pub fn provides_list(&self) -> Option<RawProvider> { unsafe { self.u_provides().make_safe() } }
+	pub fn provides_list(&self) -> Option<UniquePtr<RawProvider>> {
+		unsafe { self.u_provides().make_safe() }
+	}
 
-	pub fn rev_depends_list(&self) -> Option<RawDependency> {
+	pub fn rev_depends_list(&self) -> Option<UniquePtr<RawDependency>> {
 		unsafe { self.u_rev_depends().make_safe() }
 	}
 
@@ -342,26 +299,30 @@ impl raw::Package {
 	pub fn has_provides(&self) -> bool { self.provides_list().is_some() }
 }
 
-impl raw::Version {
+impl raw::VerIterator {
 	/// Returns a list of providers if they exist
-	pub fn provides_list(&self) -> Option<RawProvider> { unsafe { self.u_provides().make_safe() } }
+	pub fn provides_list(&self) -> Option<UniquePtr<RawProvider>> {
+		unsafe { self.u_provides().make_safe() }
+	}
 
 	/// Get the raw dependencies if they exist
-	pub fn depends(&self) -> Option<RawDependency> { unsafe { self.u_depends().make_safe() } }
+	pub fn depends(&self) -> Option<UniquePtr<RawDependency>> {
+		unsafe { self.u_depends().make_safe() }
+	}
 
 	// You go through here to get the package files.
-	pub fn version_files(&self) -> Option<RawVersionFile> {
+	pub fn version_files(&self) -> Option<UniquePtr<RawVersionFile>> {
 		unsafe { self.u_version_file().make_safe() }
 	}
 
 	// This is for backend records lookups.
 	// You can also get package files from here.
-	pub fn description_files(&self) -> Option<RawDescriptionFile> {
+	pub fn description_files(&self) -> Option<UniquePtr<RawDescriptionFile>> {
 		self.u_description_file().ok()?.make_safe()
 	}
 }
 
-impl raw::Dependency {
+impl raw::DepIterator {
 	/// The Dependency Type. Depends, Recommends, etc.
 	pub fn dep_type(&self) -> DepType { DepType::from(self.u8_dep_type()) }
 
@@ -395,7 +356,7 @@ pub mod DepFlags {
 	pub const DepCVer: u8 = 4;
 	pub const DepGnow: u8 = 8;
 	pub const DepGInstall: u8 = 16;
-	pub const DeoGVer: u8 = 32;
+	pub const DepGVer: u8 = 32;
 }
 
 #[derive(fmt::Debug, Eq, PartialEq, Hash)]
@@ -448,67 +409,90 @@ impl fmt::Display for DepType {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.as_ref()) }
 }
 
-macro_rules! raw_iter {
-	($structname: ident) => {
-		impl Iterator for $structname {
-			type Item = $structname;
+pub trait IntoRawIter {
+	type Item;
+	fn raw_iter(self) -> Self::Item;
 
-			fn next(&mut self) -> Option<Self::Item> {
-				if self.end() {
-					None
-				} else {
-					let ptr = self.unique();
-					self.raw_next();
-					Some(ptr)
-				}
-			}
-		}
+	fn make_safe(self) -> Option<Self>
+	where
+		Self: Sized;
 
-		impl $structname {
-			pub fn make_safe(self) -> Option<$structname> {
-				if self.end() { None } else { Some(self) }
-			}
-		}
-	};
+	fn to_vec(self) -> Vec<Self>
+	where
+		Self: Sized;
 }
 
-raw_iter!(RawPackage);
-raw_iter!(RawVersion);
-raw_iter!(RawProvider);
-raw_iter!(RawDependency);
-raw_iter!(RawVersionFile);
-raw_iter!(RawDescriptionFile);
+macro_rules! impl_into_raw_iter {
+	($($ty:ty),*) => {$(
+		paste!(
+			pub struct [<Iter $ty>](UniquePtr<$ty>);
+
+			impl Iterator for [<Iter $ty>] {
+				type Item = UniquePtr<$ty>;
+
+				fn next(&mut self) -> Option<Self::Item> {
+					if self.0.end() {
+						None
+					} else {
+						let ptr = self.0.unique();
+						self.0.pin_mut().raw_next();
+						Some(ptr)
+					}
+				}
+			}
+
+			impl IntoRawIter for UniquePtr<$ty> {
+				type Item = [<Iter $ty>];
+
+				fn raw_iter(self) -> Self::Item { [<Iter $ty>](self) }
+
+				fn make_safe(self) -> Option<Self> { if self.end() { None } else { Some(self) } }
+
+				fn to_vec(self) -> Vec<Self> { self.raw_iter().collect() }
+			}
+		);
+	)*};
+}
+
+impl_into_raw_iter!(
+	RawPackage,
+	RawVersion,
+	RawDependency,
+	RawProvider,
+	RawVersionFile,
+	RawDescriptionFile,
+	RawPackageFile
+);
 
 // TODO: Maybe make some internal macros and export them so
 // this can be used in the higher level package.rs
-macro_rules! raw_hash {
-	($structname: ident) => {
-		impl Hash for $structname {
+macro_rules! impl_raw_hash {
+	($($ty:ty),*) => {$(
+		impl Hash for $ty {
 			fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
 		}
 
-		impl PartialEq for $structname {
-			fn eq(&self, other: &$structname) -> bool { self.id() == other.id() }
+		impl PartialEq for $ty {
+			fn eq(&self, other: &$ty) -> bool { self.id() == other.id() }
 		}
 
-		impl Eq for $structname {}
-	};
+		impl Eq for $ty {}
+	)*};
 }
 
-raw_hash!(RawPackage);
-raw_hash!(RawVersion);
+impl_raw_hash!(RawPackage, RawVersion);
 
 #[cfg(test)]
 mod raw_tests {
-	use crate::raw::cache::raw::Cache;
-	use crate::raw::package::RawVersionFile;
+	use crate::raw::cache::raw::PkgCacheFile;
+	use crate::raw::package::IntoRawIter;
 
 	#[test]
 	fn test() {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		dbg!(pkg.name());
@@ -517,7 +501,7 @@ mod raw_tests {
 
 		dbg!(installed.version());
 
-		for pkg in cache.begin().unwrap() {
+		for pkg in cache.begin().unwrap().raw_iter() {
 			println!("ID: {}", pkg.id());
 			println!("Name: {}", pkg.name());
 			println!("Arch: {}", pkg.arch());
@@ -528,7 +512,7 @@ mod raw_tests {
 
 			match pkg.version_list() {
 				Some(versions) => {
-					for ver in versions {
+					for ver in versions.raw_iter() {
 						println!("Version of '{}'", pkg.name());
 
 						println!("    Version: {}", &ver.version());
@@ -552,13 +536,13 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 
 		// Check Native Arch
 		let pkg = cache.find_pkg("www-browser").unwrap();
 		println!("{}:{}", pkg.name(), pkg.arch());
 
-		for provider in pkg.provides_list().unwrap() {
+		for provider in pkg.provides_list().unwrap().raw_iter() {
 			println!("Provider: {}", provider.name());
 			println!(
 				"  Pkg: {}, Version: {}",
@@ -570,13 +554,28 @@ mod raw_tests {
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
 
-		for provider in cand.provides_list().unwrap() {
+		for provider in cand.provides_list().unwrap().raw_iter() {
 			println!("Provider: {}", provider.name());
 			println!(
 				"  Pkg: {}, Version: {}",
 				provider.target_pkg().name(),
 				provider.target_ver().version()
 			);
+		}
+	}
+
+	#[test]
+	fn temp_test() {
+		crate::config::init_config_system();
+
+		let debs: Vec<String> = vec![];
+		let cache = PkgCacheFile::new(&debs).unwrap();
+
+		let pkg = cache.find_pkg("nala").unwrap();
+		for ver in pkg.version_list().unwrap().raw_iter() {
+			println!("{}", ver.version());
+			println!("{}", ver.id());
+			println!("{}", ver.index());
 		}
 	}
 
@@ -585,21 +584,45 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
 
-		for dep in cand.depends().unwrap() {
+		for dep in cand.depends().unwrap().raw_iter() {
 			println!(
 				"Dep: {}, Comp Op: {}",
 				dep.target_pkg().name(),
 				dep.compare_op()
 			);
-			for dep_ver in dep.all_targets() {
+			for dep_ver in dep.all_targets().iter() {
 				println!("Version: {}", dep_ver.version())
 			}
 		}
+	}
+
+	#[test]
+	fn make_segfault() {
+		crate::config::init_config_system();
+
+		let debs: Vec<String> = vec![];
+		let cache = PkgCacheFile::new(&debs).unwrap();
+
+		let pkg = cache.find_pkg("apt").unwrap();
+		let cand = pkg.current_version().unwrap();
+		let desc_file = cand.u_description_file().unwrap();
+
+		dbg!(desc_file.end());
+
+		println!("Desc Files: {}", desc_file.raw_iter().count());
+
+		// Commented code should not compile
+
+		// dbg!(desc_file.is_null());
+		// dbg!(desc_file.end());
+
+		// let pkg_file = desc_file.pkg_file();
+		// pkg_file.arch().unwrap();
 	}
 
 	#[test]
@@ -607,7 +630,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 		let cand = pkg.current_version().unwrap();
@@ -616,10 +639,13 @@ mod raw_tests {
 		// Apt should have a candidate as well as current version
 		assert!(depcache.candidate_version(&pkg).is_some());
 
-		let ver_files: Vec<RawVersionFile> = cand.version_files().unwrap().collect();
+		let ver_files = cand.version_files().unwrap().to_vec();
 
 		println!("Ver Files: {}", ver_files.len());
-		println!("Desc Files: {}", cand.description_files().unwrap().count());
+		println!(
+			"Desc Files: {}",
+			cand.u_description_file().unwrap().raw_iter().count()
+		);
 
 		for file in ver_files {
 			let pkg_file = file.pkg_file();
@@ -654,7 +680,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 
 		let pkg = cache.find_pkg("apt").unwrap();
 
@@ -670,7 +696,7 @@ mod raw_tests {
 		let mut progress = crate::raw::progress::NoOpProgress::new_box();
 		depcache.full_upgrade(&mut progress).unwrap();
 
-		for pkg in cache.begin().unwrap() {
+		for pkg in cache.begin().unwrap().raw_iter() {
 			if depcache.marked_upgrade(&pkg) {
 				println!("Upgrade => {}", pkg.fullname(false));
 			}
@@ -682,7 +708,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 		dbg!(cache.source_uris());
 	}
 
@@ -691,7 +717,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
 		let depcache = cache.create_depcache();
 		let cand = unsafe { depcache.u_candidate_version(&pkg) };
@@ -704,24 +730,30 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 		let pkg = cache.find_pkg("apt").unwrap();
 		let depcache = cache.create_depcache();
 		let cand = unsafe { depcache.u_candidate_version(&pkg) };
 
 		let records = cache.create_records();
 
-		records.ver_file_lookup(&cand.version_files().unwrap().next().unwrap());
+		records.ver_file_lookup(&cand.version_files().unwrap().raw_iter().next().unwrap());
 		dbg!(records.short_desc().unwrap());
-		records.desc_file_lookup(&cand.description_files().unwrap().next().unwrap());
+		records.desc_file_lookup(&cand.description_files().unwrap());
 		dbg!(records.long_desc().unwrap());
 
-		let mut pkg_file = cand.version_files().unwrap().next().unwrap().pkg_file();
-		cache.find_index(&mut pkg_file);
+		let pkg_file = cand
+			.version_files()
+			.unwrap()
+			.raw_iter()
+			.next()
+			.unwrap()
+			.pkg_file();
+		let index = cache.find_index(&pkg_file);
 
-		dbg!(cache.is_trusted(&mut pkg_file));
+		dbg!(cache.is_trusted(&index));
 
-		dbg!(records.ver_uri(&pkg_file).unwrap());
+		dbg!(records.ver_uri(&index).unwrap());
 	}
 
 	#[test]
@@ -730,7 +762,7 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
+		let cache = PkgCacheFile::new(&debs).unwrap();
 		let mut progress = crate::raw::progress::AptAcquireProgress::new_box();
 
 		cache.update(&mut progress).unwrap();
@@ -741,8 +773,9 @@ mod raw_tests {
 		crate::config::init_config_system();
 
 		let debs: Vec<String> = vec![];
-		let cache = Cache::new(&debs).unwrap();
-		let _pacman = crate::raw::pkgmanager::raw::create_pkgmanager(&cache);
-		let _resolve = crate::raw::pkgmanager::raw::create_problem_resolver(&cache);
+		let cache = PkgCacheFile::new(&debs).unwrap();
+		let depcache = cache.create_depcache();
+		let _pacman = crate::raw::pkgmanager::raw::create_pkgmanager(&depcache);
+		let _resolve = crate::raw::pkgmanager::raw::create_problem_resolver(&depcache);
 	}
 }

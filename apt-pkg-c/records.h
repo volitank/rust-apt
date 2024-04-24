@@ -8,8 +8,11 @@
 #include <memory>
 #include "rust/cxx.h"
 
+#include "package.h"
+#include "types.h"
+
 /// Package Record Management:
-struct Records {
+struct PkgRecords {
 	pkgRecords mutable records;
 	pkgRecords::Parser mutable* parser;
 	u_int64_t mutable last;
@@ -21,29 +24,26 @@ struct Records {
 	}
 
 	/// Moves the Records into the correct place.
-	inline void ver_file_lookup(const VersionFile& ver_file) const {
-		if (this->already_has(ver_file.index())) { return; }
-		this->parser = &records.Lookup(*ver_file.ptr);
+	inline void ver_file_lookup(const VerFileIterator& file) const {
+		if (this->already_has(file.Index())) { return; }
+		this->parser = &records.Lookup(file);
 	}
 
 	/// Moves the Records into the correct place.
-	inline void desc_file_lookup(const DescriptionFile& desc_file) const {
-		if (this->already_has(desc_file.index())) { return; }
-		this->parser = &records.Lookup(*desc_file.ptr);
+	inline void desc_file_lookup(const DescFileIterator& desc_file) const {
+		if (this->already_has(desc_file.Index())) { return; }
+		this->parser = &records.Lookup(desc_file);
 	}
 
 	/// Return the URI for a version as determined by it's package file.
 	/// A version could have multiple package files and multiple URIs.
-	inline rust::string ver_uri(const PackageFile& pkg_file) const {
-		if (!pkg_file.index_file) {
-			throw std::runtime_error("You have to run 'cache.find_index()' first!");
-		}
+	inline rust::string ver_uri(const std::unique_ptr<IndexFile>& file) const {
 		if (!parser) {
 			throw std::runtime_error(
 				"You have to run 'cache.ver_lookup()' or 'desc_lookup()' first!"
 			);
 		}
-		return (*pkg_file.index_file)->ArchiveURI(parser->FileName());
+		return (*file)->ArchiveURI(parser->FileName());
 	}
 
 	/// Return the translated long description of a Package.
@@ -65,11 +65,10 @@ struct Records {
 		return handle_string(hash->HashValue());
 	}
 
-	Records(const std::unique_ptr<pkgCacheFile>& cache)
-		: records(*cache->GetPkgCache()), parser(0), last(0){};
+	PkgRecords(pkgCacheFile* cache) : records(*cache->GetPkgCache()), parser(0), last(0){};
 
 	/// UniquePtr Constructor
-	static std::unique_ptr<Records> Unique(const std::unique_ptr<pkgCacheFile>& cache) {
-		return std::make_unique<Records>(cache);
+	static std::unique_ptr<PkgRecords> Unique(pkgCacheFile* cache) {
+		return std::make_unique<PkgRecords>(cache);
 	};
 };

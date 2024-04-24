@@ -10,72 +10,80 @@
 #include <apt-pkg/update.h>
 #include "rust/cxx.h"
 
-#include "rust-apt/src/raw/cache.rs"
+// This has to come first for now
+// It defines the SourceURI
+#include "rust-apt/src/raw/package.rs"
+
+#include "depcache.h"
+#include "records.h"
+#include "types.h"
+
+// Defines the callbacks code that's generated for progress
 #include "rust-apt/src/raw/progress.rs"
 
-/// Update the package lists, handle errors and return a Result.
-inline void Cache::u_update(DynAcquireProgress& callback) const {
-	AcqTextStatus progress(callback);
+class PkgCacheFile : public pkgCacheFile {
+   public:
+	// Maybe we use this if we don't want pin_mut() all over the place in Rust.
+	PkgCacheFile* unconst() const { return const_cast<PkgCacheFile*>(this); }
 
-	ListUpdate(progress, *ptr->GetSourceList(), pulse_interval(callback));
-	handle_errors();
-}
+	/// Update the package lists, handle errors and return a Result.
+	void u_update(DynAcquireProgress& callback) const {
+		AcqTextStatus progress(callback);
 
-// Return a package by name.
-inline Package Cache::u_find_pkg(rust::string name) const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->GetPkgCache()->FindPkg(name.c_str()))};
-}
+		ListUpdate(progress, *this->unconst()->GetSourceList(), pulse_interval(callback));
+		handle_errors();
+	}
 
-inline Package Cache::u_begin() const noexcept {
-	return Package{std::make_unique<PkgIterator>(ptr->GetPkgCache()->PkgBegin())};
-}
+	// Return a package by name.
+	std::unique_ptr<PkgIterator> u_find_pkg(rust::string name) const {
+		return std::make_unique<PkgIterator>(this->unconst()->GetPkgCache()->FindPkg(name.c_str()));
+	}
 
-/// The priority of the package as shown in `apt policy`.
-inline int32_t Cache::priority(const Version& ver) const noexcept {
-	return ptr->GetPolicy()->GetPriority(*ver.ptr);
-}
+	std::unique_ptr<PkgIterator> u_begin() const {
+		return std::make_unique<PkgIterator>(this->unconst()->GetPkgCache()->PkgBegin());
+	}
 
-inline DepCache Cache::create_depcache() const noexcept {
-	return DepCache{std::make_unique<PkgDepCache>(ptr->GetDepCache())};
-}
+	/// The priority of the package as shown in `apt policy`.
+	int32_t priority(const VerIterator& ver) const {
+		return this->unconst()->GetPolicy()->GetPriority(ver);
+	}
 
-inline std::unique_ptr<Records> Cache::create_records() const noexcept {
-	return Records::Unique(ptr);
-}
+	std::unique_ptr<PkgDepCache> create_depcache() const {
+		return std::make_unique<PkgDepCache>(this->unconst()->GetDepCache());
+	}
 
-inline void Cache::find_index(PackageFile& pkg_file) const noexcept {
-	if (!pkg_file.index_file) {
+	std::unique_ptr<PkgRecords> create_records() const {
+		return PkgRecords::Unique(this->unconst());
+	}
+
+	std::unique_ptr<IndexFile> find_index(const PkgFileIterator& file) const {
 		pkgIndexFile* index;
-
-		if (!ptr->GetSourceList()->FindIndex(*pkg_file.ptr, index)) {
-			_system->FindIndex(*pkg_file.ptr, index);
+		if (!this->unconst()->GetSourceList()->FindIndex(file, index)) {
+			_system->FindIndex(file, index);
 		}
-		pkg_file.index_file = std::make_unique<IndexFile>(index);
+		return std::make_unique<IndexFile>(index);
 	}
-}
 
-/// These should probably go under a index file binding;
-/// Return true if the PackageFile is trusted.
-inline bool Cache::is_trusted(PackageFile& pkg_file) const noexcept {
-	this->find_index(pkg_file);
-	return (*pkg_file.index_file)->IsTrusted();
-}
+	bool is_trusted(const IndexFile& file) const { return file->IsTrusted(); }
 
-/// Get the package list uris. This is the files that are updated with `apt update`.
-inline rust::Vec<SourceURI> Cache::source_uris() const noexcept {
-	pkgAcquire fetcher;
-	rust::Vec<SourceURI> list;
+	/// Get the package list uris. This is the files that are updated with `apt update`.
+	rust::Vec<SourceURI> source_uris() const {
+		pkgAcquire fetcher;
+		rust::Vec<SourceURI> list;
 
-	ptr->GetSourceList()->GetIndexes(&fetcher, true);
-	pkgAcquire::UriIterator I = fetcher.UriBegin();
-	for (; I != fetcher.UriEnd(); ++I) {
-		list.push_back(SourceURI{I->URI, flNotDir(I->Owner->DestFile)});
+		this->unconst()->GetSourceList()->GetIndexes(&fetcher, true);
+		pkgAcquire::UriIterator I = fetcher.UriBegin();
+		for (; I != fetcher.UriEnd(); ++I) {
+			list.push_back(SourceURI{I->URI, flNotDir(I->Owner->DestFile)});
+		}
+		return list;
 	}
-	return list;
-}
 
-inline Cache u_create_cache(rust::Slice<const rust::String> deb_files) {
-	std::unique_ptr<pkgCacheFile> cache = std::make_unique<pkgCacheFile>();
+	PkgCacheFile() : pkgCacheFile(){};
+};
+
+inline std::unique_ptr<PkgCacheFile> u_create_cache(rust::Slice<const rust::String> deb_files) {
+	std::unique_ptr<PkgCacheFile> cache = std::make_unique<PkgCacheFile>();
 
 	for (auto deb_str : deb_files) {
 		std::string deb_string(deb_str.c_str());
@@ -97,5 +105,5 @@ inline Cache u_create_cache(rust::Slice<const rust::String> deb_files) {
 	cache->GetPkgCache();
 	handle_errors();
 
-	return Cache{std::move(cache)};
+	return cache;
 }

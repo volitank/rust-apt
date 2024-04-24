@@ -16,10 +16,10 @@ mod depcache {
 	#[test]
 	fn action_groups() {
 		let cache = new_cache!().unwrap();
-		let action_group = cache.depcache().action_group();
+		let mut action_group = cache.depcache().action_group();
 
 		// The C++ deconstructor will be run when the action group leaves scope.
-		action_group.release();
+		action_group.pin_mut().release();
 	}
 
 	// Make a test for getting the candidate after you set a candidate.
