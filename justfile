@@ -1,16 +1,21 @@
 #!/usr/bin/env just --justfile
 
+[private]
 default:
 	@just --list
 
 # Setup the development environment.
-@setup-dev:
+setup-dev:
+	# Sudo is required to install packages with apt
+	@echo Installing required packages from apt
+	@sudo apt-get install bear valgrind libapt-pkg-dev dpkg-dev clang-format codespell -y
+	@just setup-toolchain
+
+[private]
+@setup-toolchain:
 	#!/bin/sh
 
 	set -e
-
-	echo Installing required packages from apt
-	sudo apt-get install bear valgrind libapt-pkg-dev clang-format codespell -y
 
 	echo Setting up toolchains
 	rustup toolchain install nightly
@@ -25,8 +30,6 @@ default:
 
 	bear -- cargo build
 	echo Development environment installed successfully!
-
-	# Sudo is required to install packages with apt
 
 # Run checks
 check: spellcheck clippy
@@ -43,16 +46,23 @@ build:
 	@cargo build
 	@echo Project successfully built!
 
+# Generate docs
+doc:
+	@cargo doc
+	@echo Documentation successfully generated!
+
 # Create the debs required for tests
-create-test-debs:
+[private]
+@create-test-debs:
 	#!/bin/sh
 	set -e
 
 	cd tests/files/cache
-	rm -f *.deb
+	rm -f *.deb Packages*
 	for pkg in *; do
 		dpkg-deb --build --nocheck "${pkg}";
 	done
+	dpkg-scanpackages --multiversion . /dev/null > Packages
 
 	# Create an empty garbage package to make sure it fails
 	echo "\n" > pkg.deb
@@ -111,6 +121,13 @@ clippy +ARGS="":
 	echo Codebase formatted successfully!
 
 # Spellcheck the codebase
-spellcheck +ARGS="--skip ./target --skip ./.git --skip ./.cargo":
-	@codespell --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
+spellcheck +ARGS="":
+	@codespell --skip target --skip .git --skip .cargo --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
 	@echo Spellings look good!
+
+alias b := build
+alias c := check
+alias d := doc
+alias l := leak
+alias t := test
+alias r := test-root

@@ -1,5 +1,11 @@
 #[macro_export]
-/// Macro to create the cache, optionally including debs
+/// Macro to create the cache, optionally including local valid files.
+/// This includes the following:
+/// - `*.deb` or `*.ddeb` files
+/// - `Packages` and `Sources` files from apt repositories. These files can be
+///   compressed.
+/// - `*.dsc` or `*.changes` files
+/// - A valid directory containing the file `./debian/control`
 ///
 /// Here is an example of the two ways you can use this.
 ///
@@ -10,20 +16,21 @@
 ///
 /// println!("{}", cache.get("apt").unwrap().name());
 ///
-/// let local_debs = vec![
+/// // Any file that can be added to the cache
+/// let local_files = vec![
 ///     "tests/files/cache/apt.deb",
-///     "tests/files/cache/dep-pkg1_0.0.1.deb",
+///     "tests/files/cache/Packages",
 /// ];
 ///
-/// let cache = new_cache!(&local_debs).unwrap();
+/// let cache = new_cache!(&local_files).unwrap();
 /// println!("{}", cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap().version());
 /// ```
 ///
 /// Returns `Result<rust_apt::cache::Cache, AptErrors>`
 macro_rules! new_cache {
 	() => {{
-		let debs: Vec<String> = Vec::new();
-		$crate::cache::Cache::new(&debs)
+		let files: Vec<String> = Vec::new();
+		$crate::cache::Cache::new(&files)
 	}};
 	($slice:expr) => {{ $crate::cache::Cache::new($slice) }};
 }

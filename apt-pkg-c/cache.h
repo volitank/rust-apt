@@ -82,20 +82,16 @@ class PkgCacheFile : public pkgCacheFile {
 	PkgCacheFile() : pkgCacheFile(){};
 };
 
-inline std::unique_ptr<PkgCacheFile> u_create_cache(rust::Slice<const rust::String> deb_files) {
+inline std::unique_ptr<PkgCacheFile> u_create_cache(rust::Slice<const rust::String> volatile_files
+) {
 	std::unique_ptr<PkgCacheFile> cache = std::make_unique<PkgCacheFile>();
 
-	for (auto deb_str : deb_files) {
-		std::string deb_string(deb_str.c_str());
+	for (auto file_str : volatile_files) {
+		std::string file_string(file_str.c_str());
 
-		// Make sure this is a valid archive.
-		// signal: 11, SIGSEGV: invalid memory reference
-		FileFd fd(deb_string, FileFd::ReadOnly);
-		debDebFile debfile(fd);
-
-		// Add the deb to the cache.
-		if (!cache->GetSourceList()->AddVolatileFile(deb_string)) {
-			_error->Error("%s", ("Couldn't add '" + deb_string + "' to the cache.").c_str());
+		// Add the file to the cache.
+		if (!cache->GetSourceList()->AddVolatileFile(file_string)) {
+			_error->Error("%s", ("Couldn't add '" + file_string + "' to the cache.").c_str());
 		}
 	}
 

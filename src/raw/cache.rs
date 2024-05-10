@@ -68,8 +68,8 @@ impl raw::PkgCacheFile {
 	///
 	/// It is advised to init the config and system before creating the
 	/// cache. These bindings can be found in config::raw.
-	pub fn new(deb_files: &[String]) -> Result<UniquePtr<raw::PkgCacheFile>, AptErrors> {
-		Ok(raw::u_create_cache(deb_files)?)
+	pub fn new(volatile_files: &[String]) -> Result<UniquePtr<raw::PkgCacheFile>, AptErrors> {
+		Ok(raw::u_create_cache(volatile_files)?)
 	}
 
 	/// Update the package lists, handle errors and return a Result.

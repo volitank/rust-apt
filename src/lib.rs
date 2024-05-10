@@ -17,7 +17,7 @@ pub mod raw;
 pub mod cache;
 pub mod config;
 pub mod depcache;
-pub mod macros;
+mod macros;
 pub mod package;
 pub mod records;
 pub mod tagfile;

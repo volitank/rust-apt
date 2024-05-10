@@ -190,8 +190,8 @@ pub fn apt_unlock_inner() {
 }
 
 /// Checks if any locks are currently active for the lockfile. Note that this
-/// will only return [`true`] if the current process has an active lock, calls
-/// to [`apt_lock`] will return an [`Exception`] if another process has an
+/// will only return [`true`] if the current process has an active lock, while
+/// calls to [`apt_lock`] will return an [`AptErrors`] if another process has an
 /// active lock.
 pub fn apt_is_locked() -> bool {
 	config::init_config_system();

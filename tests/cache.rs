@@ -59,6 +59,20 @@ mod cache {
 	}
 
 	#[test]
+	fn with_packages() {
+		let cache = new_cache!(&["tests/files/cache/Packages",]).unwrap();
+
+		cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap();
+		cache.get("broken-or-dep").unwrap();
+		cache.get("dep-pkg1").unwrap().get_version("0.0.1").unwrap();
+		cache.get("dep-pkg1").unwrap().get_version("0.0.2").unwrap();
+		cache.get("dep-pkg2").unwrap();
+		cache.get("no-description").unwrap();
+
+		assert!(new_cache!(&["tests/files/cache/Packages.gz"]).is_err());
+	}
+
+	#[test]
 	fn empty_deps() {
 		// This would fail before https://gitlab.com/volian/rust-apt/-/merge_requests/29
 		let cache = new_cache!().unwrap();

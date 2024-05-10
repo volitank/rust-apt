@@ -174,24 +174,35 @@ impl Cache {
 	/// Initialize the configuration system, open and return the cache.
 	/// This is the entry point for all operations of this crate.
 	///
-	/// deb_files allows you to add local `.deb` files to the cache.
+	/// `local_files` allows you to temporarily add local files to the cache, as
+	/// long as they are one of the following:
 	///
-	/// This function returns an [`Exception`] if any of the `.deb` files cannot
-	/// be found.
+	/// - `*.deb` or `*.ddeb` files
+	/// - `Packages` and `Sources` files from apt repositories. These files can
+	///   be compressed.
+	/// - `*.dsc` or `*.changes` files
+	/// - A valid directory containing the file `./debian/control`
+	///
+	/// This function returns an [`AptErrors`] if any of the files cannot
+	/// be found or are invalid.
 	///
 	/// Note that if you run [`Cache::commit`] or [`Cache::update`],
 	/// You will be required to make a new cache to perform any further changes
-	pub fn new<T: ToString>(deb_files: &[T]) -> Result<Cache, AptErrors> {
-		let deb_pkgs: Vec<_> = deb_files.iter().map(|d| d.to_string()).collect();
+	pub fn new<T: ToString>(local_files: &[T]) -> Result<Cache, AptErrors> {
+		let volatile_files: Vec<_> = local_files.iter().map(|d| d.to_string()).collect();
 
 		init_config_system();
 		Ok(Cache {
-			cache: raw::PkgCacheFile::new(&deb_pkgs)?,
+			cache: raw::PkgCacheFile::new(&volatile_files)?,
 			depcache: OnceCell::new(),
 			records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
 			problem_resolver: OnceCell::new(),
-			local_debs: deb_files.iter().map(|d| d.to_string()).collect(),
+			local_debs: local_files
+				.iter()
+				.map(|f| f.to_string())
+				.filter(|f| f.ends_with(".deb"))
+				.collect(),
 		})
 	}
 

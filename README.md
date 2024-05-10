@@ -21,7 +21,7 @@ If you find a way to segfault without using the `raw` bindings directly, please 
 
 # Documentation and Examples
 
-For more instructions on how to use `rust-apt` see our [crates.io](https://crates.io/crates/rust-apt) page.
+For more instructions on how to use `rust-apt` see our [docs.rs](https://docs.rs/rust-apt/latest/rust_apt) page.
 
 # License Note
 
