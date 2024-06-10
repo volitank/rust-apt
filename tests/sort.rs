@@ -15,7 +15,7 @@ mod sort {
 
 		let sort = PackageSort::default();
 
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			if pkg.is_auto_installed() {
 				auto_installed = true;
 			}
@@ -45,7 +45,7 @@ mod sort {
 
 		let sort = PackageSort::default().include_virtual().names();
 
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			if pkg.has_versions() {
 				real_pkgs.push(pkg);
 				continue;
@@ -66,7 +66,7 @@ mod sort {
 
 		let sort = PackageSort::default().only_virtual();
 
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			if pkg.has_versions() {
 				real_pkgs.push(pkg);
 				continue;
@@ -82,12 +82,12 @@ mod sort {
 		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().upgradable();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_upgradable())
 		}
 
 		let sort = PackageSort::default().not_upgradable();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(!pkg.is_upgradable())
 		}
 	}
@@ -97,12 +97,12 @@ mod sort {
 		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().installed();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_installed())
 		}
 
 		let sort = PackageSort::default().not_installed();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(!pkg.is_installed())
 		}
 	}
@@ -112,13 +112,13 @@ mod sort {
 		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().auto_installed();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			println!("{}", pkg.name());
 			assert!(pkg.is_auto_installed())
 		}
 
 		let sort = PackageSort::default().manually_installed();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(!pkg.is_auto_installed());
 		}
 	}
@@ -128,12 +128,12 @@ mod sort {
 		let cache = new_cache!().unwrap();
 
 		let sort = PackageSort::default().auto_removable();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(pkg.is_auto_removable())
 		}
 
 		let sort = PackageSort::default().not_auto_removable();
-		for pkg in cache.packages(&sort).unwrap() {
+		for pkg in cache.packages(&sort) {
 			assert!(!pkg.is_auto_removable())
 		}
 	}

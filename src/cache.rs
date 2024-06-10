@@ -2,66 +2,42 @@
 
 use std::cell::OnceCell;
 use std::fs;
-use std::ops::Deref;
 use std::path::Path;
 
 use cxx::{Exception, UniquePtr};
 
 use crate::config::{init_config_system, Config};
 use crate::depcache::DepCache;
-use crate::package::Package;
-use crate::raw::cache::raw;
-use crate::raw::error::raw::AptError;
-use crate::raw::error::AptErrors;
-use crate::raw::package::{IntoRawIter, IterRawPackage, RawPackage};
-use crate::raw::pkgmanager::raw::{
-	create_pkgmanager, create_problem_resolver, PackageManager, ProblemResolver,
+use crate::error::AptErrors;
+use crate::progress::{AcquireProgress, InstallProgress, OperationProgress};
+use crate::raw::{
+	create_cache, create_pkgmanager, create_problem_resolver, IntoRawIter, IterPkgIterator,
+	PackageManager, PkgCacheFile, PkgIterator, ProblemResolver,
 };
-use crate::raw::progress::{AcquireProgress, InstallProgress, OperationProgress};
-use crate::raw::records::raw::PkgRecords;
+use crate::records::PackageRecords;
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
-
-type RawRecords = UniquePtr<PkgRecords>;
-type RawPkgManager = UniquePtr<PackageManager>;
-type RawProblemResolver = UniquePtr<ProblemResolver>;
-
-/// Internal struct to pass into [`self::Cache::resolve`]. The C++ library for
-/// this wants a progress parameter for this, but it doesn't appear to be doing
-/// anything. Furthermore, [the Python-APT implementation doesn't accept a
-/// parameter for their dependency resolution functionality](https://apt-team.pages.debian.net/python-apt/library/apt_pkg.html#apt_pkg.ProblemResolver.resolve),
-/// so we should be safe to remove it here.
-struct NoOpProgress {}
-
-impl NoOpProgress {
-	/// Return the AptAcquireProgress in a box
-	/// To easily pass through for progress
-	pub fn new_box() -> Box<dyn OperationProgress> { Box::new(NoOpProgress {}) }
-}
-
-impl OperationProgress for NoOpProgress {
-	fn update(&mut self, _: String, _: f32) {}
-
-	fn done(&mut self) {}
-}
+use crate::Package;
 
 /// Selection of Upgrade type
+#[repr(i32)]
 pub enum Upgrade {
 	/// Upgrade will Install new and Remove packages in addition to
 	/// upgrading them.
 	///
 	/// Equivalent to `apt full-upgrade` and `apt-get dist-upgrade`.
-	FullUpgrade,
-	/// Upgrade will Not Install new or Remove packages.
-	///
-	/// Equivalent to `apt-get upgrade`.
-	SafeUpgrade,
+	FullUpgrade = 0,
 	/// Upgrade will Install new but not Remove packages.
 	///
 	/// Equivalent to `apt upgrade`.
-	Upgrade,
+	Upgrade = 1,
+	/// Upgrade will Not Install new or Remove packages.
+	///
+	/// Equivalent to `apt-get upgrade`.
+	SafeUpgrade = 3,
 }
 
-pub enum Sort {
+/// Selection of how to sort
+enum Sort {
 	/// Disable the sort method.
 	Disable,
 	/// Enable the sort method.
@@ -70,13 +46,14 @@ pub enum Sort {
 	Reverse,
 }
 
+/// Determines how to sort packages from the Cache.
 pub struct PackageSort {
-	pub names: bool,
-	pub upgradable: Sort,
-	pub virtual_pkgs: Sort,
-	pub installed: Sort,
-	pub auto_installed: Sort,
-	pub auto_removable: Sort,
+	names: bool,
+	upgradable: Sort,
+	virtual_pkgs: Sort,
+	installed: Sort,
+	auto_installed: Sort,
+	auto_removable: Sort,
 }
 
 impl Default for PackageSort {
@@ -162,11 +139,11 @@ impl PackageSort {
 
 /// The main struct for accessing any and all `apt` data.
 pub struct Cache {
-	cache: UniquePtr<raw::PkgCacheFile>,
+	pub(crate) ptr: UniquePtr<PkgCacheFile>,
 	depcache: OnceCell<DepCache>,
-	records: OnceCell<RawRecords>,
-	pkgmanager: OnceCell<RawPkgManager>,
-	problem_resolver: OnceCell<RawProblemResolver>,
+	records: OnceCell<PackageRecords>,
+	pkgmanager: OnceCell<UniquePtr<PackageManager>>,
+	problem_resolver: OnceCell<UniquePtr<ProblemResolver>>,
 	local_debs: Vec<String>,
 }
 
@@ -188,76 +165,79 @@ impl Cache {
 	///
 	/// Note that if you run [`Cache::commit`] or [`Cache::update`],
 	/// You will be required to make a new cache to perform any further changes
-	pub fn new<T: ToString>(local_files: &[T]) -> Result<Cache, AptErrors> {
-		let volatile_files: Vec<_> = local_files.iter().map(|d| d.to_string()).collect();
+	pub fn new<T: AsRef<str>>(local_files: &[T]) -> Result<Cache, AptErrors> {
+		let volatile_files: Vec<_> = local_files.iter().map(|d| d.as_ref()).collect();
 
 		init_config_system();
 		Ok(Cache {
-			cache: raw::PkgCacheFile::new(&volatile_files)?,
+			ptr: create_cache(&volatile_files)?,
 			depcache: OnceCell::new(),
 			records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
 			problem_resolver: OnceCell::new(),
-			local_debs: local_files
-				.iter()
-				.map(|f| f.to_string())
+			local_debs: volatile_files
+				.into_iter()
 				.filter(|f| f.ends_with(".deb"))
+				.map(|f| f.to_string())
 				.collect(),
 		})
 	}
 
 	/// Internal Method for generating the package list.
-	pub fn raw_pkgs(&self) -> Result<impl Iterator<Item = UniquePtr<RawPackage>>, AptError> {
-		Ok(self.begin()?.raw_iter())
+	pub fn raw_pkgs(&self) -> impl Iterator<Item = UniquePtr<PkgIterator>> {
+		unsafe { self.begin().raw_iter() }
 	}
 
 	/// Get the DepCache
 	pub fn depcache(&self) -> &DepCache {
 		self.depcache
-			.get_or_init(|| DepCache::new(self.create_depcache()))
+			.get_or_init(|| DepCache::new(unsafe { self.create_depcache() }))
 	}
 
 	/// Get the PkgRecords
-	pub fn records(&self) -> &RawRecords { self.records.get_or_init(|| self.create_records()) }
+	pub fn records(&self) -> &PackageRecords {
+		self.records
+			.get_or_init(|| PackageRecords::new(unsafe { self.create_records() }))
+	}
 
 	/// Get the PkgManager
-	pub fn pkg_manager(&self) -> &RawPkgManager {
+	pub fn pkg_manager(&self) -> &PackageManager {
 		self.pkgmanager
-			.get_or_init(|| create_pkgmanager(self.depcache()))
+			.get_or_init(|| unsafe { create_pkgmanager(self.depcache()) })
 	}
 
 	/// Get the ProblemResolver
-	pub fn resolver(&self) -> &RawProblemResolver {
+	pub fn resolver(&self) -> &ProblemResolver {
 		self.problem_resolver
-			.get_or_init(|| create_problem_resolver(self.depcache()))
+			.get_or_init(|| unsafe { create_problem_resolver(self.depcache()) })
 	}
 
 	/// Iterate through the packages in a random order
 	pub fn iter(&self) -> CacheIter {
 		CacheIter {
-			pkgs: self.begin().unwrap().raw_iter(),
+			pkgs: unsafe { self.begin().raw_iter() },
 			cache: self,
 		}
 	}
 
 	/// An iterator of packages in the cache.
-	pub fn packages(&self, sort: &PackageSort) -> Result<impl Iterator<Item = Package>, AptError> {
+	pub fn packages(&self, sort: &PackageSort) -> impl Iterator<Item = Package> {
 		let mut pkg_list = vec![];
-		for pkg in self.raw_pkgs()? {
+		for pkg in self.raw_pkgs() {
 			match sort.virtual_pkgs {
 				// Virtual packages are enabled, include them.
 				// This works differently than the rest. I should probably change defaults.
 				Sort::Enable => {},
 				// If disabled and pkg has no versions, exclude
 				Sort::Disable => {
-					if !pkg.has_versions() {
+					if unsafe { pkg.versions().end() } {
 						continue;
 					}
 				},
 				// If reverse and the package has versions, exclude
 				// This section is for if you only want virtual packages
 				Sort::Reverse => {
-					if pkg.has_versions() {
+					if unsafe { !pkg.versions().end() } {
 						continue;
 					}
 				},
@@ -268,16 +248,19 @@ impl Cache {
 				Sort::Disable => {},
 				// If disabled and pkg has no versions, exclude
 				Sort::Enable => {
-					// TODO: These are probably wrong.
 					// If the package isn't installed, then it can not be upgradable
-					if !pkg.is_installed() || !self.depcache().is_upgradable(&pkg) {
+					if unsafe { pkg.current_version().end() }
+						|| !self.depcache().is_upgradable(&pkg)
+					{
 						continue;
 					}
 				},
-				// If reverse and the package has versions, exclude
-				// This section is for if you only want virtual packages
+				// If reverse and the package is installed and upgradable, exclude
+				// This section is for if you only want packages that are not upgradable
 				Sort::Reverse => {
-					if pkg.is_installed() && self.depcache().is_upgradable(&pkg) {
+					if unsafe { !pkg.current_version().end() }
+						&& self.depcache().is_upgradable(&pkg)
+					{
 						continue;
 					}
 				},
@@ -287,13 +270,13 @@ impl Cache {
 				// Installed Package is Disabled, so we keep them
 				Sort::Disable => {},
 				Sort::Enable => {
-					if !pkg.is_installed() {
+					if unsafe { pkg.current_version().end() } {
 						continue;
 					}
 				},
 				// Only include installed packages.
 				Sort::Reverse => {
-					if pkg.is_installed() {
+					if unsafe { !pkg.current_version().end() } {
 						continue;
 					}
 				},
@@ -320,19 +303,14 @@ impl Cache {
 				Sort::Disable => {},
 				// If the package is not auto removable skip it.
 				Sort::Enable => {
-					// If the Package is installed or marked install then it cannot be Garbage.
-					if (!pkg.is_installed() || !self.depcache().marked_install(&pkg))
-						|| self.depcache().is_garbage(&pkg)
-					{
+					// If the Package isn't auto_removable skip
+					if !self.depcache().is_garbage(&pkg) {
 						continue;
 					}
 				},
-				// Only include installed packages.
 				// If the package is auto removable skip it.
 				Sort::Reverse => {
-					if (pkg.is_installed() || self.depcache().marked_install(&pkg))
-						&& self.depcache().is_garbage(&pkg)
-					{
+					if self.depcache().is_garbage(&pkg) {
 						continue;
 					}
 				},
@@ -346,7 +324,7 @@ impl Cache {
 			pkg_list.sort_by_cached_key(|pkg| pkg.name().to_string());
 		}
 
-		Ok(pkg_list.into_iter().map(|pkg| Package::new(self, pkg)))
+		pkg_list.into_iter().map(|pkg| Package::new(self, pkg))
 	}
 
 	/// Updates the package cache and returns a Result
@@ -355,13 +333,13 @@ impl Cache {
 	///
 	/// ```
 	/// use rust_apt::new_cache;
-	/// use rust_apt::raw::progress::{AcquireProgress, AptAcquireProgress};
+	/// use rust_apt::progress::AcquireProgress;
 	///
 	/// let cache = new_cache!().unwrap();
-	/// let mut progress: Box<dyn AcquireProgress> = Box::new(AptAcquireProgress::new());
+	/// let mut progress = AcquireProgress::apt();
 
 	/// if let Err(e) = cache.update(&mut progress) {
-	///     for error in e.errors() {
+	///     for error in e.iter() {
 	///         if error.is_error {
 	///             println!("Error: {}", error.msg);
 	///         } else {
@@ -373,8 +351,8 @@ impl Cache {
 	/// # Known Errors:
 	/// * E:Could not open lock file /var/lib/apt/lists/lock - open (13: Permission denied)
 	/// * E:Unable to lock directory /var/lib/apt/lists/
-	pub fn update(self, progress: &mut Box<dyn AcquireProgress>) -> Result<(), AptErrors> {
-		self.cache.update(progress)
+	pub fn update(self, progress: &mut AcquireProgress) -> Result<(), AptErrors> {
+		Ok(self.ptr.update(progress.mut_status())?)
 	}
 
 	/// Mark all packages for upgrade
@@ -387,15 +365,13 @@ impl Cache {
 	///
 	/// let cache = new_cache!().unwrap();
 	///
-	/// cache.upgrade(&Upgrade::FullUpgrade).unwrap();
+	/// cache.upgrade(Upgrade::FullUpgrade).unwrap();
 	/// ```
-	pub fn upgrade(&self, upgrade_type: &Upgrade) -> Result<(), AptErrors> {
-		let mut progress = NoOpProgress::new_box();
-		match upgrade_type {
-			Upgrade::FullUpgrade => self.depcache().full_upgrade(&mut progress),
-			Upgrade::SafeUpgrade => self.depcache().safe_upgrade(&mut progress),
-			Upgrade::Upgrade => self.depcache().install_upgrade(&mut progress),
-		}
+	pub fn upgrade(&self, upgrade_type: Upgrade) -> Result<(), AptErrors> {
+		let mut progress = OperationProgress::quiet();
+		Ok(self
+			.depcache()
+			.upgrade(progress.pin().as_mut(), upgrade_type as i32)?)
 	}
 
 	/// Resolve dependencies with the changes marked on all packages. This marks
@@ -405,7 +381,7 @@ impl Cache {
 	/// Note that just running a `mark_*` function on a package doesn't
 	/// guarantee that the selected state will be kept during dependency
 	/// resolution. If you need such, make sure to run
-	/// [`crate::package::Package::protect`] after marking your requested
+	/// [`crate::Package::protect`] after marking your requested
 	/// modifications.
 	///
 	/// If `fix_broken` is set to [`true`], the library will try to repair
@@ -414,10 +390,9 @@ impl Cache {
 	/// Returns [`Err`] if there was an error reaching dependency resolution.
 	#[allow(clippy::result_unit_err)]
 	pub fn resolve(&self, fix_broken: bool) -> Result<(), AptErrors> {
-		// Use our dummy OperationProgress struct. See
-		// [`crate::cache::OperationProgress`] for why we need this.
-		self.resolver()
-			.resolve(fix_broken, &mut NoOpProgress::new_box())
+		Ok(self
+			.resolver()
+			.resolve(fix_broken, OperationProgress::quiet().pin().as_mut())?)
 	}
 
 	/// Autoinstall every broken package and run the problem resolver
@@ -432,7 +407,7 @@ impl Cache {
 	///
 	/// cache.fix_broken();
 	///
-	/// for pkg in cache.get_changes(false).unwrap() {
+	/// for pkg in cache.get_changes(false) {
 	///     println!("Pkg Name: {}", pkg.name())
 	/// }
 	/// ```
@@ -447,11 +422,11 @@ impl Cache {
 	/// # Example:
 	/// ```
 	/// use rust_apt::new_cache;
-	/// use rust_apt::raw::progress::{AptAcquireProgress};
+	/// use rust_apt::progress::AcquireProgress;
 	///
 	/// let cache = new_cache!().unwrap();
 	/// let pkg = cache.get("neovim").unwrap();
-	/// let mut progress = AptAcquireProgress::new_box();
+	/// let mut progress = AcquireProgress::apt();
 	///
 	/// pkg.mark_install(true, true);
 	/// pkg.protect();
@@ -482,9 +457,9 @@ impl Cache {
 	/// * W:Could not open file '/var/log/apt/eipp.log.xz' - EIPP::OrderInstall
 	///   (17: File exists)
 	/// * E:Internal Error, ordering was unable to handle the media swap"
-	pub fn get_archives(&self, progress: &mut Box<dyn AcquireProgress>) -> Result<(), Exception> {
+	pub fn get_archives(&self, progress: &mut AcquireProgress) -> Result<(), Exception> {
 		self.pkg_manager()
-			.get_archives(&self.cache, self.records(), progress)
+			.get_archives(&self.ptr, self.records(), progress.mut_status())
 	}
 
 	/// Install, remove, and do any other actions requested by the cache.
@@ -496,12 +471,12 @@ impl Cache {
 	/// # Example:
 	/// ```
 	/// use rust_apt::new_cache;
-	/// use rust_apt::raw::progress::{AptAcquireProgress, AptInstallProgress};
+	/// use rust_apt::progress::{AcquireProgress, InstallProgress};
 	///
 	/// let cache = new_cache!().unwrap();
 	/// let pkg = cache.get("neovim").unwrap();
-	/// let mut acquire_progress = AptAcquireProgress::new_box();
-	/// let mut install_progress = AptInstallProgress::new_box();
+	/// let mut acquire_progress = AcquireProgress::apt();
+	/// let mut install_progress = InstallProgress::apt();
 	///
 	/// pkg.mark_install(true, true);
 	/// pkg.protect();
@@ -527,8 +502,8 @@ impl Cache {
 	/// * E:Sub-process /usr/bin/dpkg returned an error code (2)
 	/// * W:Problem unlinking the file /var/cache/apt/pkgcache.bin -
 	///   pkgDPkgPM::Go (13: Permission denied)
-	pub fn do_install(self, progress: &mut Box<dyn InstallProgress>) -> Result<(), Exception> {
-		self.pkg_manager().do_install(progress)
+	pub fn do_install(self, progress: &mut InstallProgress) -> Result<(), AptErrors> {
+		Ok(self.pkg_manager().do_install(progress.pin().as_mut())?)
 	}
 
 	/// Handle get_archives and do_install in an easy wrapper.
@@ -539,12 +514,12 @@ impl Cache {
 	/// # Example:
 	/// ```
 	/// use rust_apt::new_cache;
-	/// use rust_apt::raw::progress::{AptAcquireProgress, AptInstallProgress};
+	/// use rust_apt::progress::{AcquireProgress, InstallProgress};
 	///
 	/// let cache = new_cache!().unwrap();
 	/// let pkg = cache.get("neovim").unwrap();
-	/// let mut acquire_progress = AptAcquireProgress::new_box();
-	/// let mut install_progress = AptInstallProgress::new_box();
+	/// let mut acquire_progress = AcquireProgress::apt();
+	/// let mut install_progress = InstallProgress::apt();
 	///
 	/// pkg.mark_install(true, true);
 	/// pkg.protect();
@@ -555,8 +530,8 @@ impl Cache {
 	/// ```
 	pub fn commit(
 		self,
-		progress: &mut Box<dyn AcquireProgress>,
-		install_progress: &mut Box<dyn InstallProgress>,
+		progress: &mut AcquireProgress,
+		install_progress: &mut InstallProgress,
 	) -> Result<(), AptErrors> {
 		// Lock the whole thing so as to prevent tamper
 		apt_lock()?;
@@ -594,7 +569,9 @@ impl Cache {
 	///
 	/// `cache.get("apt:i386")` Returns a Package object for the i386 arch
 	pub fn get(&self, name: &str) -> Option<Package> {
-		Some(Package::new(self, self.find_pkg(name)?))
+		Some(Package::new(self, unsafe {
+			self.find_pkg(name).make_safe()?
+		}))
 	}
 
 	/// An iterator over the packages
@@ -603,11 +580,11 @@ impl Cache {
 	/// # sort_name:
 	/// * [`true`] = Packages will be in alphabetical order
 	/// * [`false`] = Packages will not be sorted by name
-	pub fn get_changes(&self, sort_name: bool) -> Result<impl Iterator<Item = Package>, AptError> {
+	pub fn get_changes(&self, sort_name: bool) -> impl Iterator<Item = Package> {
 		let mut changed = Vec::new();
 		let depcache = self.depcache();
 
-		for pkg in self.raw_pkgs()? {
+		for pkg in self.raw_pkgs() {
 			if depcache.marked_install(&pkg)
 				|| depcache.marked_delete(&pkg)
 				|| depcache.marked_upgrade(&pkg)
@@ -624,15 +601,15 @@ impl Cache {
 			changed.sort_by_cached_key(|pkg| pkg.name().to_string());
 		}
 
-		Ok(changed
+		changed
 			.into_iter()
-			.map(|pkg_ptr| Package::new(self, pkg_ptr)))
+			.map(|pkg_ptr| Package::new(self, pkg_ptr))
 	}
 }
 
 /// Iterator Implementation for the Cache.
 pub struct CacheIter<'a> {
-	pkgs: IterRawPackage,
+	pkgs: IterPkgIterator,
 	cache: &'a Cache,
 }
 
@@ -642,18 +619,80 @@ impl<'a> Iterator for CacheIter<'a> {
 	fn next(&mut self) -> Option<Self::Item> { Some(Package::new(self.cache, self.pkgs.next()?)) }
 }
 
-impl<'a> IntoIterator for &'a Cache {
-	type IntoIter = CacheIter<'a>;
-	type Item = Package<'a>;
+#[cxx::bridge]
+pub(crate) mod raw {
+	impl UniquePtr<PkgRecords> {}
 
-	fn into_iter(self) -> Self::IntoIter { self.iter() }
-}
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/cache.h");
+		type PkgCacheFile;
 
-/// Implementation to be able to call the raw cache methods from the high level
-/// struct
-impl Deref for Cache {
-	type Target = raw::PkgCacheFile;
+		type PkgIterator = crate::raw::PkgIterator;
+		type VerIterator = crate::raw::VerIterator;
+		type PkgFileIterator = crate::raw::PkgFileIterator;
+		type PkgRecords = crate::records::raw::PkgRecords;
+		type IndexFile = crate::records::raw::IndexFile;
+		type PkgDepCache = crate::depcache::raw::PkgDepCache;
+		type AcqTextStatus = crate::acquire::raw::AcqTextStatus;
+		type PkgAcquire = crate::acquire::raw::PkgAcquire;
 
-	#[inline]
-	fn deref(&self) -> &raw::PkgCacheFile { &self.cache }
+		/// Create the CacheFile.
+		pub fn create_cache(volatile_files: &[&str]) -> Result<UniquePtr<PkgCacheFile>>;
+
+		/// Update the package lists, handle errors and return a Result.
+		pub fn update(self: &PkgCacheFile, progress: Pin<&mut AcqTextStatus>) -> Result<()>;
+
+		/// Loads the index files into PkgAcquire.
+		///
+		/// Used to get to source list uris.
+		///
+		/// It's not clear if this returning a bool is useful.
+		pub fn get_indexes(self: &PkgCacheFile, fetcher: &PkgAcquire) -> bool;
+
+		/// Return a pointer to PkgDepcache.
+		///
+		/// # Safety
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn create_depcache(self: &PkgCacheFile) -> UniquePtr<PkgDepCache>;
+
+		/// Return a pointer to PkgRecords.
+		///
+		/// # Safety
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn create_records(self: &PkgCacheFile) -> UniquePtr<PkgRecords>;
+
+		/// The priority of the Version as shown in `apt policy`.
+		pub fn priority(self: &PkgCacheFile, version: &VerIterator) -> i32;
+
+		/// Lookup the IndexFile of the Package file
+		///
+		/// # Safety
+		///
+		/// The IndexFile can not outlive PkgCacheFile.
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn find_index(self: &PkgCacheFile, file: &PkgFileIterator) -> UniquePtr<IndexFile>;
+
+		/// Return a package by name and optionally architecture.
+		///
+		/// # Safety
+		///
+		/// If the Internal Pkg Pointer is NULL, operations can segfault.
+		/// You should call `make_safe()` asap to convert it to an Option.
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn find_pkg(self: &PkgCacheFile, name: &str) -> UniquePtr<PkgIterator>;
+
+		/// Return the pointer to the start of the PkgIterator.
+		///
+		/// # Safety
+		///
+		/// If the Internal Pkg Pointer is NULL, operations can segfault.
+		/// You should call `raw_iter()` asap.
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn begin(self: &PkgCacheFile) -> UniquePtr<PkgIterator>;
+	}
 }

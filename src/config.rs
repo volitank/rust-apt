@@ -1,7 +1,5 @@
 //! Contains config related structs and functions.
 
-use crate::raw::config::raw;
-
 /// Struct for Apt Configuration
 ///
 /// All apt configuration methods do not require this struct.
@@ -16,7 +14,7 @@ impl Default for Config {
 	/// You will need to manually initialize the config system.
 	fn default() -> Self { Self::new() }
 }
-
+// TODO: I think we should not accept &str if we just call to_string() anyway
 impl Config {
 	/// Create a new config object and safely init the config system.
 	///
@@ -30,14 +28,14 @@ impl Config {
 	/// Clears all configuratations, re-initialize, and returns the config
 	/// object.
 	pub fn new_clear() -> Self {
-		raw::config_clear_all();
+		raw::clear_all();
 		Self::new()
 	}
 
 	/// Resets the configurations.
 	///
 	/// If you'd like to clear everything and NOT reinit
-	/// you can call `self.clear_all` or `raw::config_clear_all` directly
+	/// you can call `self.clear_all` or `raw::clear_all` directly
 	pub fn reset(&self) {
 		self.clear_all();
 		init_config_system();
@@ -47,33 +45,33 @@ impl Config {
 	///
 	/// If the value is a list, the entire list is cleared.
 	/// If you need to clear 1 value from a list see `self.clear_value`
-	pub fn clear(&self, key: &str) { raw::config_clear(key.to_string()); }
+	pub fn clear(&self, key: &str) { raw::clear(key.to_string()); }
 
 	/// Clear a single value from a list.
 	/// Used for removing one item in an apt configuruation list
 	pub fn clear_value(&self, key: &str, value: &str) {
-		raw::config_clear_value(key.to_string(), value.to_string());
+		raw::clear_value(key.to_string(), value.to_string());
 	}
 
 	/// Clears all configuratations.
 	///
 	/// This will leave you with an empty configuration object
 	/// and most things probably won't work right.
-	pub fn clear_all(&self) { raw::config_clear_all(); }
+	pub fn clear_all(&self) { raw::clear_all(); }
 
 	/// Returns a string dump of configuration options separated by `\n`
-	pub fn dump(&self) -> String { raw::config_dump() }
+	pub fn dump(&self) -> String { raw::dump() }
 
 	/// Find a key and return it's value as a string.
 	///
 	/// default is what will be returned if nothing is found.
 	pub fn find(&self, key: &str, default: &str) -> String {
-		raw::config_find(key.to_string(), default.to_string())
+		raw::find(key.to_string(), default.to_string())
 	}
 
 	/// Exactly like find but takes no default and returns an option instead.
 	pub fn get(&self, key: &str) -> Option<String> {
-		let value = raw::config_find(key.to_string(), "".to_string());
+		let value = raw::find(key.to_string(), "".to_string());
 		if value.is_empty() {
 			return None;
 		}
@@ -91,7 +89,7 @@ impl Config {
 	///
 	/// `dir` will return with a trailing `/` where `file` will not.
 	pub fn file(&self, key: &str, default: &str) -> String {
-		raw::config_find_file(key.to_string(), default.to_string())
+		raw::find_file(key.to_string(), default.to_string())
 	}
 
 	/// Find a directory and return it's value as a string.
@@ -104,35 +102,31 @@ impl Config {
 	///
 	/// `dir` will return with a trailing `/` where `file` will not.
 	pub fn dir(&self, key: &str, default: &str) -> String {
-		raw::config_find_dir(key.to_string(), default.to_string())
+		raw::find_dir(key.to_string(), default.to_string())
 	}
 
 	/// Same as find, but for boolean values.
 	pub fn bool(&self, key: &str, default: bool) -> bool {
-		raw::config_find_bool(key.to_string(), default)
+		raw::find_bool(key.to_string(), default)
 	}
 
 	/// Same as find, but for i32 values.
-	pub fn int(&self, key: &str, default: i32) -> i32 {
-		raw::config_find_int(key.to_string(), default)
-	}
+	pub fn int(&self, key: &str, default: i32) -> i32 { raw::find_int(key.to_string(), default) }
 
 	/// Return a vector for an Apt configuration list.
 	///
 	/// An example of a common key that contains a list `raw::NeverAutoRemove`.
-	pub fn find_vector(&self, key: &str) -> Vec<String> { raw::config_find_vector(key.to_string()) }
+	pub fn find_vector(&self, key: &str) -> Vec<String> { raw::find_vector(key.to_string()) }
 
 	/// Return a vector of supported architectures on this system.
 	/// The main architecture is the first in the list.
-	pub fn get_architectures(&self) -> Vec<String> { raw::config_get_architectures() }
+	pub fn get_architectures(&self) -> Vec<String> { raw::get_architectures() }
 
 	/// Simply check if a key exists.
-	pub fn contains(&self, key: &str) -> bool { raw::config_exists(key.to_string()) }
+	pub fn contains(&self, key: &str) -> bool { raw::exists(key.to_string()) }
 
 	/// Set the given key to the specified value.
-	pub fn set(&self, key: &str, value: &str) {
-		raw::config_set(key.to_string(), value.to_string())
-	}
+	pub fn set(&self, key: &str, value: &str) { raw::set(key.to_string(), value.to_string()) }
 
 	/// Add strings from a vector into an apt configuration list.
 	///
@@ -155,7 +149,7 @@ impl Config {
 		}
 
 		for value in values {
-			raw::config_set(vec_key.to_string(), value.to_string());
+			raw::set(vec_key.to_string(), value.to_string());
 		}
 	}
 }
@@ -166,8 +160,65 @@ impl Config {
 ///
 /// This could cause some things to get reset.
 pub fn init_config_system() {
-	if raw::config_find("APT".to_string(), "".to_string()).is_empty() {
+	if raw::find("APT".to_string(), "".to_string()).is_empty() {
 		raw::init_config();
 	}
 	raw::init_system();
+}
+
+#[cxx::bridge]
+pub(crate) mod raw {
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/configuration.h");
+
+		/// init the system. This must occur before creating the cache.
+		pub fn init_system();
+
+		/// init the config. This must occur before creating the cache.
+		pub fn init_config();
+
+		/// Returns a string dump of configuration options separated by `\n`
+		pub fn dump() -> String;
+
+		/// Find a key and return it's value as a string.
+		pub fn find(key: String, default_value: String) -> String;
+
+		/// Find a file and return it's value as a string.
+		pub fn find_file(key: String, default_value: String) -> String;
+
+		/// Find a directory and return it's value as a string.
+		pub fn find_dir(key: String, default_value: String) -> String;
+
+		/// Same as find, but for boolean values.
+		pub fn find_bool(key: String, default_value: bool) -> bool;
+
+		/// Same as find, but for i32 values.
+		pub fn find_int(key: String, default_value: i32) -> i32;
+
+		/// Return a vector for an Apt configuration list.
+		pub fn find_vector(key: String) -> Vec<String>;
+
+		/// Return a vector of supported architectures on this system.
+		/// The main architecture is the first in the list.
+		pub fn get_architectures() -> Vec<String>;
+
+		/// Set the given key to the specified value.
+		pub fn set(key: String, value: String);
+
+		/// Simply check if a key exists.
+		pub fn exists(key: String) -> bool;
+
+		/// Clears all values from a key.
+		///
+		/// If the value is a list, the entire list is cleared.
+		/// If you need to clear 1 value from a list see `clear_value`
+		pub fn clear(key: String);
+
+		/// Clears all configuratations.
+		pub fn clear_all();
+
+		/// Clear a single value from a list.
+		/// Used for removing one item in an apt configuruation list
+		pub fn clear_value(key: String, value: String);
+	}
 }

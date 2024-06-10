@@ -1,29 +1,38 @@
+//! There be Errors here.
+
 use std::fmt;
 
 use cxx::Exception;
+#[doc(inline)]
+pub use raw::{empty, pending_error, AptError};
 
-/// This module contains the bindings and structs shared with c++
 #[cxx::bridge]
-pub mod raw {
-	impl Vec<AptError> {}
+pub(crate) mod raw {
+	/// Representation of a single Apt Error or Warning
 	#[derive(Debug)]
 	struct AptError {
+		/// * [`true`] = Error.
+		/// * [`false`] = Warning, Notice, etc.
 		pub is_error: bool,
+		/// The String version of the Error.
 		pub msg: String,
 	}
 
 	unsafe extern "C++" {
 		include!("rust-apt/apt-pkg-c/error.h");
 
+		/// Returns [`true`] if there are any pending Apt Errors.
 		pub fn pending_error() -> bool;
 
+		/// Returns [`true`] if there are no Errors or Warnings.
 		pub fn empty() -> bool;
 
+		/// Returns all Apt Errors or Warnings.
 		pub fn get_all() -> Vec<AptError>;
 	}
 }
 
-impl fmt::Display for raw::AptError {
+impl fmt::Display for AptError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		if self.is_error {
 			write!(f, "E: {}", self.msg)?;
@@ -35,21 +44,22 @@ impl fmt::Display for raw::AptError {
 	}
 }
 
-impl std::error::Error for raw::AptError {}
+impl std::error::Error for AptError {}
 
+/// Struct that represents multiple apt errors and warnings.
+///
+/// This is essentially just a wrapper around [`Vec<AptError>`]
 #[derive(Debug)]
 pub struct AptErrors {
-	errors: Vec<raw::AptError>,
+	pub(crate) ptr: Vec<AptError>,
 }
 
 impl AptErrors {
 	pub fn new() -> AptErrors {
 		AptErrors {
-			errors: raw::get_all(),
+			ptr: raw::get_all(),
 		}
 	}
-
-	pub fn errors(&self) -> &Vec<raw::AptError> { &self.errors }
 }
 
 impl Default for AptErrors {
@@ -58,7 +68,7 @@ impl Default for AptErrors {
 
 impl fmt::Display for AptErrors {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		for error in &self.errors {
+		for error in self.iter() {
 			writeln!(f, "{error}")?;
 		}
 		Ok(())
@@ -68,7 +78,7 @@ impl fmt::Display for AptErrors {
 impl From<String> for AptErrors {
 	fn from(err: String) -> Self {
 		AptErrors {
-			errors: vec![raw::AptError {
+			ptr: vec![AptError {
 				is_error: true,
 				msg: err,
 			}],

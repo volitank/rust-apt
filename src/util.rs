@@ -3,12 +3,8 @@ use std::cmp::Ordering;
 
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::cache::Cache;
-use crate::config;
-use crate::package::Package;
-use crate::raw::error::AptErrors;
-use crate::raw::package::DepFlags;
-use crate::raw::util::raw;
+use crate::error::AptErrors;
+use crate::{config, Cache, DepFlags, Package};
 
 /// Get the terminal's height, i.e. the number of rows it has.
 ///
@@ -49,7 +45,7 @@ pub fn terminal_width() -> usize {
 /// assert_eq!(Ordering::Less, result);
 /// ```
 pub fn cmp_versions(ver1: &str, ver2: &str) -> Ordering {
-	let result = raw::cmp_versions(ver1.to_owned(), ver2.to_owned());
+	let result = raw::cmp_versions(ver1, ver2);
 	match result {
 		_ if result < 0 => Ordering::Less,
 		_ if result == 0 => Ordering::Equal,
@@ -219,7 +215,7 @@ pub fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Option<String
 	// else Return with just the package name like Apt does.
 	let Some(ver) = (match now {
 		true => pkg.installed(),
-		false => cache.depcache().install_version(pkg),
+		false => pkg.install_version(),
 	}) else {
 		broken_string += "\n";
 		return Some(broken_string);
@@ -230,12 +226,12 @@ pub fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Option<String
 
 	// ShowBrokenDeps
 	for dep in ver.depends_map().values().flatten() {
-		for (i, base_dep) in dep.base_deps.iter().enumerate() {
+		for (i, base_dep) in dep.iter().enumerate() {
 			if !cache.depcache().is_important_dep(base_dep) {
 				continue;
 			}
 
-			let dep_flag = if now { DepFlags::DepGnow } else { DepFlags::DepInstall };
+			let dep_flag = if now { DepFlags::DepGNow } else { DepFlags::DepInstall };
 
 			if cache.depcache().dep_state(base_dep) & dep_flag == dep_flag {
 				continue;
@@ -255,13 +251,13 @@ pub fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Option<String
 
 			broken_string += base_dep.target_package().name();
 
-			if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp()) {
+			if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp_type()) {
 				broken_string += &format!(" ({comp} {ver_str})");
 			}
 
 			let target = base_dep.target_package();
 			if !target.has_provides() {
-				if let Some(target_ver) = cache.depcache().install_version(target) {
+				if let Some(target_ver) = target.install_version() {
 					broken_string += &format!(" but {target_ver} is to be installed")
 				} else if target.candidate().is_some() {
 					broken_string += " but it is not going to be installed";
@@ -272,11 +268,46 @@ pub fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Option<String
 				}
 			}
 
-			if i + 1 != dep.base_deps.len() {
+			if i + 1 != dep.len() {
 				broken_string += " or"
 			}
 			broken_string += "\n";
 		}
 	}
 	Some(broken_string)
+}
+
+#[cxx::bridge]
+pub(crate) mod raw {
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/util.h");
+
+		/// Compares two package versions, `ver1` and `ver2`. The returned
+		/// integer's value is mapped to one of the following integers:
+		/// - Less than 0: `ver1` is less than `ver2`.
+		/// - Equal to 0: `ver1` is equal to `ver2`.
+		/// - Greater than 0: `ver1` is greater than `ver2`.
+		///
+		/// Unless you have a specific need for otherwise, you should probably
+		/// use [`crate::util::cmp_versions`] instead.
+		pub fn cmp_versions(ver1: &str, ver2: &str) -> i32;
+
+		/// Return an APT-styled progress bar (`[####..]`).
+		pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String;
+
+		/// Lock the lockfile.
+		pub fn apt_lock() -> Result<()>;
+
+		/// Unock the lockfile.
+		pub fn apt_unlock();
+
+		/// Lock the Dpkg lockfile.
+		pub fn apt_lock_inner() -> Result<()>;
+
+		/// Unlock the Dpkg lockfile.
+		pub fn apt_unlock_inner();
+
+		/// Check if the lockfile is locked.
+		pub fn apt_is_locked() -> bool;
+	}
 }

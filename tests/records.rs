@@ -5,9 +5,8 @@ mod records {
 	#[test]
 	fn fields() {
 		let cache = new_cache!().unwrap();
-		let pkg = cache.get("apt").unwrap();
-		// let pkg = cache.get("nala").unwrap();
-		let cand = pkg.candidate().unwrap();
+
+		let cand = cache.get("apt").unwrap().candidate().unwrap();
 
 		assert_eq!(
 			cand.get_record(RecordField::Maintainer).unwrap(),

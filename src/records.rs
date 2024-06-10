@@ -1,8 +1,16 @@
-/// This module contains the bindings and structs shared with c++
+//! Allows access to complete package description records directly from the
+//! file.
+use std::cell::{Ref, RefCell};
+
+use cxx::UniquePtr;
+
+// TODO: Probably just make this a real enum
+// we an add a variant RecordField::String("Package".to_string())
+// or something like that.
 
 /// A module containing [`&str`] constants for known record fields
 ///
-/// Pass through to the [`crate::package::Version::get_record`] method
+/// Pass through to the [`crate::Version::get_record`] method
 /// or you can use a custom [`&str`] like the ones listed below.
 ///
 /// Other Known Record Keys:
@@ -119,4 +127,108 @@ pub mod RecordField {
 	/// The SHA256 sum of the package
 	/// `a6dd99a52ec937faa20e1617da36b8b27a2ed8bc9300bf7eb8404041ede52200`
 	pub const SHA256: &str = "SHA256";
+}
+
+pub struct PackageRecords {
+	pub(crate) ptr: UniquePtr<raw::PkgRecords>,
+	parser: RefCell<UniquePtr<raw::Parser>>,
+	index: RefCell<u64>,
+}
+
+impl PackageRecords {
+	pub fn new(ptr: UniquePtr<raw::PkgRecords>) -> PackageRecords {
+		PackageRecords {
+			ptr,
+			parser: RefCell::new(UniquePtr::null()),
+			index: RefCell::new(0),
+		}
+	}
+
+	fn replace_index(&self, index: u64) -> bool {
+		if self.index.borrow().eq(&index) {
+			return false;
+		}
+		self.index.replace(index);
+		true
+	}
+
+	fn parser(&self) -> Ref<UniquePtr<raw::Parser>> {
+		if self.parser.borrow().is_null() {
+			panic!("You must call ver_lookup or desc_lookup first!")
+		}
+		self.parser.borrow()
+	}
+
+	pub fn ver_lookup(&self, file: &raw::VerFileIterator) -> &PackageRecords {
+		if self.replace_index(file.index()) {
+			unsafe { self.parser.replace(self.ptr.ver_lookup(file)) };
+		}
+		self
+	}
+
+	pub fn desc_lookup(&self, file: &raw::DescIterator) -> &PackageRecords {
+		if self.replace_index(file.index()) {
+			unsafe { self.parser.replace(self.ptr.desc_lookup(file)) };
+		}
+		self
+	}
+
+	pub fn short_desc(&self) -> Option<String> { self.parser().short_desc().ok() }
+
+	pub fn long_desc(&self) -> Option<String> { self.parser().long_desc().ok() }
+
+	pub fn filename(&self) -> String { self.parser().filename() }
+
+	pub fn get_field(&self, field: String) -> Option<String> { self.parser().get_field(field).ok() }
+
+	pub fn hash_find(&self, hash_type: String) -> Option<String> {
+		self.parser().hash_find(hash_type).ok()
+	}
+}
+
+#[cxx::bridge]
+pub(crate) mod raw {
+	impl UniquePtr<IndexFile> {}
+	unsafe extern "C++" {
+		include!("rust-apt/apt-pkg-c/records.h");
+		type PkgRecords;
+		type Parser;
+		type IndexFile;
+		type VerFileIterator = crate::iterators::VerFileIterator;
+		type DescIterator = crate::iterators::DescIterator;
+
+		/// Move the records into the correct spot for the Version File.
+		///
+		/// # Safety
+		///
+		/// The returned Parser can not out live the records struct.
+		/// If you hold a Parser and lookup another file, the data that parser
+		/// returns will change.
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn ver_lookup(self: &PkgRecords, ver_file: &VerFileIterator) -> UniquePtr<Parser>;
+
+		/// Move the records into the correct spot for the Description File.
+		///
+		/// # Safety
+		///
+		/// The returned Parser can not out live the records struct.
+		/// If you hold a Parser and lookup another file, the data that parser
+		/// returns will change.
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn desc_lookup(self: &PkgRecords, desc_file: &DescIterator) -> UniquePtr<Parser>;
+
+		pub fn filename(self: &Parser) -> String;
+		pub fn long_desc(self: &Parser) -> Result<String>;
+		pub fn short_desc(self: &Parser) -> Result<String>;
+
+		pub fn get_field(self: &Parser, field: String) -> Result<String>;
+		pub fn hash_find(self: &Parser, hash_type: String) -> Result<String>;
+
+		pub fn archive_uri(self: &IndexFile, filename: &str) -> String;
+
+		/// Return true if the IndexFile is trusted.
+		pub fn is_trusted(self: &IndexFile) -> bool;
+	}
 }

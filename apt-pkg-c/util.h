@@ -8,6 +8,8 @@
 #include <sstream>
 #include "rust/cxx.h"
 
+#include "types.h"
+
 /// Internal Helper Functions.
 /// Do not expose these on the Rust side - only for use on the C++ side.
 ///
@@ -26,7 +28,7 @@ inline const char* handle_str(const char* str) {
 }
 
 /// Check if a string exists and return a Result to rust
-inline rust::string handle_string(std::string string) {
+inline String handle_string(std::string string) {
 	if (string.empty()) { throw std::runtime_error("String doesn't exist"); }
 	return string;
 }
@@ -36,17 +38,17 @@ inline rust::string handle_string(std::string string) {
 //////////////////////////////////
 
 /// Compare two package version strings.
-inline int32_t cmp_versions(rust::String ver1_rust, rust::String ver2_rust) {
-	const char* ver1 = ver1_rust.c_str();
-	const char* ver2 = ver2_rust.c_str();
-
+inline i32 cmp_versions(str ver1, str ver2) {
 	if (!_system) { pkgInitSystem(*_config, _system); }
 
-	return _system->VS->DoCmpVersion(ver1, ver1 + strlen(ver1), ver2, ver2 + strlen(ver2));
+	const char* end1 = ver1.begin() + strlen(ver1.begin());
+	const char* end2 = ver2.begin() + strlen(ver2.begin());
+
+	return _system->VS->DoCmpVersion(ver1.begin(), end1, ver2.begin(), end2);
 }
 
 /// Return an APT-styled progress bar (`[####  ]`).
-inline rust::String get_apt_progress_string(float percent, uint32_t output_width) {
+inline String get_apt_progress_string(f32 percent, u32 output_width) {
 	return APT::Progress::PackageManagerFancy::GetTextProgressStr(percent, output_width);
 }
 

@@ -1,7 +1,6 @@
 mod depcache {
 	use rust_apt::cache::Upgrade;
 	use rust_apt::new_cache;
-	// use rust_apt::package::Mark;
 
 	#[test]
 	fn mark_reinstall() {
@@ -16,7 +15,11 @@ mod depcache {
 	#[test]
 	fn action_groups() {
 		let cache = new_cache!().unwrap();
-		let mut action_group = cache.depcache().action_group();
+		let mut action_group = unsafe { cache.depcache().action_group() };
+
+		// This is unsafe due to SIGABRT if you try to release after dropping the cache.
+		// Probably should get wrapped and have a lifetime related to the Cache.
+		// drop(cache);
 
 		// The C++ deconstructor will be run when the action group leaves scope.
 		action_group.pin_mut().release();
@@ -49,9 +52,9 @@ mod depcache {
 		// This test will always pass, but print the status of the changes.
 		// Occasionally manually compare the output to apt full-upgrade.
 		let cache = new_cache!().unwrap();
-		cache.upgrade(&Upgrade::FullUpgrade).unwrap();
+		cache.upgrade(Upgrade::FullUpgrade).unwrap();
 
-		for pkg in cache.get_changes(true).unwrap() {
+		for pkg in cache.get_changes(true) {
 			if pkg.marked_install() {
 				println!("{} is marked install", pkg.name());
 				// If the package is marked install then it will also
