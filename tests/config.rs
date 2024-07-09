@@ -108,9 +108,12 @@ mod config {
 		// An example of how you might walk the entire config tree.
 		let config = Config::new();
 
-		let mut stack = VecDeque::new();
+		let Some(tree) = config.root_tree() else {
+			return;
+		};
 
-		stack.push_back((config.root_tree(), 0));
+		let mut stack = VecDeque::new();
+		stack.push_back((tree, 0));
 
 		while let Some((node, indent)) = stack.pop_back() {
 			let indent_str = " ".repeat(indent);

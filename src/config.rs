@@ -135,11 +135,21 @@ impl Config {
 	/// Set the given key to the specified value.
 	pub fn set(&self, key: &str, value: &str) { raw::set(key.to_string(), value.to_string()) }
 
-	pub fn tree(&self, key: &str) -> ConfigTree {
-		ConfigTree::new(unsafe { raw::tree(key.to_string()) })
+	pub fn tree(&self, key: &str) -> Option<ConfigTree> {
+		let tree = unsafe { raw::tree(key.to_string()) };
+		if tree.end() {
+			return None;
+		}
+		Some(ConfigTree::new(tree))
 	}
 
-	pub fn root_tree(&self) -> ConfigTree { ConfigTree::new(unsafe { raw::root_tree() }) }
+	pub fn root_tree(&self) -> Option<ConfigTree> {
+		let tree = unsafe { raw::root_tree() };
+		if tree.end() {
+			return None;
+		}
+		Some(ConfigTree::new(tree))
+	}
 
 	/// Add strings from a vector into an apt configuration list.
 	///
