@@ -17,6 +17,32 @@ void init_config() { pkgInitConfig(*_config); }
 
 void init_system() { pkgInitSystem(*_config, _system); }
 
+struct ConfigTree {
+	const Configuration::Item* ptr;
+
+	bool end() const { return ptr == 0; }
+
+	UniquePtr<ConfigTree> raw_next() const { return std::make_unique<ConfigTree>(ptr->Next); }
+
+	UniquePtr<ConfigTree> unique() const { return std::make_unique<ConfigTree>(ptr); }
+
+	UniquePtr<ConfigTree> parent() const { return std::make_unique<ConfigTree>(ptr->Parent); }
+
+	UniquePtr<ConfigTree> child() const { return std::make_unique<ConfigTree>(ptr->Child); }
+
+	String tag() const { return ptr->Tag; }
+
+	String value() const { return ptr->Value; }
+
+	ConfigTree(const Configuration::Item* base) : ptr(base){};
+};
+
+UniquePtr<ConfigTree> root_tree() { return std::make_unique<ConfigTree>(_config->Tree(0)); }
+
+UniquePtr<ConfigTree> tree(String key) {
+	return std::make_unique<ConfigTree>(_config->Tree(key.c_str()));
+}
+
 /// Returns a String dump of configuration options separated by `\n`
 String dump() {
 	std::stringstream String_stream;

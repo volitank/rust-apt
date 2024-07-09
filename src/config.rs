@@ -1,11 +1,18 @@
 //! Contains config related structs and functions.
 
+use cxx::UniquePtr;
+
 /// Struct for Apt Configuration
 ///
 /// All apt configuration methods do not require this struct.
 /// You can call the bindings directly from raw::apt if you would like.
 #[derive(Debug)]
 pub struct Config {}
+
+// TODO: ConfigTree can (signal: 11, SIGSEGV: invalid memory reference)
+// if you get a ConfigTree object and then clear the config with clear_all
+// Make clear_all consume the Config struct and make ConfigTree have a lifetime
+// to it?
 
 impl Default for Config {
 	/// Create a new config object and safely init the config system.
@@ -128,6 +135,12 @@ impl Config {
 	/// Set the given key to the specified value.
 	pub fn set(&self, key: &str, value: &str) { raw::set(key.to_string(), value.to_string()) }
 
+	pub fn tree(&self, key: &str) -> ConfigTree {
+		ConfigTree::new(unsafe { raw::tree(key.to_string()) })
+	}
+
+	pub fn root_tree(&self) -> ConfigTree { ConfigTree::new(unsafe { raw::root_tree() }) }
+
 	/// Add strings from a vector into an apt configuration list.
 	///
 	/// If the configuration key is not a list,
@@ -154,13 +167,80 @@ impl Config {
 	}
 }
 
+pub struct ConfigTree {
+	pub ptr: UniquePtr<raw::ConfigTree>,
+}
+
+impl ConfigTree {
+	pub fn new(ptr: UniquePtr<raw::ConfigTree>) -> Self { ConfigTree { ptr } }
+
+	pub fn tag(&self) -> Option<String> {
+		let tag = self.ptr.tag();
+		if tag.is_empty() {
+			return None;
+		}
+		Some(tag)
+	}
+
+	pub fn value(&self) -> Option<String> {
+		let value = self.ptr.value();
+		if value.is_empty() {
+			return None;
+		}
+		Some(value)
+	}
+
+	pub fn child(&self) -> Option<ConfigTree> {
+		let child = unsafe { self.ptr.child() };
+		if child.end() { None } else { Some(ConfigTree::new(child)) }
+	}
+
+	pub fn sibling(&self) -> Option<ConfigTree> {
+		let child = unsafe { self.ptr.raw_next() };
+		if child.end() { None } else { Some(ConfigTree::new(child)) }
+	}
+
+	pub fn parent(&self) -> Option<ConfigTree> {
+		let parent = unsafe { self.ptr.parent() };
+		if parent.end() { None } else { Some(ConfigTree::new(parent)) }
+	}
+
+	pub fn iter(&self) -> IterConfigTree {
+		IterConfigTree(unsafe { ConfigTree::new(self.ptr.unique()) })
+	}
+}
+
+impl IntoIterator for ConfigTree {
+	type IntoIter = IterConfigTree;
+	type Item = ConfigTree;
+
+	fn into_iter(self) -> Self::IntoIter { IterConfigTree(self) }
+}
+
+pub struct IterConfigTree(ConfigTree);
+
+impl Iterator for IterConfigTree {
+	type Item = ConfigTree;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.0.ptr.end() {
+			None
+		} else {
+			let ret = unsafe { self.0.ptr.unique() };
+			let next = unsafe { self.0.ptr.raw_next() };
+			self.0.ptr = next;
+			Some(ConfigTree::new(ret))
+		}
+	}
+}
+
 /// Safely Init Apt Configuration and System.
 ///
 /// If the configuration has already been initialized, don't reinit.
 ///
 /// This could cause some things to get reset.
 pub fn init_config_system() {
-	if raw::find("APT".to_string(), "".to_string()).is_empty() {
+	if !raw::exists("APT::Architecture".to_string()) {
 		raw::init_config();
 	}
 	raw::init_system();
@@ -170,6 +250,8 @@ pub fn init_config_system() {
 pub(crate) mod raw {
 	unsafe extern "C++" {
 		include!("rust-apt/apt-pkg-c/configuration.h");
+
+		type ConfigTree;
 
 		/// init the system. This must occur before creating the cache.
 		pub fn init_system();
@@ -220,5 +302,17 @@ pub(crate) mod raw {
 		/// Clear a single value from a list.
 		/// Used for removing one item in an apt configuruation list
 		pub fn clear_value(key: String, value: String);
+
+		unsafe fn tree(key: String) -> UniquePtr<ConfigTree>;
+		unsafe fn root_tree() -> UniquePtr<ConfigTree>;
+
+		pub fn end(self: &ConfigTree) -> bool;
+		unsafe fn raw_next(self: &ConfigTree) -> UniquePtr<ConfigTree>;
+		unsafe fn unique(self: &ConfigTree) -> UniquePtr<ConfigTree>;
+
+		unsafe fn parent(self: &ConfigTree) -> UniquePtr<ConfigTree>;
+		unsafe fn child(self: &ConfigTree) -> UniquePtr<ConfigTree>;
+		pub fn tag(self: &ConfigTree) -> String;
+		pub fn value(self: &ConfigTree) -> String;
 	}
 }

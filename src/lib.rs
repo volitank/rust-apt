@@ -12,6 +12,9 @@
 //! If you find a way to segfault without using the `libapt-pkg` bindings
 //! directly, please report this as a bug.
 
+// Clippy is really mad at my safety docs and idk why
+#![allow(clippy::missing_safety_doc)]
+
 #[macro_use]
 mod macros;
 mod acquire;
