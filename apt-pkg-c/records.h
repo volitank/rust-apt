@@ -5,6 +5,7 @@
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/sourcelist.h>
+#include <apt-pkg/srcrecords.h>
 #include <memory>
 #include "rust/cxx.h"
 
@@ -61,4 +62,28 @@ struct PkgRecords {
 	}
 
 	PkgRecords(pkgCacheFile* cache) : records(*cache->GetPkgCache()){};
+};
+
+struct SourceParser {
+	pkgSrcRecords::Parser* ptr;
+
+	String as_str() const { return ptr->AsStr(); }
+	String package() const { return ptr->Package(); }
+	String version() const { return ptr->Version(); }
+	String maintainer() const { return ptr->Maintainer(); }
+	String section() const { return ptr->Section(); }
+	bool end() const { return ptr == 0; }
+
+	SourceParser(pkgSrcRecords::Parser* parser) : ptr(parser){};
+};
+
+struct SourceRecords {
+	pkgSrcRecords mutable records;
+
+	void restart() const { records.Restart(); }
+	UniquePtr<SourceParser> find(String name, bool src_only) const {
+		return std::make_unique<SourceParser>(records.Find(name.c_str(), src_only));
+	}
+
+	SourceRecords(pkgSourceList* list) : records(*list){};
 };

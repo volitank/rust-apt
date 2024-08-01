@@ -186,13 +186,60 @@ impl PackageRecords {
 	}
 }
 
+type SourceParser<'a> = Ref<'a, UniquePtr<raw::SourceParser>>;
+
+pub struct SourceRecords {
+	ptr: UniquePtr<raw::SourceRecords>,
+	parser: RefCell<UniquePtr<raw::SourceParser>>,
+}
+
+impl SourceRecords {
+	pub fn new(ptr: UniquePtr<raw::SourceRecords>) -> SourceRecords {
+		SourceRecords {
+			ptr,
+			parser: RefCell::new(UniquePtr::null()),
+		}
+	}
+
+	/// Return all of the parsers to their starting position
+	pub fn restart(&self) { self.ptr.restart() }
+
+	/// Lookup the string name of the package.
+	///
+	/// # Example:
+	/// ```
+	/// use rust_apt::new_cache;
+	///
+	/// let cache = new_cache!().unwrap();
+	/// let src_records = cache.source_records().unwrap();
+	///
+	/// while let Some(record) = src_records.lookup("libapt-pkg-dev".to_string(), false) {
+	///     println!("{}", record.package());
+	/// }
+	/// ```
+	pub fn lookup(&self, name: String, src_only: bool) -> Option<SourceParser> {
+		unsafe {
+			self.parser.replace(self.ptr.find(name, src_only));
+		}
+
+		if self.parser.borrow().end() {
+			self.restart();
+			return None;
+		}
+		Some(self.parser.borrow())
+	}
+}
+
 #[cxx::bridge]
 pub(crate) mod raw {
 	impl UniquePtr<IndexFile> {}
+	impl UniquePtr<SourceRecords> {}
 	unsafe extern "C++" {
 		include!("rust-apt/apt-pkg-c/records.h");
 		type PkgRecords;
 		type Parser;
+		type SourceRecords;
+		type SourceParser;
 		type IndexFile;
 		type VerFileIterator = crate::iterators::VerFileIterator;
 		type DescIterator = crate::iterators::DescIterator;
@@ -230,5 +277,24 @@ pub(crate) mod raw {
 
 		/// Return true if the IndexFile is trusted.
 		pub fn is_trusted(self: &IndexFile) -> bool;
+
+		pub fn restart(self: &SourceRecords);
+
+		/// # Safety
+		///
+		/// The returned Parser can not out live the records struct.
+		/// Make sure to check the `end()` to see if null.
+		unsafe fn find(
+			self: &SourceRecords,
+			name: String,
+			src_only: bool,
+		) -> UniquePtr<SourceParser>;
+
+		fn as_str(self: &SourceParser) -> String;
+		fn package(self: &SourceParser) -> String;
+		fn version(self: &SourceParser) -> String;
+		fn maintainer(self: &SourceParser) -> String;
+		fn section(self: &SourceParser) -> String;
+		fn end(self: &SourceParser) -> bool;
 	}
 }

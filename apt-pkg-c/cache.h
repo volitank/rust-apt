@@ -53,6 +53,12 @@ struct PkgCacheFile : public pkgCacheFile {
 		return std::make_unique<PkgRecords>(this->unconst());
 	}
 
+	UniquePtr<SourceRecords> source_records() const {
+		auto records = std::make_unique<SourceRecords>(this->unconst()->GetSourceList());
+		handle_errors();
+		return records;
+	}
+
 	UniquePtr<IndexFile> find_index(const PkgFileIterator& file) const {
 		pkgIndexFile* index;
 		if (!this->unconst()->GetSourceList()->FindIndex(file, index)) {

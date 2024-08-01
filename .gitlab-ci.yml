@@ -22,6 +22,9 @@ test:
     # https://github.com/GoogleContainerTools/base-images-docker/blob/master/debian/reproducible/overlay/etc/apt/apt.conf.d/docker-gzip-indexes
     - rm -f /etc/apt/apt.conf.d/docker*
 
+    # Needed for testing source records
+    - echo "deb-src http://deb.debian.org/debian/ sid main" >> /etc/apt/sources.list
+
     # Install needed packages
     - apt-get update
     - apt-get install eatmydata -y

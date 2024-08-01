@@ -28,4 +28,30 @@ mod records {
 		// This should be the same as what the Hash accessors will give.
 		assert_eq!(cand.get_record("SHA256"), cand.sha256());
 	}
+
+	#[test]
+	fn source() {
+		let cache = new_cache!().unwrap();
+		let src_records = cache.source_records().unwrap();
+
+		while let Some(record) = src_records.lookup("libapt-pkg-dev".to_string(), false) {
+			println!("{}", record.package());
+			println!(
+				"{} ({}) {}",
+				record.package(),
+				record.version(),
+				record.section()
+			)
+		}
+
+		dbg!(cache.get("apt").unwrap().changelog_uri().unwrap());
+		dbg!(
+			cache
+				.get("librust-rust-apt-dev")
+				.unwrap()
+				.changelog_uri()
+				.unwrap()
+		);
+		dbg!(cache.get("libgc-dev").unwrap().changelog_uri().unwrap());
+	}
 }

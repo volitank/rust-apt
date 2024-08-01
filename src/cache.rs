@@ -14,7 +14,7 @@ use crate::raw::{
 	create_cache, create_pkgmanager, create_problem_resolver, IntoRawIter, IterPkgIterator,
 	PackageManager, PkgCacheFile, PkgIterator, ProblemResolver,
 };
-use crate::records::PackageRecords;
+use crate::records::{PackageRecords, SourceRecords};
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
 use crate::Package;
 
@@ -142,6 +142,7 @@ pub struct Cache {
 	pub(crate) ptr: UniquePtr<PkgCacheFile>,
 	depcache: OnceCell<DepCache>,
 	records: OnceCell<PackageRecords>,
+	source_records: OnceCell<SourceRecords>,
 	pkgmanager: OnceCell<UniquePtr<PackageManager>>,
 	problem_resolver: OnceCell<UniquePtr<ProblemResolver>>,
 	local_debs: Vec<String>,
@@ -173,6 +174,7 @@ impl Cache {
 			ptr: create_cache(&volatile_files)?,
 			depcache: OnceCell::new(),
 			records: OnceCell::new(),
+			source_records: OnceCell::new(),
 			pkgmanager: OnceCell::new(),
 			problem_resolver: OnceCell::new(),
 			local_debs: volatile_files
@@ -198,6 +200,25 @@ impl Cache {
 	pub fn records(&self) -> &PackageRecords {
 		self.records
 			.get_or_init(|| PackageRecords::new(unsafe { self.create_records() }))
+	}
+
+	/// Get the PkgRecords
+	pub fn source_records(&self) -> Result<&SourceRecords, AptErrors> {
+		if let Some(records) = self.source_records.get() {
+			return Ok(records);
+		}
+
+		match unsafe { self.ptr.source_records() } {
+			Ok(raw_records) => {
+				self.source_records
+					.set(SourceRecords::new(raw_records))
+					// Unwrap: This is verified empty at the beginning.
+					.unwrap_or_default();
+				// Unwrap: Records was just added above.
+				Ok(self.source_records.get().unwrap())
+			},
+			Err(_) => Err(AptErrors::new()),
+		}
 	}
 
 	/// Get the PkgManager
@@ -631,6 +652,7 @@ pub(crate) mod raw {
 		type VerIterator = crate::raw::VerIterator;
 		type PkgFileIterator = crate::raw::PkgFileIterator;
 		type PkgRecords = crate::records::raw::PkgRecords;
+		type SourceRecords = crate::records::raw::SourceRecords;
 		type IndexFile = crate::records::raw::IndexFile;
 		type PkgDepCache = crate::depcache::raw::PkgDepCache;
 		type AcqTextStatus = crate::acquire::raw::AcqTextStatus;
@@ -662,6 +684,8 @@ pub(crate) mod raw {
 		///
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn create_records(self: &PkgCacheFile) -> UniquePtr<PkgRecords>;
+
+		unsafe fn source_records(self: &PkgCacheFile) -> Result<UniquePtr<SourceRecords>>;
 
 		/// The priority of the Version as shown in `apt policy`.
 		pub fn priority(self: &PkgCacheFile, version: &VerIterator) -> i32;
