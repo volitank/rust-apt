@@ -3,11 +3,19 @@
 
 #[cxx::bridge]
 pub(crate) mod raw {
+	#[repr(u32)]
+	enum OrderResult {
+		Completed,
+		Failed,
+		Incomplete,
+	}
+
 	unsafe extern "C++" {
 		include!("rust-apt/apt-pkg-c/pkgmanager.h");
 
 		type PackageManager;
 		type ProblemResolver;
+		type OrderResult;
 
 		type PkgCacheFile = crate::cache::raw::PkgCacheFile;
 		type PkgIterator = crate::cache::raw::PkgIterator;
@@ -30,8 +38,10 @@ pub(crate) mod raw {
 			progress: Pin<&mut AcqTextStatus>,
 		) -> Result<()>;
 
-		pub fn do_install(self: &PackageManager, progress: Pin<&mut InstallProgress>)
-		-> Result<()>;
+		pub fn do_install(
+			self: &PackageManager,
+			progress: Pin<&mut InstallProgress>,
+		) -> OrderResult;
 
 		/// # Safety
 		///

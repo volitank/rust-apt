@@ -8,7 +8,8 @@ use cxx::{Exception, UniquePtr};
 
 use crate::config::{init_config_system, Config};
 use crate::depcache::DepCache;
-use crate::error::AptErrors;
+use crate::error::{pending_error, AptErrors};
+use crate::pkgmanager::raw::OrderResult;
 use crate::progress::{AcquireProgress, InstallProgress, OperationProgress};
 use crate::raw::{
 	create_cache, create_pkgmanager, create_problem_resolver, IntoRawIter, IterPkgIterator,
@@ -524,7 +525,24 @@ impl Cache {
 	/// * W:Problem unlinking the file /var/cache/apt/pkgcache.bin -
 	///   pkgDPkgPM::Go (13: Permission denied)
 	pub fn do_install(self, progress: &mut InstallProgress) -> Result<(), AptErrors> {
-		Ok(self.pkg_manager().do_install(progress.pin().as_mut())?)
+		let res = self.pkg_manager().do_install(progress.pin().as_mut());
+
+		if pending_error() {
+			return Err(AptErrors::new());
+		}
+
+		match res {
+			OrderResult::Completed => {},
+			OrderResult::Failed => panic!(
+				"DoInstall failed with no error from libapt. Please report this as an issue."
+			),
+			OrderResult::Incomplete => {
+				panic!("Result is 'Incomplete', please request media swapping as a feature.")
+			},
+			_ => unreachable!(),
+		}
+
+		Ok(())
 	}
 
 	/// Handle get_archives and do_install in an easy wrapper.
