@@ -292,6 +292,8 @@ pub(crate) mod raw {
 		/// use [`crate::util::cmp_versions`] instead.
 		pub fn cmp_versions(ver1: &str, ver2: &str) -> i32;
 
+		pub fn quote_string(string: &str, bad: String) -> String;
+
 		/// Return an APT-styled progress bar (`[####..]`).
 		pub fn get_apt_progress_string(percent: f32, output_width: u32) -> String;
 

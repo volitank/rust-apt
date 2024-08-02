@@ -52,6 +52,10 @@ inline String get_apt_progress_string(f32 percent, u32 output_width) {
 	return APT::Progress::PackageManagerFancy::GetTextProgressStr(percent, output_width);
 }
 
+inline String quote_string(str string, String bad) {
+	return QuoteString(std::string(string), bad.c_str());
+}
+
 /// Lock the APT lockfile.
 inline void apt_lock() {
 	_system->Lock();
