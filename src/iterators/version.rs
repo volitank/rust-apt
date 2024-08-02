@@ -268,6 +268,8 @@ pub(crate) mod raw {
 		/// The uncompressed size of the .deb file.
 		pub fn installed_size(self: &VerIterator) -> u64;
 
+		pub fn multi_arch(self: &VerIterator) -> u8;
+
 		/// True if the version is able to be downloaded.
 		#[cxx_name = "Downloadable"]
 		pub fn is_downloadable(self: &VerIterator) -> bool;
