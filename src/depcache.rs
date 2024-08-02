@@ -148,6 +148,9 @@ pub(crate) mod raw {
 		/// Is the Package able to be auto removed?
 		pub fn is_garbage(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
 
+		/// Is the Package marked NewInstall.
+		pub fn marked_new_install(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
+
 		/// Is the Package marked for install?
 		pub fn marked_install(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
 
@@ -159,6 +162,9 @@ pub(crate) mod raw {
 
 		/// Is the Package marked for removal?
 		pub fn marked_delete(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
+
+		/// Is the Package held?
+		pub fn marked_held(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
 
 		/// Is the Package marked for keep?
 		pub fn marked_keep(self: &PkgDepCache, pkg: &PkgIterator) -> bool;

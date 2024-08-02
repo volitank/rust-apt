@@ -33,7 +33,7 @@ pub mod util;
 pub use cache::{Cache, PackageSort};
 pub use iterators::dependency::{create_depends_map, BaseDep, DepFlags, DepType, Dependency};
 pub use iterators::files::{PackageFile, VersionFile};
-pub use iterators::package::{Package, PkgCurrentState, PkgInstState, PkgSelectedState};
+pub use iterators::package::{Marked, Package, PkgCurrentState, PkgInstState, PkgSelectedState};
 pub use iterators::provider::Provider;
 pub use iterators::version::Version;
 

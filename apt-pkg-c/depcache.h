@@ -30,8 +30,11 @@ struct PkgDepCache {
 	/// Is the Package able to be auto removed?
 	bool is_garbage(const PkgIterator& pkg) const { return (*ptr)[pkg].Garbage; }
 
+	/// Is the Package marked NewInstall.
+	bool marked_new_install(const PkgIterator& pkg) const { return (*ptr)[pkg].NewInstall(); }
+
 	/// Is the Package marked for install?
-	bool marked_install(const PkgIterator& pkg) const { return (*ptr)[pkg].NewInstall(); }
+	bool marked_install(const PkgIterator& pkg) const { return (*ptr)[pkg].Install(); }
 
 	/// Is the Package marked for upgrade?
 	bool marked_upgrade(const PkgIterator& pkg) const { return (*ptr)[pkg].Upgrade(); }
@@ -41,6 +44,8 @@ struct PkgDepCache {
 
 	/// Is the Package marked for removal?
 	bool marked_delete(const PkgIterator& pkg) const { return (*ptr)[pkg].Delete(); }
+
+	bool marked_held(const PkgIterator& pkg) const { return (*ptr)[pkg].Held(); }
 
 	/// Is the Package marked for keep?
 	bool marked_keep(const PkgIterator& pkg) const { return (*ptr)[pkg].Keep(); }

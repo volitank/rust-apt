@@ -80,6 +80,20 @@ impl From<u8> for PkgCurrentState {
 	}
 }
 
+#[derive(Debug)]
+pub enum Marked {
+	NewInstall,
+	Install,
+	ReInstall,
+	Remove,
+	Purge,
+	Keep,
+	Upgrade,
+	Downgrade,
+	Held,
+	None,
+}
+
 /// A single unique libapt package.
 pub struct Package<'a> {
 	pub(crate) ptr: UniquePtr<PkgIterator>,
@@ -222,14 +236,6 @@ impl<'a> Package<'a> {
 	}
 
 	/// Check if the package is upgradable.
-	///
-	/// ## skip_depcache:
-	///
-	/// Skipping the DepCache is unnecessary if it's already been initialized.
-	/// If you're unsure use `false`
-	///
-	///   * [true] = Increases performance by skipping the pkgDepCache.
-	///   * [false] = Use DepCache to check if the package is upgradable
 	pub fn is_upgradable(&self) -> bool {
 		self.is_installed() && self.cache.depcache().is_upgradable(self)
 	}
@@ -242,11 +248,60 @@ impl<'a> Package<'a> {
 		(self.is_installed() || self.marked_install()) && self.cache.depcache().is_garbage(self)
 	}
 
+	pub fn marked(&self) -> Marked {
+		// Accessors that do not check `Mode` internally must come first
+
+		// Held is also marked keep. It needs to come before keep.
+		if self.marked_held() {
+			return Marked::Held;
+		}
+
+		if self.marked_keep() {
+			return Marked::Keep;
+		}
+
+		// Upgrade, NewInstall, Reinstall and Downgrade are marked Install.
+		// They need to come before Install.
+		if self.marked_reinstall() {
+			return Marked::ReInstall;
+		}
+
+		if self.marked_upgrade() && self.is_installed() {
+			return Marked::Upgrade;
+		}
+
+		if self.marked_new_install() {
+			return Marked::NewInstall;
+		}
+
+		if self.marked_downgrade() {
+			return Marked::Downgrade;
+		}
+
+		if self.marked_install() {
+			return Marked::Install;
+		}
+
+		// Purge is also marked delete. Needs to come first.
+		if self.marked_purge() {
+			return Marked::Purge;
+		}
+
+		if self.marked_delete() {
+			return Marked::Remove;
+		}
+
+		Marked::None
+	}
+
 	/// Check if the package is now broken
 	pub fn is_now_broken(&self) -> bool { self.cache.depcache().is_now_broken(self) }
 
 	/// Check if the package package installed is broken
 	pub fn is_inst_broken(&self) -> bool { self.cache.depcache().is_inst_broken(self) }
+
+	/// Check if the package is marked NewInstall
+	pub fn marked_new_install(&self) -> bool { self.cache.depcache().marked_new_install(self) }
 
 	/// Check if the package is marked install
 	pub fn marked_install(&self) -> bool { self.cache.depcache().marked_install(self) }
@@ -259,6 +314,9 @@ impl<'a> Package<'a> {
 
 	/// Check if the package is marked delete
 	pub fn marked_delete(&self) -> bool { self.cache.depcache().marked_delete(self) }
+
+	/// Check if the package is marked held
+	pub fn marked_held(&self) -> bool { self.cache.depcache().marked_held(self) }
 
 	/// Check if the package is marked keep
 	pub fn marked_keep(&self) -> bool { self.cache.depcache().marked_keep(self) }
