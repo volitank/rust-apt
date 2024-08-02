@@ -198,10 +198,12 @@ impl<'a> PartialEq for Version<'a> {
 	}
 }
 
+impl<'a> Ord for Version<'a> {
+	fn cmp(&self, other: &Self) -> Ordering { cmp_versions(self.version(), other.version()) }
+}
+
 impl<'a> PartialOrd for Version<'a> {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(cmp_versions(self.version(), other.version()))
-	}
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
 }
 
 impl<'a> fmt::Display for Version<'a> {
