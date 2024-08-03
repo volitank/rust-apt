@@ -23,7 +23,7 @@ pub(crate) mod raw {
 		type PkgDepCache = crate::depcache::raw::PkgDepCache;
 		type AcqTextStatus = crate::acquire::raw::AcqTextStatus;
 
-		type InstallProgress<'a> = crate::progress::InstallProgress<'a>;
+		type InstallProgressFancy<'a> = crate::progress::InstallProgressFancy<'a>;
 		type OperationProgress<'a> = crate::progress::OperationProgress<'a>;
 
 		/// # Safety
@@ -40,8 +40,12 @@ pub(crate) mod raw {
 
 		pub fn do_install(
 			self: &PackageManager,
-			progress: Pin<&mut InstallProgress>,
+			progress: Pin<&mut InstallProgressFancy>,
 		) -> OrderResult;
+
+		/// Send dpkg status messages to an File Descriptor.
+		/// This required more work to implement but is the most flexible.
+		pub fn do_install_fd(self: &PackageManager, fd: i32) -> OrderResult;
 
 		/// # Safety
 		///

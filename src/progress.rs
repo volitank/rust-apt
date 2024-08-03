@@ -1,6 +1,7 @@
 //! Contains Progress struct for updating the package list.
 use std::fmt::Write as _;
 use std::io::{stdout, Write};
+use std::os::fd::RawFd;
 use std::pin::Pin;
 
 use cxx::{ExternType, UniquePtr};
@@ -182,14 +183,41 @@ unsafe impl<'a> ExternType for OperationProgress<'a> {
 	type Kind = cxx::kind::Trivial;
 }
 
-/// Struct for displaying Progress of Package Installation.
+/// Enum for displaying Progress of Package Installation.
 ///
 /// The [`Default`] implementation mirrors apt's.
-pub struct InstallProgress<'a> {
-	inner: Box<dyn DynInstallProgress + 'a>,
+pub enum InstallProgress<'a> {
+	Fancy(InstallProgressFancy<'a>),
+	Fd(RawFd),
 }
 
 impl<'a> InstallProgress<'a> {
+	/// Create a new OpProgress Struct from a struct that implements
+	/// AcquireProgress trait.
+	pub fn new(inner: impl DynInstallProgress + 'static) -> Self {
+		Self::Fancy(InstallProgressFancy::new(inner))
+	}
+
+	/// Send dpkg status messages to an File Descriptor.
+	/// This required more work to implement but is the most flexible.
+	pub fn fd(fd: RawFd) -> Self { Self::Fd(fd) }
+
+	/// Returns InstallProgress that mimics apt's fancy progress
+	pub fn apt() -> Self { Self::new(AptInstallProgress::new()) }
+}
+
+impl<'a> Default for InstallProgress<'a> {
+	fn default() -> Self { Self::apt() }
+}
+
+/// Struct for displaying Progress of Package Installation.
+///
+/// The [`Default`] implementation mirrors apt's.
+pub struct InstallProgressFancy<'a> {
+	inner: Box<dyn DynInstallProgress + 'a>,
+}
+
+impl<'a> InstallProgressFancy<'a> {
 	/// Create a new OpProgress Struct from a struct that implements
 	/// AcquireProgress trait.
 	pub fn new(inner: impl DynInstallProgress + 'static) -> Self {
@@ -198,9 +226,7 @@ impl<'a> InstallProgress<'a> {
 		}
 	}
 
-	/// Returns a OperationProgress that outputs no data
-	///
-	/// Generally I have not found much use for displaying OpProgress
+	/// Returns InstallProgress that mimics apt's fancy progress
 	pub fn apt() -> Self { Self::new(AptInstallProgress::new()) }
 
 	fn status_changed(
@@ -218,16 +244,16 @@ impl<'a> InstallProgress<'a> {
 		self.inner.error(pkgname, steps_done, total_steps, error)
 	}
 
-	pub fn pin(&mut self) -> Pin<&mut InstallProgress<'a>> { Pin::new(self) }
+	pub fn pin(&mut self) -> Pin<&mut InstallProgressFancy<'a>> { Pin::new(self) }
 }
 
-impl<'a> Default for InstallProgress<'a> {
+impl<'a> Default for InstallProgressFancy<'a> {
 	fn default() -> Self { Self::apt() }
 }
 
-/// Impl for sending DynInstallProgress across the barrier.
-unsafe impl<'a> ExternType for InstallProgress<'a> {
-	type Id = cxx::type_id!("InstallProgress");
+/// Impl for sending InstallProgressFancy across the barrier.
+unsafe impl<'a> ExternType for InstallProgressFancy<'a> {
+	type Id = cxx::type_id!("InstallProgressFancy");
 	type Kind = cxx::kind::Trivial;
 }
 
@@ -612,7 +638,7 @@ pub(crate) mod raw {
 	extern "Rust" {
 		type AcquireProgress<'a>;
 		type OperationProgress<'a>;
-		type InstallProgress<'a>;
+		type InstallProgressFancy<'a>;
 
 		/// Called when an operation has been updated.
 		fn update(self: &mut OperationProgress, operation: String, percent: f32);
@@ -622,7 +648,7 @@ pub(crate) mod raw {
 
 		/// Called when the install status has changed.
 		fn status_changed(
-			self: &mut InstallProgress,
+			self: &mut InstallProgressFancy,
 			pkgname: String,
 			steps_done: u64,
 			total_steps: u64,
@@ -633,7 +659,7 @@ pub(crate) mod raw {
 		// Research and update higher level structs as well
 		// TODO: Create custom errors when we have better information
 		fn error(
-			self: &mut InstallProgress,
+			self: &mut InstallProgressFancy,
 			pkgname: String,
 			steps_done: u64,
 			total_steps: u64,

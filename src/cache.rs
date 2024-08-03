@@ -525,7 +525,10 @@ impl Cache {
 	/// * W:Problem unlinking the file /var/cache/apt/pkgcache.bin -
 	///   pkgDPkgPM::Go (13: Permission denied)
 	pub fn do_install(self, progress: &mut InstallProgress) -> Result<(), AptErrors> {
-		let res = self.pkg_manager().do_install(progress.pin().as_mut());
+		let res = match progress {
+			InstallProgress::Fancy(inner) => self.pkg_manager().do_install(inner.pin().as_mut()),
+			InstallProgress::Fd(fd) => self.pkg_manager().do_install_fd(*fd),
+		};
 
 		if pending_error() {
 			return Err(AptErrors::new());

@@ -48,7 +48,12 @@ struct PackageManager {
 		}
 	}
 
-	OrderResult do_install(InstallProgress& callback) const {
+	OrderResult do_install_fd(i32 fd) const {
+		APT::Progress::PackageManagerProgressFd install_progress(fd);
+		return pkgmanager->DoInstall(&install_progress);
+	}
+
+	OrderResult do_install(InstallProgressFancy& callback) const {
 		PackageManagerWrapper install_progress(callback);
 		return pkgmanager->DoInstall(&install_progress);
 	}

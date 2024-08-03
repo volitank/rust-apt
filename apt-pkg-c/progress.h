@@ -17,7 +17,7 @@ struct OpProgressWrapper : public OpProgress {
 
 struct PackageManagerWrapper : public APT::Progress::PackageManagerFancy {
 	/// Callback to the rust struct
-	InstallProgress& callback;
+	InstallProgressFancy& callback;
 
 	bool StatusChanged(
 		std::string pkgname,
@@ -38,5 +38,5 @@ struct PackageManagerWrapper : public APT::Progress::PackageManagerFancy {
 		callback.error(pkgname, steps_done, total_steps, error);
 	};
 
-	PackageManagerWrapper(InstallProgress& callback) : callback(callback){};
+	PackageManagerWrapper(InstallProgressFancy& callback) : callback(callback){};
 };
