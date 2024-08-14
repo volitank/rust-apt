@@ -3,6 +3,7 @@ mod config {
 	use std::process::Command;
 
 	use rust_apt::config::Config;
+	use rust_apt::new_cache;
 
 	#[test]
 	fn clear() {
@@ -23,6 +24,20 @@ mod config {
 		assert!(config.contains("APT::Architecture"));
 		assert!(!config_dump.is_empty());
 		println!("{}", config.dump());
+	}
+
+	#[test]
+	// Example of how to use only the packages in a Packagefile.
+	fn empty_cache() {
+		let config = Config::new();
+
+		config.clear("Dir::State");
+		config.set("Dir::State::status", "");
+
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+
+		dbg!(cache.iter().count());
+		println!("{}", config.dump())
 	}
 
 	#[test]
