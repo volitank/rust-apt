@@ -150,7 +150,7 @@ impl<'a> Package<'a> {
 	///
 	/// pkg.get_version("2.4.7");
 	/// ```
-	pub fn get_version(&'a self, version_str: &str) -> Option<Version<'a>> {
+	pub fn get_version(&self, version_str: &str) -> Option<Version<'a>> {
 		for ver in unsafe { self.ptr.versions().raw_iter() } {
 			if version_str == ver.version() {
 				return Some(Version::new(ver, self.cache));
