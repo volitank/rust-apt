@@ -21,6 +21,7 @@ use crate::Package;
 
 /// Selection of Upgrade type
 #[repr(i32)]
+#[derive(Debug)]
 pub enum Upgrade {
 	/// Upgrade will Install new and Remove packages in addition to
 	/// upgrading them.
