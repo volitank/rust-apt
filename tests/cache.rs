@@ -560,17 +560,19 @@ mod cache {
 
 	// For now `zeek` has broken dependencies so the resolver errors.
 	// If this test fails, potentially find a reason.
-	#[test]
-	fn bad_resolution() {
-		let cache = new_cache!().unwrap();
+	// TODO: Zeek seems to be gone, need to make a package just for testing this
 
-		let pkg = cache.get("zeek").unwrap();
+	// #[test]
+	// fn bad_resolution() {
+	// 	let cache = new_cache!().unwrap();
 
-		pkg.mark_install(false, true);
-		pkg.protect();
+	// 	let pkg = cache.get("zeek").unwrap();
 
-		assert!(cache.resolve(false).is_err());
-	}
+	// 	pkg.mark_install(false, true);
+	// 	pkg.protect();
+
+	// 	assert!(cache.resolve(false).is_err());
+	// }
 
 	#[test]
 	fn depcache_clear() {
