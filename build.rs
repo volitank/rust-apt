@@ -20,7 +20,7 @@ fn main() {
 
 	cxx_build::bridges(&source_files)
 		.files(&cc_files)
-		.flag_if_supported("-std=c++14")
+		.flag_if_supported("-std=c++17")
 		.compile("rust-apt");
 
 	println!("cargo:rustc-link-lib=apt-pkg");
