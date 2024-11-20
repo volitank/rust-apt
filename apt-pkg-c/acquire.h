@@ -22,8 +22,8 @@ struct PkgAcquire {
 
 	UniquePtr<std::vector<AcqWorker>> workers() const;
 
-	PkgAcquire() : ptr(new pkgAcquire), del(true){};
-	PkgAcquire(pkgAcquire* base) : ptr(base), del(false){};
+	PkgAcquire() : ptr(new pkgAcquire), del(true) {};
+	PkgAcquire(pkgAcquire* base) : ptr(base), del(false) {};
 	~PkgAcquire() {
 		if (del) { delete ptr; }
 	};
@@ -43,7 +43,7 @@ struct Item {
 
 	UniquePtr<PkgAcquire> owner() const { return std::make_unique<PkgAcquire>(ptr->GetOwner()); }
 
-	Item(pkgAcquire::Item* base) : ptr(base){};
+	Item(pkgAcquire::Item* base) : ptr(base) {};
 };
 
 struct ItemDesc {
@@ -56,8 +56,8 @@ struct ItemDesc {
 	UniquePtr<Item> owner() const { return std::make_unique<Item>(ptr->Owner); }
 
 	// Cast away the constness in this case. We aren't going to change it.
-	ItemDesc(const pkgAcquire::ItemDesc* base) : ptr(const_cast<pkgAcquire::ItemDesc*>(base)){};
-	ItemDesc(pkgAcquire::ItemDesc* base) : ptr(base){};
+	ItemDesc(const pkgAcquire::ItemDesc* base) : ptr(const_cast<pkgAcquire::ItemDesc*>(base)) {};
+	ItemDesc(pkgAcquire::ItemDesc* base) : ptr(base) {};
 };
 
 struct AcqWorker {
@@ -73,7 +73,7 @@ struct AcqWorker {
 		return std::make_unique<ItemDesc>(item_desc);
 	}
 
-	AcqWorker(pkgAcquire::Worker* base) : ptr(base), item_desc(base->CurrentItem){};
+	AcqWorker(pkgAcquire::Worker* base) : ptr(base), item_desc(base->CurrentItem) {};
 };
 
 struct AcqTextStatus : public pkgAcquireStatus {
@@ -202,7 +202,7 @@ struct AcqTextStatus : public pkgAcquireStatus {
 	u64 total_bytes() const { return this->TotalBytes; }
 	f64 percent() const { return this->Percent; }
 
-	AcqTextStatus() : pkgAcquireStatus(), callback(0){};
+	AcqTextStatus() : pkgAcquireStatus(), callback(0) {};
 };
 
 inline UniquePtr<std::vector<ItemDesc>> PkgAcquire::uris() const {

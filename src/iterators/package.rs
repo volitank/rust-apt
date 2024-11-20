@@ -6,7 +6,7 @@ use std::fmt;
 use cxx::UniquePtr;
 
 use crate::raw::{IntoRawIter, PkgIterator};
-use crate::{create_depends_map, util, Cache, DepType, Dependency, Provider, Version};
+use crate::{Cache, DepType, Dependency, Provider, Version, create_depends_map, util};
 /// The state that the user wishes the package to be in.
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum PkgSelectedState {

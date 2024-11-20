@@ -18,7 +18,7 @@ struct IndexFile {
 	String archive_uri(str filename) const { return ptr->ArchiveURI(std::string(filename)); }
 	bool is_trusted() const { return ptr->IsTrusted(); }
 
-	IndexFile(pkgIndexFile* file) : ptr(file){};
+	IndexFile(pkgIndexFile* file) : ptr(file) {};
 };
 
 struct Parser {
@@ -46,7 +46,7 @@ struct Parser {
 		return handle_string(hash->HashValue());
 	}
 
-	Parser(pkgRecords::Parser& parser) : ptr(parser){};
+	Parser(pkgRecords::Parser& parser) : ptr(parser) {};
 };
 
 struct PkgRecords {
@@ -61,7 +61,7 @@ struct PkgRecords {
 		return std::make_unique<Parser>(records.Lookup(desc.FileList()));
 	}
 
-	PkgRecords(pkgCacheFile* cache) : records(*cache->GetPkgCache()){};
+	PkgRecords(pkgCacheFile* cache) : records(*cache->GetPkgCache()) {};
 };
 
 struct SourceParser {
@@ -74,7 +74,7 @@ struct SourceParser {
 	String section() const { return ptr->Section(); }
 	bool end() const { return ptr == 0; }
 
-	SourceParser(pkgSrcRecords::Parser* parser) : ptr(parser){};
+	SourceParser(pkgSrcRecords::Parser* parser) : ptr(parser) {};
 };
 
 struct SourceRecords {
@@ -85,5 +85,5 @@ struct SourceRecords {
 		return std::make_unique<SourceParser>(records.Find(name.c_str(), src_only));
 	}
 
-	SourceRecords(pkgSourceList* list) : records(*list){};
+	SourceRecords(pkgSourceList* list) : records(*list) {};
 };

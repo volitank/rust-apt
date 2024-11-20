@@ -71,7 +71,7 @@ struct PkgCacheFile : public pkgCacheFile {
 		return this->unconst()->GetSourceList()->GetIndexes(fetcher.ptr, true);
 	}
 
-	PkgCacheFile() : pkgCacheFile(){};
+	PkgCacheFile() : pkgCacheFile() {};
 };
 
 inline UniquePtr<PkgCacheFile> create_cache(rust::Slice<const str> volatile_files) {

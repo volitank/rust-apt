@@ -4,7 +4,7 @@ use std::fmt;
 
 use cxx::Exception;
 #[doc(inline)]
-pub use raw::{empty, pending_error, AptError};
+pub use raw::{AptError, empty, pending_error};
 
 #[cxx::bridge]
 pub(crate) mod raw {

@@ -202,5 +202,5 @@ struct PkgDepCache {
 		handle_errors();
 	}
 
-	PkgDepCache(pkgDepCache* DepCache) : ptr(DepCache){};
+	PkgDepCache(pkgDepCache* DepCache) : ptr(DepCache) {};
 };

@@ -8,8 +8,8 @@ use cxx::UniquePtr;
 use crate::raw::{IntoRawIter, VerIterator};
 use crate::util::cmp_versions;
 use crate::{
-	create_depends_map, Cache, DepType, Dependency, Package, PackageFile, PackageRecords, Provider,
-	VersionFile,
+	Cache, DepType, Dependency, Package, PackageFile, PackageRecords, Provider, VersionFile,
+	create_depends_map,
 };
 
 /// Represents a single Version of a package.

@@ -1,10 +1,10 @@
 //! Contains miscellaneous helper utilities.
 use std::cmp::Ordering;
 
-use terminal_size::{terminal_size, Height, Width};
+use terminal_size::{Height, Width, terminal_size};
 
 use crate::error::AptErrors;
-use crate::{config, Cache, DepFlags, Package};
+use crate::{Cache, DepFlags, Package, config};
 
 /// Get the terminal's height, i.e. the number of rows it has.
 ///

@@ -34,7 +34,7 @@ struct ConfigTree {
 
 	String value() const { return ptr->Value; }
 
-	ConfigTree(const Configuration::Item* base) : ptr(base){};
+	ConfigTree(const Configuration::Item* base) : ptr(base) {};
 };
 
 UniquePtr<ConfigTree> root_tree() { return std::make_unique<ConfigTree>(_config->Tree(0)); }

@@ -58,7 +58,7 @@ struct PackageManager {
 		return pkgmanager->DoInstall(&install_progress);
 	}
 
-	PackageManager(pkgDepCache* depcache) : pkgmanager(_system->CreatePM(depcache)){};
+	PackageManager(pkgDepCache* depcache) : pkgmanager(_system->CreatePM(depcache)) {};
 };
 
 struct ProblemResolver {
@@ -75,7 +75,7 @@ struct ProblemResolver {
 		handle_errors();
 	}
 
-	ProblemResolver(pkgDepCache* depcache) : resolver(depcache){};
+	ProblemResolver(pkgDepCache* depcache) : resolver(depcache) {};
 };
 
 /// Create the problem resolver.

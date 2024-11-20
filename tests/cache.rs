@@ -4,9 +4,9 @@ mod cache {
 
 	use cxx::{CxxVector, UniquePtr};
 	use rust_apt::cache::*;
-	use rust_apt::raw::{create_acquire, IntoRawIter, ItemDesc};
+	use rust_apt::raw::{IntoRawIter, ItemDesc, create_acquire};
 	use rust_apt::util::*;
-	use rust_apt::{new_cache, DepType};
+	use rust_apt::{DepType, new_cache};
 
 	// This is a manual test. I don't know a good way to dynamically test this
 	// Maybe by installing a test-deb with certain depends and checking the

@@ -12,7 +12,7 @@ struct OpProgressWrapper : public OpProgress {
 	void Update() { callback.update(Op, Percent); };
 	void Done() { callback.done(); };
 
-	OpProgressWrapper(OperationProgress& callback) : callback(callback){};
+	OpProgressWrapper(OperationProgress& callback) : callback(callback) {};
 };
 
 struct PackageManagerWrapper : public APT::Progress::PackageManagerFancy {
@@ -38,5 +38,5 @@ struct PackageManagerWrapper : public APT::Progress::PackageManagerFancy {
 		callback.error(pkgname, steps_done, total_steps, error);
 	};
 
-	PackageManagerWrapper(InstallProgressFancy& callback) : callback(callback){};
+	PackageManagerWrapper(InstallProgressFancy& callback) : callback(callback) {};
 };

@@ -27,7 +27,7 @@ struct DepIterator : public pkgCache::DepIterator {
 	UniquePtr<VerIterator> parent_ver() const;
 	UniquePtr<std::vector<VerIterator>> all_targets() const;
 
-	DepIterator(const pkgCache::DepIterator& base) : pkgCache::DepIterator(base){};
+	DepIterator(const pkgCache::DepIterator& base) : pkgCache::DepIterator(base) {};
 };
 
 struct PrvIterator : public pkgCache::PrvIterator {
@@ -41,7 +41,7 @@ struct PrvIterator : public pkgCache::PrvIterator {
 
 	UniquePtr<PrvIterator> unique() const { return std::make_unique<PrvIterator>(*this); }
 
-	PrvIterator(const pkgCache::PrvIterator& base) : pkgCache::PrvIterator(base){};
+	PrvIterator(const pkgCache::PrvIterator& base) : pkgCache::PrvIterator(base) {};
 };
 
 struct PkgFileIterator : public pkgCache::PkgFileIterator {
@@ -61,7 +61,7 @@ struct PkgFileIterator : public pkgCache::PkgFileIterator {
 
 	UniquePtr<PkgFileIterator> unique() const { return std::make_unique<PkgFileIterator>(*this); }
 
-	PkgFileIterator(const pkgCache::PkgFileIterator& base) : pkgCache::PkgFileIterator(base){};
+	PkgFileIterator(const pkgCache::PkgFileIterator& base) : pkgCache::PkgFileIterator(base) {};
 };
 
 struct VerFileIterator : public pkgCache::VerFileIterator {
@@ -73,7 +73,7 @@ struct VerFileIterator : public pkgCache::VerFileIterator {
 		return std::make_unique<PkgFileIterator>(this->File());
 	};
 
-	VerFileIterator(const pkgCache::VerFileIterator& base) : pkgCache::VerFileIterator(base){};
+	VerFileIterator(const pkgCache::VerFileIterator& base) : pkgCache::VerFileIterator(base) {};
 };
 
 struct DescIterator : public pkgCache::DescIterator {
@@ -81,7 +81,7 @@ struct DescIterator : public pkgCache::DescIterator {
 
 	UniquePtr<DescIterator> unique() const { return std::make_unique<DescIterator>(*this); }
 
-	DescIterator(const pkgCache::DescIterator& base) : pkgCache::DescIterator(base){};
+	DescIterator(const pkgCache::DescIterator& base) : pkgCache::DescIterator(base) {};
 };
 
 struct VerIterator : public pkgCache::VerIterator {
@@ -122,7 +122,7 @@ struct VerIterator : public pkgCache::VerIterator {
 
 	UniquePtr<VerIterator> unique() const { return std::make_unique<VerIterator>(*this); }
 
-	VerIterator(const pkgCache::VerIterator& base) : pkgCache::VerIterator(base){};
+	VerIterator(const pkgCache::VerIterator& base) : pkgCache::VerIterator(base) {};
 };
 
 struct PkgIterator : public pkgCache::PkgIterator {
@@ -156,7 +156,7 @@ struct PkgIterator : public pkgCache::PkgIterator {
 
 	UniquePtr<PkgIterator> unique() const { return std::make_unique<PkgIterator>(*this); }
 
-	PkgIterator(const pkgCache::PkgIterator& base) : pkgCache::PkgIterator(base){};
+	PkgIterator(const pkgCache::PkgIterator& base) : pkgCache::PkgIterator(base) {};
 };
 
 inline UniquePtr<PkgIterator> PrvIterator::target_pkg() const {

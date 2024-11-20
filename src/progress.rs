@@ -1,6 +1,6 @@
 //! Contains Progress struct for updating the package list.
 use std::fmt::Write as _;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 use std::os::fd::RawFd;
 use std::pin::Pin;
 
@@ -8,9 +8,9 @@ use cxx::{ExternType, UniquePtr};
 
 use crate::config::Config;
 use crate::error::raw::pending_error;
-use crate::raw::{acquire_status, AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
+use crate::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire, acquire_status};
 use crate::util::{
-	get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys,
+	NumSys, get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str,
 };
 
 /// Customize the output shown during file downloads.

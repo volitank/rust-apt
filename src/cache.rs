@@ -6,18 +6,18 @@ use std::path::Path;
 
 use cxx::{Exception, UniquePtr};
 
-use crate::config::{init_config_system, Config};
+use crate::Package;
+use crate::config::{Config, init_config_system};
 use crate::depcache::DepCache;
-use crate::error::{pending_error, AptErrors};
+use crate::error::{AptErrors, pending_error};
 use crate::pkgmanager::raw::OrderResult;
 use crate::progress::{AcquireProgress, InstallProgress, OperationProgress};
 use crate::raw::{
-	create_cache, create_pkgmanager, create_problem_resolver, IntoRawIter, IterPkgIterator,
-	PackageManager, PkgCacheFile, PkgIterator, ProblemResolver,
+	IntoRawIter, IterPkgIterator, PackageManager, PkgCacheFile, PkgIterator, ProblemResolver,
+	create_cache, create_pkgmanager, create_problem_resolver,
 };
 use crate::records::{PackageRecords, SourceRecords};
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
-use crate::Package;
 
 /// Selection of Upgrade type
 #[repr(i32)]

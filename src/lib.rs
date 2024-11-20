@@ -31,7 +31,7 @@ pub mod util;
 
 #[doc(inline)]
 pub use cache::{Cache, PackageSort};
-pub use iterators::dependency::{create_depends_map, BaseDep, DepFlags, DepType, Dependency};
+pub use iterators::dependency::{BaseDep, DepFlags, DepType, Dependency, create_depends_map};
 pub use iterators::files::{PackageFile, VersionFile};
 pub use iterators::package::{Marked, Package, PkgCurrentState, PkgInstState, PkgSelectedState};
 pub use iterators::provider::Provider;
@@ -40,17 +40,17 @@ pub use iterators::version::Version;
 /// C++ bindings for libapt-pkg
 pub mod raw {
 	pub use crate::acquire::raw::{
-		acquire_status, create_acquire, AcqTextStatus, AcqWorker, Item, ItemDesc, ItemState,
-		PkgAcquire,
+		AcqTextStatus, AcqWorker, Item, ItemDesc, ItemState, PkgAcquire, acquire_status,
+		create_acquire,
 	};
-	pub use crate::cache::raw::{create_cache, PkgCacheFile};
+	pub use crate::cache::raw::{PkgCacheFile, create_cache};
 	pub use crate::depcache::raw::{ActionGroup, PkgDepCache};
 	pub use crate::iterators::{
 		DepIterator, DescIterator, PkgFileIterator, PkgIterator, PrvIterator, VerFileIterator,
 		VerIterator,
 	};
 	pub use crate::pkgmanager::raw::{
-		create_pkgmanager, create_problem_resolver, PackageManager, ProblemResolver,
+		PackageManager, ProblemResolver, create_pkgmanager, create_problem_resolver,
 	};
 	pub use crate::records::raw::{IndexFile, Parser, PkgRecords};
 	pub use crate::util::raw::*;
