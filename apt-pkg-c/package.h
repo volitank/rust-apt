@@ -96,6 +96,7 @@ struct VerIterator : public pkgCache::VerIterator {
 	u64 size() const { return (*this)->Size; }
 	u64 installed_size() const { return (*this)->InstalledSize; }
 	u8 multi_arch() const { return (*this)->MultiArch; }
+	str multi_arch_type() const { return this->MultiArchType(); }
 	// TODO: Move this into rust?
 	bool is_installed() const { return this->ParentPkg().CurrentVer() == *this; }
 

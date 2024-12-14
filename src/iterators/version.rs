@@ -268,7 +268,12 @@ pub(crate) mod raw {
 		/// The uncompressed size of the .deb file.
 		pub fn installed_size(self: &VerIterator) -> u64;
 
+		// TODO: Possibly return an enum
 		pub fn multi_arch(self: &VerIterator) -> u8;
+
+		/// String representing MultiArch flag
+		/// same, foreign, allowed, none
+		pub fn multi_arch_type(self: &VerIterator) -> &str;
 
 		/// True if the version is able to be downloaded.
 		#[cxx_name = "Downloadable"]
