@@ -19,7 +19,7 @@ pub struct Version<'a> {
 	depends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
-impl<'a> Clone for Version<'a> {
+impl Clone for Version<'_> {
 	fn clone(&self) -> Self {
 		Self {
 			ptr: unsafe { self.ptr.unique() },
@@ -199,7 +199,7 @@ impl<'a> Version<'a> {
 }
 
 // Implementations for comparing versions.
-impl<'a> PartialEq for Version<'a> {
+impl PartialEq for Version<'_> {
 	fn eq(&self, other: &Self) -> bool {
 		matches!(
 			cmp_versions(self.version(), other.version()),
@@ -208,22 +208,22 @@ impl<'a> PartialEq for Version<'a> {
 	}
 }
 
-impl<'a> Ord for Version<'a> {
+impl Ord for Version<'_> {
 	fn cmp(&self, other: &Self) -> Ordering { cmp_versions(self.version(), other.version()) }
 }
 
-impl<'a> PartialOrd for Version<'a> {
+impl PartialOrd for Version<'_> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
 }
 
-impl<'a> fmt::Display for Version<'a> {
+impl fmt::Display for Version<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.version())?;
 		Ok(())
 	}
 }
 
-impl<'a> fmt::Debug for Version<'a> {
+impl fmt::Debug for Version<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let parent = self.parent();
 		f.debug_struct("Version")

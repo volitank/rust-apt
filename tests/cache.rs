@@ -227,7 +227,7 @@ mod cache {
 		for deps in cand.dependencies().unwrap() {
 			for dep in deps.iter() {
 				// Apt Dependencies should have targets
-				assert!(dep.all_targets().first().is_some());
+				assert!(dep.all_targets().is_empty());
 			}
 		}
 		assert!(cand.recommends().is_some());

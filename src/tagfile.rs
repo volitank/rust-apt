@@ -165,7 +165,7 @@ impl TagSection {
 	/// Get the value of the specified key,
 	///
 	/// Returns specified default on failure.
-	pub fn get_default<'a, 'b: 'a>(&'a self, key: &str, default: &'b str) -> &str {
+	pub fn get_default<'a>(&'a self, key: &str, default: &'a str) -> &'a str {
 		if let Some(value) = self.data.get(key) {
 			return value;
 		}

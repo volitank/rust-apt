@@ -77,7 +77,7 @@ pub struct BaseDep<'a> {
 	parent_ver: OnceCell<UniquePtr<VerIterator>>,
 }
 
-impl<'a> Clone for BaseDep<'a> {
+impl Clone for BaseDep<'_> {
 	fn clone(&self) -> Self {
 		Self {
 			ptr: unsafe { self.ptr.unique() },
@@ -89,7 +89,7 @@ impl<'a> Clone for BaseDep<'a> {
 }
 
 impl<'a> BaseDep<'a> {
-	pub fn new(ptr: UniquePtr<DepIterator>, cache: &'a Cache) -> BaseDep {
+	pub fn new(ptr: UniquePtr<DepIterator>, cache: &'a Cache) -> BaseDep<'a> {
 		BaseDep {
 			ptr,
 			cache,
@@ -145,7 +145,7 @@ impl<'a> BaseDep<'a> {
 	}
 }
 
-impl<'a> fmt::Display for BaseDep<'a> {
+impl fmt::Display for BaseDep<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		if let (Some(comp), Some(version)) = (self.comp_type(), self.version()) {
 			write!(f, "({} {comp} {version})", self.name())
@@ -155,7 +155,7 @@ impl<'a> fmt::Display for BaseDep<'a> {
 	}
 }
 
-impl<'a> fmt::Debug for BaseDep<'a> {
+impl fmt::Debug for BaseDep<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.debug_struct("BaseDep")
 			.field("parent", unsafe { &self.parent_pkg().name() })
@@ -188,7 +188,7 @@ impl<'a> Dependency<'a> {
 	pub fn first(&self) -> &BaseDep<'a> { &self[0] }
 }
 
-impl<'a> fmt::Display for Dependency<'a> {
+impl fmt::Display for Dependency<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut dep_str = String::new();
 

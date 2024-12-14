@@ -28,7 +28,7 @@ impl<'a> Provider<'a> {
 	}
 }
 
-impl<'a> fmt::Display for Provider<'a> {
+impl fmt::Display for Provider<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let version = self.version();
 		write!(
@@ -42,7 +42,7 @@ impl<'a> fmt::Display for Provider<'a> {
 	}
 }
 
-impl<'a> fmt::Debug for Provider<'a> {
+impl fmt::Debug for Provider<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.debug_struct("Provider")
 			.field("name", &self.name())

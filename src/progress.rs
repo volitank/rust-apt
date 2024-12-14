@@ -132,12 +132,12 @@ impl<'a> AcquireProgress<'a> {
 	pub(crate) fn stop(&mut self) { self.inner.stop(&self.status) }
 }
 
-impl<'a> Default for AcquireProgress<'a> {
+impl Default for AcquireProgress<'_> {
 	fn default() -> Self { Self::apt() }
 }
 
 /// Impl for sending AcquireProgress across the barrier.
-unsafe impl<'a> ExternType for AcquireProgress<'a> {
+unsafe impl ExternType for AcquireProgress<'_> {
 	type Id = cxx::type_id!("AcquireProgress");
 	type Kind = cxx::kind::Trivial;
 }
@@ -173,12 +173,12 @@ impl<'a> OperationProgress<'a> {
 	pub fn pin(&mut self) -> Pin<&mut OperationProgress<'a>> { Pin::new(self) }
 }
 
-impl<'a> Default for OperationProgress<'a> {
+impl Default for OperationProgress<'_> {
 	fn default() -> Self { Self::quiet() }
 }
 
 /// Impl for sending AcquireProgress across the barrier.
-unsafe impl<'a> ExternType for OperationProgress<'a> {
+unsafe impl ExternType for OperationProgress<'_> {
 	type Id = cxx::type_id!("OperationProgress");
 	type Kind = cxx::kind::Trivial;
 }
@@ -191,7 +191,7 @@ pub enum InstallProgress<'a> {
 	Fd(RawFd),
 }
 
-impl<'a> InstallProgress<'a> {
+impl InstallProgress<'_> {
 	/// Create a new OpProgress Struct from a struct that implements
 	/// AcquireProgress trait.
 	pub fn new(inner: impl DynInstallProgress + 'static) -> Self {
@@ -206,7 +206,7 @@ impl<'a> InstallProgress<'a> {
 	pub fn apt() -> Self { Self::new(AptInstallProgress::new()) }
 }
 
-impl<'a> Default for InstallProgress<'a> {
+impl Default for InstallProgress<'_> {
 	fn default() -> Self { Self::apt() }
 }
 
@@ -247,12 +247,12 @@ impl<'a> InstallProgressFancy<'a> {
 	pub fn pin(&mut self) -> Pin<&mut InstallProgressFancy<'a>> { Pin::new(self) }
 }
 
-impl<'a> Default for InstallProgressFancy<'a> {
+impl Default for InstallProgressFancy<'_> {
 	fn default() -> Self { Self::apt() }
 }
 
 /// Impl for sending InstallProgressFancy across the barrier.
-unsafe impl<'a> ExternType for InstallProgressFancy<'a> {
+unsafe impl ExternType for InstallProgressFancy<'_> {
 	type Id = cxx::type_id!("InstallProgressFancy");
 	type Kind = cxx::kind::Trivial;
 }
@@ -633,6 +633,7 @@ impl DynInstallProgress for AptInstallProgress {
 	fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
 }
 
+#[allow(clippy::needless_lifetimes)]
 #[cxx::bridge]
 pub(crate) mod raw {
 	extern "Rust" {

@@ -101,17 +101,6 @@ pub struct Package<'a> {
 	rdepends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
-// TODO: How does one go about impl Clone for UniquePtr?
-impl<'a> Clone for Package<'a> {
-	fn clone(&self) -> Self {
-		Self {
-			ptr: unsafe { self.ptr.unique() },
-			cache: self.cache,
-			rdepends_map: self.rdepends_map.clone(),
-		}
-	}
-}
-
 impl<'a> Package<'a> {
 	pub fn new(cache: &'a Cache, ptr: UniquePtr<PkgIterator>) -> Package<'a> {
 		Package {
@@ -463,14 +452,24 @@ impl<'a> Package<'a> {
 	}
 }
 
-impl<'a> fmt::Display for Package<'a> {
+impl Clone for Package<'_> {
+	fn clone(&self) -> Self {
+		Self {
+			ptr: unsafe { self.ptr.unique() },
+			cache: self.cache,
+			rdepends_map: self.rdepends_map.clone(),
+		}
+	}
+}
+
+impl fmt::Display for Package<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.name())?;
 		Ok(())
 	}
 }
 
-impl<'a> fmt::Debug for Package<'a> {
+impl fmt::Debug for Package<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let versions: Vec<Version> = self.versions().collect();
 		f.debug_struct("Package")

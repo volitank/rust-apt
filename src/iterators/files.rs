@@ -38,7 +38,7 @@ pub struct PackageFile<'a> {
 }
 
 impl<'a> PackageFile<'a> {
-	pub fn new(ptr: UniquePtr<PkgFileIterator>, cache: &'a Cache) -> PackageFile {
+	pub fn new(ptr: UniquePtr<PkgFileIterator>, cache: &'a Cache) -> PackageFile<'a> {
 		PackageFile {
 			ptr,
 			cache,
