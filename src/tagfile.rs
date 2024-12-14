@@ -30,6 +30,10 @@ pub struct TagSection {
 	data: HashMap<String, String>,
 }
 
+impl From<TagSection> for HashMap<String, String> {
+	fn from(value: TagSection) -> Self { value.data }
+}
+
 impl TagSection {
 	fn error(msg: &str, line: Option<usize>) -> Result<Self, ParserError> {
 		Err(ParserError {
