@@ -52,6 +52,7 @@ pub(crate) mod raw {
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn create_problem_resolver(depcache: &PkgDepCache) -> UniquePtr<ProblemResolver>;
 
+		pub fn clear(self: &ProblemResolver, pkg: &PkgIterator);
 		pub fn protect(self: &ProblemResolver, pkg: &PkgIterator);
 
 		fn resolve(

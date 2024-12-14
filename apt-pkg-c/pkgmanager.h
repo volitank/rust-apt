@@ -64,6 +64,8 @@ struct PackageManager {
 struct ProblemResolver {
 	pkgProblemResolver mutable resolver;
 
+	void clear(const PkgIterator& pkg) const { resolver.Clear(pkg); }
+
 	/// Mark a package as protected, i.e. don't let its installation/removal state change when
 	/// modifying packages during resolution.
 	void protect(const PkgIterator& pkg) const { resolver.Protect(pkg); }
