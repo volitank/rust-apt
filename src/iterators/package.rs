@@ -101,6 +101,17 @@ pub struct Package<'a> {
 	rdepends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
+// TODO: How does one go about impl Clone for UniquePtr?
+impl<'a> Clone for Package<'a> {
+	fn clone(&self) -> Self {
+		Self {
+			ptr: unsafe { self.ptr.unique() },
+			cache: self.cache,
+			rdepends_map: self.rdepends_map.clone(),
+		}
+	}
+}
+
 impl<'a> Package<'a> {
 	pub fn new(cache: &'a Cache, ptr: UniquePtr<PkgIterator>) -> Package<'a> {
 		Package {

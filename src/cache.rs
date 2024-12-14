@@ -21,7 +21,7 @@ use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
 
 /// Selection of Upgrade type
 #[repr(i32)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Upgrade {
 	/// Upgrade will Install new and Remove packages in addition to
 	/// upgrading them.

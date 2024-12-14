@@ -19,7 +19,7 @@ pub mod DepFlags {
 }
 
 /// The different types of Dependencies.
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum DepType {
 	Depends = 1,
 	PreDepends = 2,
@@ -75,6 +75,17 @@ pub struct BaseDep<'a> {
 	cache: &'a Cache,
 	target: OnceCell<Package<'a>>,
 	parent_ver: OnceCell<UniquePtr<VerIterator>>,
+}
+
+impl<'a> Clone for BaseDep<'a> {
+	fn clone(&self) -> Self {
+		Self {
+			ptr: unsafe { self.ptr.unique() },
+			cache: self.cache,
+			target: self.target.clone(),
+			parent_ver: unsafe { self.parent_ver().into() },
+		}
+	}
 }
 
 impl<'a> BaseDep<'a> {
@@ -161,7 +172,7 @@ impl<'a> fmt::Debug for BaseDep<'a> {
 ///
 /// This can contain multiple Base Dependencies that can
 /// satisfy the same Dependency.
-#[derive(fmt::Debug)]
+#[derive(fmt::Debug, Clone)]
 pub struct Dependency<'a> {
 	pub(crate) ptr: Vec<BaseDep<'a>>,
 }

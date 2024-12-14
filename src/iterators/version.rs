@@ -19,6 +19,16 @@ pub struct Version<'a> {
 	depends_map: OnceCell<HashMap<DepType, Vec<Dependency<'a>>>>,
 }
 
+impl<'a> Clone for Version<'a> {
+	fn clone(&self) -> Self {
+		Self {
+			ptr: unsafe { self.ptr.unique() },
+			cache: self.cache,
+			depends_map: self.depends_map.clone(),
+		}
+	}
+}
+
 impl<'a> Version<'a> {
 	pub fn new(ptr: UniquePtr<VerIterator>, cache: &'a Cache) -> Version<'a> {
 		Version {
