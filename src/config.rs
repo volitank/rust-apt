@@ -192,6 +192,15 @@ impl ConfigTree {
 		Some(tag)
 	}
 
+	/// Return the fully scoped tag
+	pub fn full_tag(&self) -> Option<String> {
+		let tag = self.ptr.full_tag();
+		if tag.is_empty() {
+			return None;
+		}
+		Some(tag)
+	}
+
 	pub fn value(&self) -> Option<String> {
 		let value = self.ptr.value();
 		if value.is_empty() {
@@ -323,6 +332,7 @@ pub(crate) mod raw {
 		unsafe fn parent(self: &ConfigTree) -> UniquePtr<ConfigTree>;
 		unsafe fn child(self: &ConfigTree) -> UniquePtr<ConfigTree>;
 		pub fn tag(self: &ConfigTree) -> String;
+		pub fn full_tag(self: &ConfigTree) -> String;
 		pub fn value(self: &ConfigTree) -> String;
 	}
 }

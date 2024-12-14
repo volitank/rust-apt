@@ -32,6 +32,8 @@ struct ConfigTree {
 
 	String tag() const { return ptr->Tag; }
 
+	String full_tag() const { return ptr->FullTag(); }
+
 	String value() const { return ptr->Value; }
 
 	ConfigTree(const Configuration::Item* base) : ptr(base) {};
