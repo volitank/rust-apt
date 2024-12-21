@@ -23,6 +23,17 @@ mod cache {
 	}
 
 	#[test]
+	fn manually_installed() {
+		let cache = new_cache!().unwrap();
+
+		let sort = PackageSort::default().manually_installed().names();
+
+		for pkg in cache.packages(&sort) {
+			println!("{}", pkg.name())
+		}
+	}
+
+	#[test]
 	fn time_cache_iter() {
 		let cache = new_cache!().unwrap();
 

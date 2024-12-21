@@ -123,6 +123,7 @@ impl PackageSort {
 	/// Only packages that are manually installed will be included.
 	pub fn manually_installed(mut self) -> Self {
 		self.auto_installed = Sort::Reverse;
+		self.installed = Sort::Enable;
 		self
 	}
 
