@@ -122,7 +122,7 @@ clippy +ARGS="":
 
 # Spellcheck the codebase
 spellcheck +ARGS="":
-	@codespell --skip target --skip .git --skip .cargo --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
+	@codespell --skip target --skip .git --skip .cargo --builtin clear,rare,informal,code --ignore-words-list mut,crate,ser {{ARGS}}
 	@echo Spellings look good!
 
 alias b := build

@@ -2,6 +2,8 @@ pub mod dependency;
 pub mod files;
 pub mod package;
 pub mod provider;
+#[cfg(feature = "serde")]
+pub mod serde;
 pub mod version;
 
 pub use dependency::raw::DepIterator;

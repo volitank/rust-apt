@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 use cxx::UniquePtr;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 use crate::raw::{DepIterator, VerIterator};
 use crate::{Cache, Package, Version};
@@ -18,6 +20,7 @@ pub mod DepFlags {
 	pub const DepGVer: u8 = 32;
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize))]
 /// The different types of Dependencies.
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum DepType {
@@ -50,7 +53,11 @@ impl From<u8> for DepType {
 }
 
 impl AsRef<str> for DepType {
-	fn as_ref(&self) -> &str {
+	fn as_ref(&self) -> &str { self.to_str() }
+}
+
+impl DepType {
+	pub fn to_str(&self) -> &'static str {
 		match self {
 			DepType::Depends => "Depends",
 			DepType::PreDepends => "PreDepends",

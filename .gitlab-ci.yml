@@ -8,6 +8,8 @@ variables:
   USER: "root"
 
 test:
+  tags:
+    - docker
   stage: test
   image: debian:sid
   environment:
