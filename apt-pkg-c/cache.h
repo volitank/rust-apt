@@ -32,7 +32,7 @@ struct PkgCacheFile : public pkgCacheFile {
 	// Return a package by name.
 	UniquePtr<PkgIterator> find_pkg(str name) const {
 		return std::make_unique<PkgIterator>(
-			this->unconst()->GetPkgCache()->FindPkg(APT::StringView(name.begin(), name.length()))
+			this->unconst()->GetPkgCache()->FindPkg({name.begin(), name.length()})
 		);
 	}
 
