@@ -585,6 +585,10 @@ impl Cache {
 
 		// Copy local debs into archives dir
 		for deb in &self.local_debs {
+			// If file is already in the archive we don't copy
+			if deb.starts_with(archive_dir.as_str()) {
+				continue;
+			}
 			// If it reaches this point it really will be a valid filename, allegedly
 			if let Some(filename) = Path::new(deb).file_name() {
 				// Append the file name onto the archive dir

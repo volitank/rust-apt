@@ -37,7 +37,7 @@ struct Parser {
 	/// Return the Source package version String.
 	String get_field(String field) const { return handle_string(ptr.RecordField(field.c_str())); }
 
-	// TODO: Lets Go Ahead and Bind HashStrings while we're here ffs
+	// TODO: Let's Go Ahead and Bind HashStrings while we're here ffs
 	/// Find the hash of a Version. Returns Result if there is no hash.
 	String hash_find(String hash_type) const {
 		auto hashes = ptr.Hashes();

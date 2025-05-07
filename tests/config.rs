@@ -88,9 +88,10 @@ mod config {
 		config.clear_value("rust_apt::aptlist", "my");
 
 		// This will let us know if it worked!
-		assert_eq!(config.find_vector("rust_apt::aptlist"), vec![
-			"this", "is", "apt", "list"
-		]);
+		assert_eq!(
+			config.find_vector("rust_apt::aptlist"),
+			vec!["this", "is", "apt", "list"]
+		);
 
 		// Finally test and see if we can clear the entire list.
 		config.clear("rust_apt::aptlist");

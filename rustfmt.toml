@@ -1,4 +1,4 @@
-version = "Two"
+style_edition = "2024"
 hard_tabs = true
 wrap_comments = true
 format_strings = true
