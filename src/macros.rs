@@ -38,35 +38,33 @@ macro_rules! new_cache {
 
 /// Implements RawIter trait for raw apt iterators
 macro_rules! raw_iter {
-	($($ty:ty),*) => {$(
-		paste!(
-			#[doc = "Iterator Struct for [`" $ty "`]."]
-			pub struct [<Iter $ty>](UniquePtr<$ty>);
+	($($ty:ty => $iter:ident),* $(,)?) => {$(
+		#[doc = concat!("Iterator Struct for [`", stringify!($ty), "`].")]
+		pub struct $iter(UniquePtr<$ty>);
 
-			impl Iterator for [<Iter $ty>] {
-				type Item = UniquePtr<$ty>;
+		impl Iterator for $iter {
+			type Item = UniquePtr<$ty>;
 
-				fn next(&mut self) -> Option<Self::Item> {
-					if self.0.end() {
-						None
-					} else {
-						let ptr = unsafe { self.0.unique() };
-						self.0.pin_mut().raw_next();
-						Some(ptr)
-					}
+			fn next(&mut self) -> Option<Self::Item> {
+				if self.0.end() {
+					None
+				} else {
+					let ptr = unsafe { self.0.unique() };
+					self.0.pin_mut().raw_next();
+					Some(ptr)
 				}
 			}
+		}
 
-			impl IntoRawIter for UniquePtr<$ty> {
-				type Item = [<Iter $ty>];
+		impl IntoRawIter for UniquePtr<$ty> {
+			type Item = $iter;
 
-				fn raw_iter(self) -> Self::Item { [<Iter $ty>](self) }
+			fn raw_iter(self) -> Self::Item { $iter(self) }
 
-				fn make_safe(self) -> Option<Self> { if self.end() { None } else { Some(self) } }
+			fn make_safe(self) -> Option<Self> { if self.end() { None } else { Some(self) } }
 
-				fn to_vec(self) -> Vec<Self> { self.raw_iter().collect() }
-			}
-		);
+			fn to_vec(self) -> Vec<Self> { self.raw_iter().collect() }
+		}
 	)*};
 }
 

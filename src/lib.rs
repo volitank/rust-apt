@@ -76,16 +76,15 @@ pub mod raw {
 	}
 
 	use cxx::UniquePtr;
-	use paste::paste;
 
 	raw_iter!(
-		PkgIterator,
-		VerIterator,
-		DepIterator,
-		PrvIterator,
-		VerFileIterator,
-		DescIterator,
-		PkgFileIterator
+		PkgIterator => IterPkgIterator,
+		VerIterator => IterVerIterator,
+		DepIterator => IterDepIterator,
+		PrvIterator => IterPrvIterator,
+		VerFileIterator => IterVerFileIterator,
+		DescIterator => IterDescIterator,
+		PkgFileIterator => IterPkgFileIterator,
 	);
 }
 

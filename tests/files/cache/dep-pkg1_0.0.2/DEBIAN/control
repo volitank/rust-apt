@@ -4,6 +4,7 @@ Section: base
 Priority: optional
 Architecture: all
 Depends: htop, python3-rich
+Provides: rust-apt-test-virtual (= 0.0.2)
 Maintainer: Your Name <you@email.com>
 Description: Rust FTW
  This is only used for testing.

@@ -152,7 +152,7 @@ impl PackageRecords {
 		true
 	}
 
-	fn parser(&self) -> Ref<UniquePtr<raw::Parser>> {
+	fn parser(&self) -> Ref<'_, UniquePtr<raw::Parser>> {
 		if self.parser.borrow().is_null() {
 			panic!("You must call ver_lookup or desc_lookup first!")
 		}
@@ -211,13 +211,16 @@ impl SourceRecords {
 	/// use rust_apt::new_cache;
 	///
 	/// let cache = new_cache!().unwrap();
-	/// let src_records = cache.source_records().unwrap();
+	/// let Ok(src_records) = cache.source_records() else {
+	///     // Requires at least one `deb-src` entry in APT sources.
+	///     return;
+	/// };
 	///
 	/// while let Some(record) = src_records.lookup("libapt-pkg-dev".to_string(), false) {
 	///     println!("{}", record.package());
 	/// }
 	/// ```
-	pub fn lookup(&self, name: String, src_only: bool) -> Option<SourceParser> {
+	pub fn lookup(&self, name: String, src_only: bool) -> Option<SourceParser<'_>> {
 		unsafe {
 			self.parser.replace(self.ptr.find(name, src_only));
 		}

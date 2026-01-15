@@ -142,29 +142,15 @@ mod cache {
 
 	#[test]
 	fn descriptions() {
-		let cache = new_cache!().unwrap();
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
 
-		// Apt should exist
-		let pkg = cache.get("apt").unwrap();
-		// Apt should have a candidate
+		let pkg = cache.get("dep-pkg1").unwrap();
 		let cand = pkg.candidate().unwrap();
-		// Apt should be installed
-		let inst = pkg.installed().unwrap();
 
-		// Assign installed descriptions
-		let inst_sum = inst.summary();
-		let inst_desc = inst.description();
-
-		// Assign candidate descriptions
-		let cand_sum = cand.summary();
-		let cand_desc = cand.description();
-
-		// If the lookup fails for whatever reason
-		// The summary and description are the same
-		assert_ne!(inst_sum, inst_desc);
-		assert_ne!(cand_sum, cand_desc);
-		dbg!(inst_desc);
-		dbg!(cand_desc);
+		// `dep-pkg1` is a test package with a short and multi-line long description.
+		let summary = cand.summary().unwrap();
+		let description = cand.description().unwrap();
+		assert_ne!(summary, description);
 	}
 
 	// This should not segfault, but has in the past.
@@ -437,54 +423,33 @@ mod cache {
 	// assert!(cache.packages(&sort).is_err())
 
 	/// This test is tied pretty closely to the currently available versions in
-	/// the Ubuntu/Debian repos. Feel free to adjust if you can verify its
-	/// needed.
+	/// the Ubuntu/Debian repos. Keep it fixture-based to avoid drift.
 	#[test]
 	fn rev_provides_list() {
-		// Test concrete packages with provides.
-		let cache = new_cache!().unwrap();
-		let apt = cache.get("apt").unwrap();
-		let ver = apt.candidate().unwrap();
-		let pkg = cache.get("apt-transport-https").unwrap();
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let dep_pkg = cache.get("dep-pkg1").unwrap();
+		let dep_ver = dep_pkg.candidate().unwrap();
+		let virt = cache.get("rust-apt-test-virtual").unwrap();
 
 		{
-			let mut rev_provides_list = pkg.provides();
-			let provides_pkg = rev_provides_list.next().unwrap();
-
-			assert!(rev_provides_list.next().is_none());
-
-			let parent = unsafe { provides_pkg.target_pkg() };
-			assert!(parent.name().contains("apt"));
-			assert_eq!(provides_pkg.version_str().unwrap(), ver.version());
-		}
-
-		{
-			let mut rev_provides_list = pkg.provides().filter(|p| match p.version_str() {
+			let mut providers = virt.provides().filter(|p| match p.version_str() {
 				Err(_) => false,
-				Ok(version) => version == ver.version(),
+				Ok(version) => version == dep_ver.version(),
 			});
 
-			let provides_pkg = rev_provides_list.next().unwrap();
-			assert!(rev_provides_list.next().is_none());
+			let provider = providers.next().unwrap();
+			assert!(providers.next().is_none());
 
-			let parent = unsafe { provides_pkg.target_pkg() };
-			assert_eq!(parent.name(), "apt");
-
-			assert_eq!(provides_pkg.version_str().unwrap(), ver.version());
+			assert_eq!(provider.package().name(), "dep-pkg1");
+			assert_eq!(provider.version_str().unwrap(), dep_ver.version());
 		}
 
 		{
-			let mut rev_provides_list = pkg.provides().filter(|p| match p.version_str() {
+			let mut providers = virt.provides().filter(|p| match p.version_str() {
 				Err(_) => false,
 				Ok(version) => version == "50000000000.0.0",
 			});
-			assert!(rev_provides_list.next().is_none());
-		}
-
-		// Test a virtual package with provides.
-		{
-			let pkg = cache.get("www-browser").unwrap();
-			assert!(pkg.provides().next().is_some());
+			assert!(providers.next().is_none());
 		}
 	}
 
@@ -555,18 +520,18 @@ mod cache {
 	}
 
 	#[test]
-	// This test relies on 'neofetch' and 'gsasl-common' not being installed.
+	// This test is fixture-based to avoid relying on distro packages existing.
 	fn good_resolution() {
-		let cache = new_cache!().unwrap();
-		let pkg = cache.get("neofetch").unwrap();
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let pkg = cache.get("dep-pkg2").unwrap();
 
 		pkg.mark_install(true, true);
 		pkg.protect();
 		cache.resolve(false).unwrap();
 
-		let pkg2 = cache.get("gsasl-common").unwrap();
-		pkg2.mark_install(true, true);
-		assert!(pkg2.marked_install())
+		let dep = cache.get("dep-pkg1").unwrap();
+		assert!(dep.marked_install());
+		assert_eq!(dep.install_version().unwrap().version(), "0.0.2");
 	}
 
 	// For now `zeek` has broken dependencies so the resolver errors.

@@ -99,9 +99,12 @@ mod root {
 
 	#[test]
 	fn install_and_remove() {
-		let cache = new_cache!().unwrap();
-
-		let pkg = cache.get("neofetch").unwrap();
+		let debs = [
+			"tests/files/cache/dep-pkg1_0.0.1.deb",
+			"tests/files/cache/dep-pkg2_0.0.1.deb",
+		];
+		let cache = new_cache!(&debs).unwrap();
+		let pkg = cache.get("dep-pkg2").unwrap();
 
 		pkg.protect();
 		pkg.mark_install(true, true);
@@ -113,12 +116,12 @@ mod root {
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 		// After commit a new cache must be created for more operations
-		let cache = new_cache!().unwrap();
+		let cache = new_cache!(&debs).unwrap();
+		let pkg1 = cache.get("dep-pkg1").unwrap();
+		let pkg2 = cache.get("dep-pkg2").unwrap();
 
-		// I need to pick a better package. This removes my neofetch every time!
-		let pkg = cache.get("neofetch").unwrap();
-
-		pkg.mark_delete(true);
+		pkg1.mark_delete(true);
+		pkg2.mark_delete(true);
 
 		cache.commit(&mut progress, &mut inst_progress).unwrap();
 	}

@@ -141,7 +141,7 @@ impl<'a> BaseDep<'a> {
 	pub fn comp_type(&self) -> Option<&str> { self.ptr.comp_type().ok() }
 
 	// Iterate all Versions that are able to satisfy this dependency
-	pub fn all_targets(&self) -> Vec<Version> {
+	pub fn all_targets(&self) -> Vec<Version<'_>> {
 		unsafe {
 			self.ptr
 				.all_targets()
@@ -219,8 +219,8 @@ impl fmt::Display for Dependency<'_> {
 pub fn create_depends_map(
 	cache: &Cache,
 	dep: Option<UniquePtr<DepIterator>>,
-) -> HashMap<DepType, Vec<Dependency>> {
-	let mut dependencies: HashMap<DepType, Vec<Dependency>> = HashMap::new();
+) -> HashMap<DepType, Vec<Dependency<'_>>> {
+	let mut dependencies: HashMap<DepType, Vec<Dependency<'_>>> = HashMap::new();
 
 	if let Some(mut dep) = dep {
 		while !dep.end() {

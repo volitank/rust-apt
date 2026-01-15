@@ -32,26 +32,18 @@ mod records {
 	#[test]
 	fn source() {
 		let cache = new_cache!().unwrap();
-		let src_records = cache.source_records().unwrap();
+		let Ok(src_records) = cache.source_records() else {
+			// Most systems don't have `deb-src` enabled by default.
+			return;
+		};
 
-		while let Some(record) = src_records.lookup("libapt-pkg-dev".to_string(), false) {
-			println!("{}", record.package());
-			println!(
-				"{} ({}) {}",
-				record.package(),
-				record.version(),
-				record.section()
-			)
-		}
+		let Some(record) = src_records.lookup("apt".to_string(), false) else {
+			// No sources index available for the current system.
+			return;
+		};
 
-		dbg!(cache.get("apt").unwrap().changelog_uri().unwrap());
-		dbg!(
-			cache
-				.get("librust-rust-apt-dev")
-				.unwrap()
-				.changelog_uri()
-				.unwrap()
-		);
-		dbg!(cache.get("libgc-dev").unwrap().changelog_uri().unwrap());
+		assert!(!record.package().is_empty());
+		assert!(!record.version().is_empty());
+		assert!(!record.section().is_empty());
 	}
 }

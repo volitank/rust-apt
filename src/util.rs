@@ -1,21 +1,60 @@
 //! Contains miscellaneous helper utilities.
 use std::cmp::Ordering;
-
-use terminal_size::{Height, Width, terminal_size};
+use std::env;
 
 use crate::error::AptErrors;
 use crate::{Cache, DepFlags, Package, config};
+
+fn env_usize_nonzero(key: &str) -> Option<usize> {
+	env::var(key).ok()?.parse().ok().filter(|v: &usize| *v > 0)
+}
+
+fn ioctl_terminal_size() -> Option<(usize, usize)> {
+	use std::ffi::{c_int, c_ulong};
+	use std::io::{stderr, stdin, stdout};
+	use std::mem::MaybeUninit;
+	use std::os::unix::io::AsRawFd;
+
+	#[repr(C)]
+	struct Winsize {
+		row: u16,
+		col: u16,
+		x_pixel: u16,
+		y_pixel: u16,
+	}
+
+	extern "C" {
+		fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
+	}
+
+	const TIOCGWINSZ: c_ulong = 0x5413;
+
+	fn query(fd: c_int) -> Option<(usize, usize)> {
+		let mut win_size = MaybeUninit::<Winsize>::uninit();
+		let result = unsafe { ioctl(fd, TIOCGWINSZ, win_size.as_mut_ptr()) };
+		if result != 0 {
+			return None;
+		}
+		let win_size = unsafe { win_size.assume_init() };
+		let cols = usize::from(win_size.col);
+		let rows = usize::from(win_size.row);
+		(cols != 0 && rows != 0).then_some((cols, rows))
+	}
+
+	query(stdout().as_raw_fd())
+		.or_else(|| query(stderr().as_raw_fd()))
+		.or_else(|| query(stdin().as_raw_fd()))
+}
 
 /// Get the terminal's height, i.e. the number of rows it has.
 ///
 /// # Returns:
 /// * The terminal height, or `24` if it cannot be determined.
 pub fn terminal_height() -> usize {
-	if let Some((_, Height(rows))) = terminal_size() {
-		usize::from(rows)
-	} else {
-		24
-	}
+	ioctl_terminal_size()
+		.map(|(_, rows)| rows)
+		.or_else(|| env_usize_nonzero("LINES"))
+		.unwrap_or(24)
 }
 
 /// Get the terminal's width, i.e. the number of columns it has.
@@ -23,11 +62,10 @@ pub fn terminal_height() -> usize {
 /// # Returns:
 /// * The terminal width, or `80` if it cannot be determined.
 pub fn terminal_width() -> usize {
-	if let Some((Width(cols), _)) = terminal_size() {
-		usize::from(cols)
-	} else {
-		80
-	}
+	ioctl_terminal_size()
+		.map(|(cols, _)| cols)
+		.or_else(|| env_usize_nonzero("COLUMNS"))
+		.unwrap_or(80)
 }
 
 /// Compares two package versions, `ver1` and `ver2`. The returned enum variant
