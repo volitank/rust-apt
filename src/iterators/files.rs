@@ -50,6 +50,9 @@ impl<'a> PackageFile<'a> {
 		self.index
 			.get_or_init(|| unsafe { self.cache.find_index(self) })
 	}
+
+	/// The priority of this file as shown in `apt-cache policy`.
+	pub fn priority(&self) -> i32 { self.cache.file_priority(self) }
 }
 
 cxx_convert_result!(

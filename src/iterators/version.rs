@@ -196,6 +196,20 @@ impl<'a> Version<'a> {
 
 	/// The priority of the Version as shown in `apt policy`.
 	pub fn priority(&self) -> i32 { self.cache.priority(self) }
+
+	/// The priority of the Version as shown in `apt policy`.
+	///
+	/// When `consider_files` is `true`, this is equivalent to
+	/// [`Version::priority`] and includes package-file priorities in the
+	/// result.
+	///
+	/// When `consider_files` is `false`, this returns only pin priority without
+	/// considering package-file priorities. This is useful if you want to
+	/// detect explicit pinning without the normal repository defaults such as
+	/// `500`.
+	pub fn priority_with_files(&self, consider_files: bool) -> i32 {
+		self.cache.priority_with_files(self, consider_files)
+	}
 }
 
 // Implementations for comparing versions.

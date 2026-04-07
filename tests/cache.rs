@@ -4,6 +4,7 @@ mod cache {
 
 	use cxx::{CxxVector, UniquePtr};
 	use rust_apt::cache::*;
+	use rust_apt::config::Config;
 	use rust_apt::raw::{IntoRawIter, ItemDesc, create_acquire};
 	use rust_apt::util::*;
 	use rust_apt::{DepType, new_cache};
@@ -87,6 +88,74 @@ mod cache {
 		cache.get("no-description").unwrap();
 
 		assert!(new_cache!(&["tests/files/cache/Packages.gz"]).is_err());
+	}
+
+	#[test]
+	fn package_files_describe_and_priority() {
+		let cache = new_cache!().unwrap();
+
+		let mut saw_describable = false;
+		for file in cache.package_files() {
+			let desc = file.index_file().describe(true);
+			if desc.trim().is_empty() {
+				continue;
+			}
+
+			let _ = file.priority();
+			saw_describable = true;
+			break;
+		}
+
+		assert!(saw_describable);
+	}
+
+	#[test]
+	fn version_priority_with_files_matches_default() {
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let pkg = cache.get("apt").unwrap();
+		let cand = pkg.candidate().unwrap();
+
+		assert_eq!(cand.priority_with_files(true), cand.priority());
+
+		let _ = cand.priority_with_files(false);
+	}
+
+	#[test]
+	fn pinned_packages_lists_configured_pins() {
+		struct ResetConfig;
+		impl Drop for ResetConfig {
+			fn drop(&mut self) { Config::new().reset(); }
+		}
+
+		let _reset = ResetConfig;
+
+		let prefs_path = std::env::temp_dir().join(format!(
+			"rust-apt-prefs-{}-{}.pref",
+			std::process::id(),
+			std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_nanos()
+		));
+
+		std::fs::write(
+			&prefs_path,
+			"Package: dep-pkg1\nPin: version 0.0.2\nPin-Priority: 1001\n",
+		)
+		.unwrap();
+
+		let config = Config::new();
+		config.set("Dir::Etc::preferences", prefs_path.to_str().unwrap());
+		config.set("Dir::Etc::preferencesparts", "");
+
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let pinned = cache
+			.pinned_packages()
+			.any(|pin| pin.name == "dep-pkg1" && pin.version == "0.0.2" && pin.priority == 1001);
+
+		std::fs::remove_file(&prefs_path).unwrap();
+
+		assert!(pinned);
 	}
 
 	#[test]

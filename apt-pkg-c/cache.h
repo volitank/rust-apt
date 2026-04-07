@@ -40,9 +40,29 @@ struct PkgCacheFile : public pkgCacheFile {
 		return std::make_unique<PkgIterator>(this->unconst()->GetPkgCache()->PkgBegin());
 	}
 
+	UniquePtr<PkgFileIterator> file_begin() const {
+		return std::make_unique<PkgFileIterator>(this->unconst()->GetPkgCache()->FileBegin());
+	}
+
 	/// The priority of the package as shown in `apt policy`.
 	int32_t priority(const VerIterator& ver) const {
 		return this->unconst()->GetPolicy()->GetPriority(ver);
+	}
+
+	/// The priority of the Version as shown in `apt policy`.
+	///
+	/// When `consider_files` is true, this is equivalent to `priority()` and
+	/// includes package-file priorities in the result.
+	///
+	/// When `consider_files` is false, this returns only pin priority without
+	/// considering package-file priorities.
+	int32_t priority_with_files(const VerIterator& ver, bool consider_files) const {
+		return this->unconst()->GetPolicy()->GetPriority(ver, consider_files);
+	}
+
+	/// The priority of the file as shown in `apt-cache policy`.
+	int32_t file_priority(const PkgFileIterator& file) const {
+		return this->unconst()->GetPolicy()->GetPriority(file);
 	}
 
 	UniquePtr<PkgDepCache> create_depcache() const {

@@ -16,6 +16,7 @@ struct IndexFile {
 	pkgIndexFile* ptr;
 
 	String archive_uri(str filename) const { return ptr->ArchiveURI(std::string(filename)); }
+	String describe(bool short_desc) const { return ptr->Describe(short_desc); }
 	bool is_trusted() const { return ptr->IsTrusted(); }
 
 	IndexFile(pkgIndexFile* file) : ptr(file) {};

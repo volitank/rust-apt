@@ -30,7 +30,7 @@ pub mod tagfile;
 pub mod util;
 
 #[doc(inline)]
-pub use cache::{Cache, PackageSort};
+pub use cache::{Cache, PackageSort, PinnedPackage};
 pub use iterators::dependency::{BaseDep, DepFlags, DepType, Dependency, create_depends_map};
 pub use iterators::files::{PackageFile, VersionFile};
 pub use iterators::package::{Marked, Package, PkgCurrentState, PkgInstState, PkgSelectedState};

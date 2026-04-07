@@ -277,6 +277,7 @@ pub(crate) mod raw {
 		pub fn hash_find(self: &Parser, hash_type: String) -> Result<String>;
 
 		pub fn archive_uri(self: &IndexFile, filename: &str) -> String;
+		pub fn describe(self: &IndexFile, short_desc: bool) -> String;
 
 		/// Return true if the IndexFile is trusted.
 		pub fn is_trusted(self: &IndexFile) -> bool;

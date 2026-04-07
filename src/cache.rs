@@ -6,7 +6,6 @@ use std::path::Path;
 
 use cxx::{Exception, UniquePtr};
 
-use crate::Package;
 use crate::config::{Config, init_config_system};
 use crate::depcache::DepCache;
 use crate::error::{AptErrors, pending_error};
@@ -18,6 +17,7 @@ use crate::raw::{
 };
 use crate::records::{PackageRecords, SourceRecords};
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
+use crate::{Package, PackageFile};
 
 /// Selection of Upgrade type
 #[repr(i32)]
@@ -36,6 +36,13 @@ pub enum Upgrade {
 	///
 	/// Equivalent to `apt-get upgrade`.
 	SafeUpgrade = 3,
+}
+
+#[derive(Clone, Debug)]
+pub struct PinnedPackage {
+	pub name: String,
+	pub version: String,
+	pub priority: i32,
 }
 
 /// Selection of how to sort
@@ -242,6 +249,28 @@ impl Cache {
 			pkgs: unsafe { self.begin().raw_iter() },
 			cache: self,
 		}
+	}
+
+	/// An iterator of package files used to build the cache.
+	pub fn package_files(&self) -> impl Iterator<Item = PackageFile<'_>> {
+		unsafe { self.file_begin().raw_iter() }.map(|file| PackageFile::new(file, self))
+	}
+
+	/// An iterator of pinned packages as shown in `apt-cache policy`.
+	pub fn pinned_packages(&self) -> impl Iterator<Item = PinnedPackage> + '_ {
+		self.iter().filter_map(|pkg| {
+			let cand = pkg.candidate()?;
+			let priority = cand.priority_with_files(false);
+			if priority == 0 {
+				return None;
+			}
+
+			Some(PinnedPackage {
+				name: pkg.name().to_string(),
+				version: cand.version().to_string(),
+				priority,
+			})
+		})
 	}
 
 	/// An iterator of packages in the cache.
@@ -717,6 +746,20 @@ pub(crate) mod raw {
 		/// The priority of the Version as shown in `apt policy`.
 		pub fn priority(self: &PkgCacheFile, version: &VerIterator) -> i32;
 
+		/// The priority of the Version as shown in `apt policy`.
+		///
+		/// When `consider_files` is `true`, this is equivalent to
+		/// [`crate::Version::priority`] and includes package-file priorities in
+		/// the result.
+		///
+		/// When `consider_files` is `false`, this returns only pin priority
+		/// without considering package-file priorities.
+		pub fn priority_with_files(
+			self: &PkgCacheFile,
+			version: &VerIterator,
+			consider_files: bool,
+		) -> i32;
+
 		/// Lookup the IndexFile of the Package file
 		///
 		/// # Safety
@@ -745,5 +788,16 @@ pub(crate) mod raw {
 		///
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn begin(self: &PkgCacheFile) -> UniquePtr<PkgIterator>;
+
+		/// Return the pointer to the start of the PkgFileIterator list.
+		///
+		/// # Safety
+		///
+		/// The returned UniquePtr cannot outlive the cache.
+		unsafe fn file_begin(self: &PkgCacheFile) -> UniquePtr<PkgFileIterator>;
+
+		/// Return the priority for a PackageFile as shown in `apt-cache
+		/// policy`.
+		pub fn file_priority(self: &PkgCacheFile, file: &PkgFileIterator) -> i32;
 	}
 }
