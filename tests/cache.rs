@@ -121,6 +121,57 @@ mod cache {
 	}
 
 	#[test]
+	fn version_phased_update_percentage_from_record() {
+		let temp_dir = std::env::temp_dir().join(format!(
+			"rust-apt-phased-{}-{}",
+			std::process::id(),
+			std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_nanos()
+		));
+		std::fs::create_dir(&temp_dir).unwrap();
+
+		let packages_path = temp_dir.join("Packages");
+		std::fs::write(
+			&packages_path,
+			concat!(
+				"Package: phased-pkg\n",
+				"Version: 1.0\n",
+				"Architecture: all\n",
+				"Maintainer: Tests <tests@example.com>\n",
+				"Filename: ./phased-pkg_1.0_all.deb\n",
+				"Size: 0\n",
+				"Phased-Update-Percentage: 42\n",
+				"Description: Package with phasing\n",
+				" This is only used for testing.\n",
+				"\n",
+				"Package: normal-pkg\n",
+				"Version: 1.0\n",
+				"Architecture: all\n",
+				"Maintainer: Tests <tests@example.com>\n",
+				"Filename: ./normal-pkg_1.0_all.deb\n",
+				"Size: 0\n",
+				"Description: Package without phasing\n",
+				" This is only used for testing.\n",
+			),
+		)
+		.unwrap();
+
+		{
+			let cache = new_cache!(&[packages_path.to_str().unwrap()]).unwrap();
+
+			let phased = cache.get("phased-pkg").unwrap().candidate().unwrap();
+			assert_eq!(phased.phased_update_percentage(), Some(42));
+
+			let normal = cache.get("normal-pkg").unwrap().candidate().unwrap();
+			assert_eq!(normal.phased_update_percentage(), None);
+		}
+
+		std::fs::remove_dir_all(temp_dir).unwrap();
+	}
+
+	#[test]
 	fn pinned_packages_lists_configured_pins() {
 		struct ResetConfig;
 		impl Drop for ResetConfig {

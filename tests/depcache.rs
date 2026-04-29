@@ -25,6 +25,15 @@ mod depcache {
 		action_group.pin_mut().release();
 	}
 
+	#[test]
+	fn phasing_applied_api() {
+		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let pkg = cache.get("dep-pkg1").unwrap();
+
+		assert!(!pkg.phasing_applied());
+		assert!(!cache.depcache().phasing_applied(&pkg));
+	}
+
 	// Make a test for getting the candidate after you set a candidate.
 	// Make sure it's the expected version.
 	// We had to change to getting the candidate from the depcache.

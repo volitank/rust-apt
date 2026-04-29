@@ -32,6 +32,7 @@
 
 use cxx::UniquePtr;
 
+use crate::Package;
 use crate::error::AptErrors;
 use crate::progress::OperationProgress;
 use crate::raw::PkgDepCache;
@@ -49,6 +50,10 @@ impl DepCache {
 	pub fn clear_marked(&self) -> Result<(), AptErrors> {
 		Ok(self.init(OperationProgress::quiet().pin().as_mut())?)
 	}
+
+	/// True if APT is currently ignoring the package's candidate due to phased
+	/// updates.
+	pub fn phasing_applied(&self, pkg: &Package<'_>) -> bool { self.ptr.phasing_applied(pkg) }
 
 	/// The amount of space required for installing/removing the packages."
 	///
@@ -140,6 +145,10 @@ pub(crate) mod raw {
 
 		/// Check if the package is upgradable.
 		pub fn is_upgradable(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
+
+		/// True if APT is currently ignoring the package's candidate due to
+		/// phased updates.
+		pub fn phasing_applied(self: &PkgDepCache, pkg: &PkgIterator) -> bool;
 
 		/// Is the Package auto installed? Packages marked as auto installed are
 		/// usually dependencies.

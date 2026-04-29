@@ -240,6 +240,10 @@ impl<'a> Package<'a> {
 		self.is_installed() && self.cache.depcache().is_upgradable(self)
 	}
 
+	/// True if APT is currently ignoring the package's candidate due to phased
+	/// updates.
+	pub fn phasing_applied(&self) -> bool { self.cache.depcache().phasing_applied(self) }
+
 	/// Check if the package is auto installed. (Not installed by the user)
 	pub fn is_auto_installed(&self) -> bool { self.cache.depcache().is_auto_installed(self) }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <apt-pkg/cachefile.h>
+#include <apt-pkg/macros.h>
 #include <apt-pkg/upgrade.h>
 #include <memory>
 #include "package.h"
@@ -18,6 +19,14 @@ struct PkgDepCache {
 	UniquePtr<ActionGroup> action_group() const { return std::make_unique<ActionGroup>(*ptr); }
 
 	bool is_upgradable(const PkgIterator& pkg) const { return (*ptr)[pkg].Upgradable(); }
+
+	bool phasing_applied(const PkgIterator& pkg) const {
+#if defined(APT_PKG_MAJOR) && APT_PKG_MAJOR >= 7
+		return ptr->PhasingApplied(pkg);
+#else
+		return false;
+#endif
+	}
 
 	bool fix_broken() const { return pkgFixBroken(*ptr); }
 

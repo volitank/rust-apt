@@ -163,6 +163,15 @@ impl<'a> Version<'a> {
 			.get_field(field.to_string())
 	}
 
+	/// Get the `Phased-Update-Percentage` field for this version.
+	pub fn phased_update_percentage(&self) -> Option<u8> {
+		self.get_record(crate::records::RecordField::PhasedUpdatePercentage)?
+			.trim()
+			.parse::<u8>()
+			.ok()
+			.filter(|percentage| *percentage <= 100)
+	}
+
 	/// Get the hash specified. If there isn't one returns None
 	/// `version.hash("md5sum")`
 	pub fn hash<T: ToString + ?Sized>(&self, hash_type: &T) -> Option<String> {

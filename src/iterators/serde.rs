@@ -41,7 +41,7 @@ impl<'a> Serialize for Version<'a> {
 			}
 		}
 
-		for (key, value) in RECORDS.iter().zip(record_values.into_iter()) {
+		for (key, value) in RECORDS.iter().zip(record_values) {
 			let Some(value) = value else {
 				continue;
 			};

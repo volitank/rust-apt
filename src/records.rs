@@ -121,6 +121,9 @@ pub mod RecordField {
 	/// The compressed size of the .deb in bytes `1500520`
 	pub const Size: &str = "Size";
 
+	/// The percentage rollout value for phased updates `50`
+	pub const PhasedUpdatePercentage: &str = "Phased-Update-Percentage";
+
 	/// The MD5 sum of the package `8797c5716952fba7779bd072e53acee5`
 	pub const MD5sum: &str = "MD5sum";
 
