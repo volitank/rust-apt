@@ -2,6 +2,7 @@
 **/*.rs.bk
 Cargo.lock
 .idea
+.vscode/
 *.iml
 apt-c/lib.o
 apt-c/libapt-c.a
