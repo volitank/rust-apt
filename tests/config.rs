@@ -81,7 +81,8 @@ mod config {
 		// Retrieve a new vector from the configuration.
 		let apt_vector = config.find_vector("rust_apt::aptlist");
 
-		// If everything went smooth, our original vector should match the new one
+		// If everything went smooth, our original vector should match the new
+		// one
 		assert_eq!(apt_list, apt_vector);
 
 		// Now test if we can remove a single value from the list.

@@ -17,9 +17,9 @@ mod depcache {
 		let cache = new_cache!().unwrap();
 		let mut action_group = unsafe { cache.depcache().action_group() };
 
-		// This is unsafe due to SIGABRT if you try to release after dropping the cache.
-		// Probably should get wrapped and have a lifetime related to the Cache.
-		// drop(cache);
+		// This is unsafe due to SIGABRT if you try to release after dropping
+		// the cache. Probably should get wrapped and have a lifetime related
+		// to the Cache. drop(cache);
 
 		// The C++ deconstructor will be run when the action group leaves scope.
 		action_group.pin_mut().release();

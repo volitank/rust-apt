@@ -301,7 +301,8 @@ impl Cache {
 				Sort::Disable => {},
 				// If disabled and pkg has no versions, exclude
 				Sort::Enable => {
-					// If the package isn't installed, then it can not be upgradable
+					// If the package isn't installed, then it can not be
+					// upgradable
 					if unsafe { pkg.current_version().end() }
 						|| !self.depcache().is_upgradable(&pkg)
 					{
@@ -618,7 +619,8 @@ impl Cache {
 			if deb.starts_with(archive_dir.as_str()) {
 				continue;
 			}
-			// If it reaches this point it really will be a valid filename, allegedly
+			// If it reaches this point it really will be a valid filename,
+			// allegedly
 			if let Some(filename) = Path::new(deb).file_name() {
 				// Append the file name onto the archive dir
 				fs::copy(deb, archive_dir.to_string() + &filename.to_string_lossy())?;

@@ -97,11 +97,12 @@ impl<'a> AcquireProgress<'a> {
 			// Segfault can occur if it is moved
 			let mut status = self.status.pin_mut();
 
-			// Set our raw pointer we created as the callback for C++ AcqTextStatus.
-			// AcqTextStatus will then be fed into libapt who will call its methods
-			// providing information. AcqTextStatus then uses this pointer to send that
-			// information back to rust on this struct. This struct will then send it
-			// through the trait methods on the `inner` object.
+			// Set our raw pointer we created as the callback for C++
+			// AcqTextStatus. AcqTextStatus will then be fed into libapt who
+			// will call its methods providing information. AcqTextStatus
+			// then uses this pointer to send that information back to rust
+			// on this struct. This struct will then send it through the
+			// trait methods on the `inner` object.
 			status.as_mut().set_callback(raw_ptr);
 			status
 		}
@@ -593,8 +594,8 @@ impl DynInstallProgress for AptInstallProgress {
 		percent_str = percent_padding.to_owned() + &percent_str;
 
 		// Get colors for progress reporting.
-		// NOTE: The APT implementation confusingly has 'Progress-fg' for 'bg_color',
-		// and the same the other way around.
+		// NOTE: The APT implementation confusingly has 'Progress-fg' for
+		// 'bg_color', and the same the other way around.
 		let bg_color = self
 			.config
 			.find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
@@ -610,9 +611,9 @@ impl DynInstallProgress for AptInstallProgress {
 		const PROGRESS_STR_LEN: usize = 17;
 
 		// Print the progress bar.
-		// We should safely be able to convert the `usize`.try_into() into the `u32`
-		// needed by `get_apt_progress_string`, as usize ints only take up 8 bytes on a
-		// 64-bit processor.
+		// We should safely be able to convert the `usize`.try_into() into the
+		// `u32` needed by `get_apt_progress_string`, as usize ints only take
+		// up 8 bytes on a 64-bit processor.
 		print!(
 			"{}",
 			get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())

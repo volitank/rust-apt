@@ -267,7 +267,8 @@ mod cache {
 		let pkg = cache.get("dep-pkg1").unwrap();
 		let cand = pkg.candidate().unwrap();
 
-		// `dep-pkg1` is a test package with a short and multi-line long description.
+		// `dep-pkg1` is a test package with a short and multi-line long
+		// description.
 		let summary = cand.summary().unwrap();
 		let description = cand.description().unwrap();
 		assert_ne!(summary, description);
@@ -351,9 +352,9 @@ mod cache {
 		assert!(cand.suggests().is_some());
 		// TODO: Add these as methods
 		assert!(cand.get_depends(&DepType::Replaces).is_some());
-		// This test seems to work on Debian Sid desktop systems, but not in a Debian
-		// Sid Docker container (and potentially other distros too). Leaving this
-		// commented out until a solution is found.
+		// This test seems to work on Debian Sid desktop systems, but not in a
+		// Debian Sid Docker container (and potentially other distros too).
+		// Leaving this commented out until a solution is found.
 		// assert!(cand.get_depends("Conflicts").is_some());
 		assert!(cand.get_depends(&DepType::DpkgBreaks).is_some());
 
@@ -414,7 +415,7 @@ mod cache {
 		}
 
 		// Iterate the package map and add all the candidates into a hashmap
-		for (pkg, _arch) in pkg_map.iter() {
+		for pkg in pkg_map.keys() {
 			if let Some(cand) = pkg.candidate() {
 				let value = cand.arch().to_string();
 				ver_map.insert(cand, value);
@@ -507,19 +508,19 @@ mod cache {
 		let provides_list: Vec<_> = cand.provides().collect();
 
 		assert!(provides_list.len() == 1);
-		// 'apt' seems to always provide for 'apt-transport-https' at APT's version.
-		// If it ever doesn't, this test will break.
+		// 'apt' seems to always provide for 'apt-transport-https' at APT's
+		// version. If it ever doesn't, this test will break.
 		let provide = provides_list.first().unwrap();
 		assert!(provide.name() == "apt-transport-https");
 		assert!(provide.version_str().unwrap() == cand.version());
 	}
 
 	// This Test is for https://gitlab.com/volian/rust-apt/-/issues/24
-	// TODO: refactor and enable this test so it can run in the CI to make sure we
-	// don't regress. We need to get the lists dir from the apt config, and then
-	// maybe pick a random InRelease file Back that up, do the editing and then
-	// restore it at the end of the test. cache.packages should be an error and not
-	// segfault.
+	// TODO: refactor and enable this test so it can run in the CI to make sure
+	// we don't regress. We need to get the lists dir from the apt config, and
+	// then maybe pick a random InRelease file Back that up, do the editing and
+	// then restore it at the end of the test. cache.packages should be an
+	// error and not segfault.
 	//
 	// #[test]
 	// fn test_segfault() {
@@ -740,7 +741,8 @@ mod cache {
 		// but this will return the version to be installed
 		let install_ver = pkg.install_version().unwrap();
 
-		// The version should match the latest because it's the default candidate.
+		// The version should match the latest because it's the default
+		// candidate.
 		assert!(install_ver.version() == "0.0.2");
 
 		let old_ver = pkg.get_version("0.0.1").unwrap();

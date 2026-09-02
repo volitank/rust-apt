@@ -127,9 +127,9 @@ pub(crate) mod raw {
 		/// Zero if the total size of the final is unknown.
 		pub fn total_size(self: &AcqWorker) -> u64;
 
-		// TODO: This should probably be unsafe, but not sure at the moment how to
-		// handle it I guess we would need to wrap PkgAcquire and AcqWorker so they can
-		// have proper lifetimes?
+		// TODO: This should probably be unsafe, but not sure at the moment how
+		// to handle it I guess we would need to wrap PkgAcquire and AcqWorker
+		// so they can have proper lifetimes?
 
 		/// CxxVector of active workers
 		pub fn workers(self: &PkgAcquire) -> UniquePtr<CxxVector<AcqWorker>>;

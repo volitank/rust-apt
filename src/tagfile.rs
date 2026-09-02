@@ -84,7 +84,8 @@ impl TagSection {
 				continue;
 			}
 
-			// If this line is a new key, split the line into the key and its value.
+			// If this line is a new key, split the line into the key and its
+			// value.
 			if Self::line_is_key(line) {
 				let (key, value) = match line.split_once(':') {
 					Some((key, value)) => {
@@ -99,8 +100,8 @@ impl TagSection {
 				};
 
 				// Set the current key and value.
-				// If the value is empty, then this is a multiline field, and it's going to be
-				// one of these things:
+				// If the value is empty, then this is a multiline field, and
+				// it's going to be one of these things:
 				// 1. A multiline field, in which case we want to add a
 				// newline to reflect such.
 				// 2. A key with an empty value, in which case it will
@@ -119,25 +120,28 @@ impl TagSection {
 				}
 			}
 
-			// If this line is indented with spaces or tabs, add it to the current value.
-			// This should never end up running in conjunction with the above `if` block.
+			// If this line is indented with spaces or tabs, add it to the
+			// current value. This should never end up running in conjunction
+			// with the above `if` block.
 			if line.starts_with(' ') || line.starts_with('\t') {
 				current_value += line;
 
-				// If the next line extends the value, add the newline. `line_number`
-				// conveniently is the next index, so use that to our advantage.
+				// If the next line extends the value, add the newline.
+				// `line_number` conveniently is the next index, so use that
+				// to our advantage.
 				if Self::next_line_extends_value(&lines, index) {
 					current_value += "\n";
 				}
 			}
 
-			// If the next line is a new key or this is the last line, add the current key
-			// and value to the HashMap. `line_number` conveniently is the next index, so
-			// use that to our advantage.
+			// If the next line is a new key or this is the last line, add the
+			// current key and value to the HashMap. `line_number`
+			// conveniently is the next index, so use that to our advantage.
 			if !Self::next_line_extends_value(&lines, index) {
-				// If no key exists, we've defined a paragraph (at the beginning of the control
-				// file) with no key. This would be parsed at the very beginning, but the file
-				// may have an unknown amount of comment lines, so we just do this here as a
+				// If no key exists, we've defined a paragraph (at the beginning
+				// of the control file) with no key. This would be parsed at
+				// the very beginning, but the file may have an unknown
+				// amount of comment lines, so we just do this here as a
 				// normal step of the parsing stage.
 				if current_key.is_none() {
 					return Self::error(
@@ -146,7 +150,8 @@ impl TagSection {
 					);
 				}
 
-				// Add the key and reset the `current_key` and `current_value` counters.
+				// Add the key and reset the `current_key` and `current_value`
+				// counters.
 				data.insert(current_key.unwrap(), current_value);
 				current_key = None;
 				current_value = String::new();
@@ -185,8 +190,8 @@ pub fn parse_tagfile(content: &str) -> Result<Vec<TagSection>, ParserError> {
 	let section_strings = content.split("\n\n");
 
 	for (iter, section) in section_strings.clone().enumerate() {
-		// If this section is empty (i.e. more than one empty line was placed between
-		// each section), then ignore this section.
+		// If this section is empty (i.e. more than one empty line was placed
+		// between each section), then ignore this section.
 		if section.is_empty() || section.chars().all(|c| c == '\n') {
 			break;
 		}
@@ -194,10 +199,11 @@ pub fn parse_tagfile(content: &str) -> Result<Vec<TagSection>, ParserError> {
 		match TagSection::new(section) {
 			Ok(section) => sections.push(section),
 			Err(mut err) => {
-				// If an error line was provided, add the number of lines in the sections before
-				// this one. Otherwise no line was specified, and we'll just specify the number
-				// of lines in the section before this one so we know which section the line is
-				// in.
+				// If an error line was provided, add the number of lines in the
+				// sections before this one. Otherwise no line was
+				// specified, and we'll just specify the number of lines in
+				// the section before this one so we know which section the line
+				// is in.
 				let mut line_count = 0;
 
 				for _ in 0..iter {
