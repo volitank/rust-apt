@@ -41,10 +41,7 @@ inline String handle_string(std::string string) {
 inline i32 cmp_versions(str ver1, str ver2) {
 	if (!_system) { pkgInitSystem(*_config, _system); }
 
-	const char* end1 = ver1.begin() + strlen(ver1.begin());
-	const char* end2 = ver2.begin() + strlen(ver2.begin());
-
-	return _system->VS->DoCmpVersion(ver1.begin(), end1, ver2.begin(), end2);
+	return _system->VS->DoCmpVersion(ver1.begin(), ver1.end(), ver2.begin(), ver2.end());
 }
 
 /// Return an APT-styled progress bar (`[####  ]`).
