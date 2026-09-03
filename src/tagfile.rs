@@ -187,40 +187,28 @@ impl TagSection {
 ///   there was.
 pub fn parse_tagfile(content: &str) -> Result<Vec<TagSection>, ParserError> {
 	let mut sections = vec![];
-	let section_strings = content.split("\n\n");
+	let mut lines = vec![];
+	let mut section_start = 1;
 
-	for (iter, section) in section_strings.clone().enumerate() {
-		// If this section is empty (i.e. more than one empty line was placed
-		// between each section), then ignore this section.
-		if section.is_empty() || section.chars().all(|c| c == '\n') {
-			break;
+	for (index, line) in content.lines().chain(std::iter::once("")).enumerate() {
+		if !line.is_empty() {
+			if lines.is_empty() {
+				section_start = index + 1;
+			}
+			lines.push(line);
+			continue;
 		}
 
-		match TagSection::new(section) {
-			Ok(section) => sections.push(section),
-			Err(mut err) => {
-				// If an error line was provided, add the number of lines in the
-				// sections before this one. Otherwise no line was
-				// specified, and we'll just specify the number of lines in
-				// the section before this one so we know which section the line
-				// is in.
-				let mut line_count = 0;
-
-				for _ in 0..iter {
-					// Add one for the line separation between each section.
-					line_count += 1;
-
-					// Add the line count in this section.
-					line_count += section_strings.clone().count();
-				}
-
-				if let Some(line) = err.line {
-					err.line = Some(line_count + line);
-				} else {
-					err.line = Some(line_count);
-				}
-			},
+		if lines.is_empty() {
+			continue;
 		}
+
+		let section = TagSection::new(&lines.join("\n")).map_err(|mut err| {
+			err.line = Some(section_start + err.line.unwrap_or(1) - 1);
+			err
+		})?;
+		sections.push(section);
+		lines.clear();
 	}
 
 	Ok(sections)

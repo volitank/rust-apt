@@ -48,4 +48,32 @@ mod tagfile {
 			"\n\tAll my homies know that tabs be superior.\n\t   Why not just use both?"
 		);
 	}
+
+	#[test]
+	fn malformed_later_section_returns_its_file_line() {
+		let err = tagfile::parse_tagfile("Package: first\nVersion: 1\n\nPackage: second\nBroken")
+			.unwrap_err();
+
+		assert_eq!(err.line, Some(5));
+	}
+
+	#[test]
+	fn repeated_separators_are_ignored() {
+		let sections = tagfile::parse_tagfile("Package: first\n\n\n\nPackage: second\n").unwrap();
+
+		assert_eq!(sections.len(), 2);
+		assert_eq!(sections[0].get("Package").unwrap(), "first");
+		assert_eq!(sections[1].get("Package").unwrap(), "second");
+	}
+
+	#[test]
+	fn crlf_sections_are_supported() {
+		let sections =
+			tagfile::parse_tagfile("Package: first\r\nVersion: 1\r\n\r\nPackage: second\r\n")
+				.unwrap();
+
+		assert_eq!(sections.len(), 2);
+		assert_eq!(sections[0].get("Version").unwrap(), "1");
+		assert_eq!(sections[1].get("Package").unwrap(), "second");
+	}
 }
