@@ -5,6 +5,8 @@ use std::os::fd::RawFd;
 use std::pin::Pin;
 
 use cxx::{ExternType, UniquePtr};
+#[doc(inline)]
+pub use raw::{ReleaseInfoChange, ReleaseInfoChanges};
 
 use crate::config::Config;
 use crate::error::raw::pending_error;
@@ -17,6 +19,15 @@ use crate::util::{
 pub trait DynAcquireProgress {
 	/// Called on c++ to set the pulse interval.
 	fn pulse_interval(&self) -> usize;
+
+	/// Called when a repository changes information from its Release file.
+	///
+	/// Returning [`true`] accepts every change. The default accepts changes
+	/// that APT considers informational or that were allowed through APT
+	/// configuration, and rejects changes that require explicit confirmation.
+	fn release_info_changes(&mut self, info: ReleaseInfoChanges) -> bool {
+		info.changes.iter().all(|change| change.default_action)
+	}
 
 	/// Called when an item is confirmed to be up-to-date.
 	fn hit(&mut self, item: &ItemDesc);
@@ -110,6 +121,16 @@ impl<'a> AcquireProgress<'a> {
 
 	/// Called on c++ to set the pulse interval.
 	pub(crate) fn pulse_interval(&mut self) -> usize { self.inner.pulse_interval() }
+
+	/// Forward repository information changes to the configured progress
+	/// handler.
+	///
+	/// Returning `true` tells libapt to accept the changes and continue
+	/// updating. Returning `false` rejects them and allows libapt to produce
+	/// its normal error.
+	pub(crate) fn release_info_changes(&mut self, info: ReleaseInfoChanges) -> bool {
+		self.inner.release_info_changes(info)
+	}
 
 	/// Called when an item is confirmed to be up-to-date.
 	pub(crate) fn hit(&mut self, item: &ItemDesc) { self.inner.hit(item) }
@@ -637,6 +658,32 @@ impl DynInstallProgress for AptInstallProgress {
 #[allow(clippy::needless_lifetimes)]
 #[cxx::bridge]
 pub(crate) mod raw {
+	/// Repository metadata associated with a set of Release file changes.
+	#[derive(Debug)]
+	struct ReleaseInfoChanges {
+		/// Repository URI reported by APT.
+		pub uri: String,
+		/// Distribution or suite requested from the repository.
+		pub dist: String,
+		/// Metadata fields that changed.
+		pub changes: Vec<ReleaseInfoChange>,
+	}
+
+	/// A change to repository metadata from its Release file.
+	#[derive(Debug)]
+	struct ReleaseInfoChange {
+		/// Type of change, such as `Origin`, `Codename`, or `Version`.
+		pub field: String,
+		/// Previous value.
+		pub old_value: String,
+		/// New value.
+		pub new_value: String,
+		/// Localized description supplied by APT.
+		pub message: String,
+		/// Whether APT configuration permits this change without confirmation.
+		pub default_action: bool,
+	}
+
 	extern "Rust" {
 		type AcquireProgress<'a>;
 		type OperationProgress<'a>;
@@ -671,6 +718,9 @@ pub(crate) mod raw {
 		/// Called on c++ to set the pulse interval.
 		fn pulse_interval(self: &mut AcquireProgress) -> usize;
 
+		/// Called when a repository changes information from its Release file.
+		fn release_info_changes(self: &mut AcquireProgress, info: ReleaseInfoChanges) -> bool;
+
 		/// Called when an item is confirmed to be up-to-date.
 		fn hit(self: &mut AcquireProgress, item: &ItemDesc);
 
@@ -697,5 +747,57 @@ pub(crate) mod raw {
 		type ItemDesc = crate::acquire::raw::ItemDesc;
 		type PkgAcquire = crate::acquire::raw::PkgAcquire;
 		include!("rust-apt/apt-pkg-c/types.h");
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{DynAcquireProgress, ReleaseInfoChange, ReleaseInfoChanges};
+	use crate::raw::{AcqTextStatus, ItemDesc, PkgAcquire};
+
+	struct Progress;
+
+	impl DynAcquireProgress for Progress {
+		fn pulse_interval(&self) -> usize { 0 }
+
+		fn hit(&mut self, _: &ItemDesc) {}
+
+		fn fetch(&mut self, _: &ItemDesc) {}
+
+		fn fail(&mut self, _: &ItemDesc) {}
+
+		fn pulse(&mut self, _: &AcqTextStatus, _: &PkgAcquire) {}
+
+		fn done(&mut self, _: &ItemDesc) {}
+
+		fn start(&mut self) {}
+
+		fn stop(&mut self, _: &AcqTextStatus) {}
+	}
+
+	fn change(default_action: bool) -> ReleaseInfoChange {
+		ReleaseInfoChange {
+			field: "Origin".into(),
+			old_value: "Earth".into(),
+			new_value: "Mars".into(),
+			message: "Repository changed its Origin".into(),
+			default_action,
+		}
+	}
+
+	fn info(changes: Vec<ReleaseInfoChange>) -> ReleaseInfoChanges {
+		ReleaseInfoChanges {
+			uri: "https://deb.example.invalid".into(),
+			dist: "stable".into(),
+			changes,
+		}
+	}
+
+	#[test]
+	fn release_info_changes_use_apt_default_action() {
+		let mut progress = Progress;
+
+		assert!(progress.release_info_changes(info(vec![change(true)])));
+		assert!(!progress.release_info_changes(info(vec![change(true), change(false)])));
 	}
 }

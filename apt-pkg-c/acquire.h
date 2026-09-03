@@ -2,6 +2,7 @@
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/acquire-worker.h>
 #include <apt-pkg/acquire.h>
+#include <apt-pkg/metaindex.h>
 #include <iostream>
 #include <memory>
 #include "rust/cxx.h"
@@ -88,29 +89,35 @@ struct AcqTextStatus : public pkgAcquireStatus {
 	bool ReleaseInfoChanges(
 		metaIndex const* const LastRelease,
 		metaIndex const* const CurrentRelease,
-		std::vector<ReleaseInfoChange>&& Changes
+		std::vector<pkgAcquireStatus::ReleaseInfoChange>&& Changes
 	) {
-		(void)LastRelease;
-		(void)CurrentRelease;
-		(void)Changes;
-		// if (Quiet >= 2 || isatty(STDOUT_FILENO) != 1 || isatty(STDIN_FILENO) != 1 ||
-		// _config->FindB("APT::Get::Update::InteractiveReleaseInfoChanges", false) == false)
-		// 	return pkgAcquireStatus::ReleaseInfoChanges(nullptr, nullptr, std::move(Changes));
+		rust::Vec<::ReleaseInfoChange> changes;
+		changes.reserve(Changes.size());
 
-		// _error->PushToStack();
-		// auto const confirmed = pkgAcquireStatus::ReleaseInfoChanges(L, N,
-		// std::move(Changes)); if (confirmed == true) { _error->MergeWithStack();
-		// 	return true;
-		// }
-		// clearLastLine();
-		// _error->DumpErrors(out, GlobalError::NOTICE, false);
-		// _error->RevertToStack();
+		for (auto const& change : Changes) {
+			changes.push_back(::ReleaseInfoChange{
+				rust::String(change.Type),
+				rust::String(change.From),
+				rust::String(change.To),
+				rust::String(change.Message),
+				change.DefaultAction,
+			});
+		}
 
-		// return YnPrompt(_("Do you want to accept these changes and continue updating from this
-		// repository?"), false, false, out, out);
+		auto const* release = CurrentRelease != nullptr ? CurrentRelease : LastRelease;
+		auto info = ::ReleaseInfoChanges{
+			rust::String(release == nullptr ? "" : release->GetURI()),
+			rust::String(release == nullptr ? "" : release->GetDist()),
+			std::move(changes),
+		};
 
-		// Not yet implemented. Remove return true when it is.
-		return true;
+		// This virtual method is synchronous: true accepts the changes and allows
+		// libapt to continue.
+		if (callback->release_info_changes(std::move(info))) return true;
+
+		return pkgAcquireStatus::ReleaseInfoChanges(
+			LastRelease, CurrentRelease, std::move(Changes)
+		);
 	};
 	bool MediaChange(std::string Media, std::string Drive) {
 		(void)Drive;
