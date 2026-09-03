@@ -15,6 +15,16 @@ use crate::util::{
 	NumSys, get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str,
 };
 
+fn progress_fraction(current: u64, total: u64) -> f64 {
+	if total == 0 {
+		return 0.0;
+	}
+
+	(current as f64 / total as f64).clamp(0.0, 1.0)
+}
+
+fn terminal_content_width() -> usize { terminal_width().saturating_sub(1) }
+
 /// Customize the output shown during file downloads.
 pub trait DynAcquireProgress {
 	/// Called on c++ to set the pulse interval.
@@ -357,7 +367,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 			return;
 		}
 
-		self.clear_last_line(terminal_width() - 1);
+		self.clear_last_line(terminal_content_width());
 
 		println!("\rHit:{} {}", item.owner().id(), item.description());
 	}
@@ -370,7 +380,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 			return;
 		}
 
-		self.clear_last_line(terminal_width() - 1);
+		self.clear_last_line(terminal_content_width());
 
 		let mut string = format!("\rGet:{} {}", item.owner().id(), item.description());
 
@@ -409,7 +419,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 			return;
 		}
 
-		self.clear_last_line(terminal_width() - 1);
+		self.clear_last_line(terminal_content_width());
 
 		if pending_error() {
 			return;
@@ -435,7 +445,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 			return;
 		}
 
-		self.clear_last_line(terminal_width() - 1);
+		self.clear_last_line(terminal_content_width());
 
 		let mut show_error = true;
 		let error_text = item.owner().error_text();
@@ -470,7 +480,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 		}
 
 		// Minus 1 for the cursor
-		let term_width = terminal_width() - 1;
+		let term_width = terminal_content_width();
 
 		let mut string = String::new();
 		let mut percent_str = format!("\r{:.0}%", status.percent());
@@ -485,7 +495,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 				// Current rate of download
 				unit_str(current_cps, NumSys::Decimal),
 				// ETA String
-				time_str((status.total_bytes() - status.current_bytes()) / current_cps)
+				time_str(status.total_bytes().saturating_sub(status.current_bytes()) / current_cps,)
 			);
 		}
 
@@ -521,7 +531,7 @@ impl DynAcquireProgress for AptAcquireProgress {
 					work_string,
 					"/{} {}%",
 					unit_str(worker.total_size(), NumSys::Decimal),
-					(worker.current_size() * 100) / worker.total_size()
+					(progress_fraction(worker.current_size(), worker.total_size()) * 100.0) as u64
 				);
 			}
 
@@ -602,7 +612,7 @@ impl DynInstallProgress for AptInstallProgress {
 		std::io::stdout().flush().unwrap();
 
 		// Convert the float to a percentage string.
-		let percent = steps_done as f32 / total_steps as f32;
+		let percent = progress_fraction(steps_done, total_steps) as f32;
 		let mut percent_str = (percent * 100.0).round().to_string();
 
 		let percent_padding = match percent_str.len() {
@@ -635,10 +645,11 @@ impl DynInstallProgress for AptInstallProgress {
 		// We should safely be able to convert the `usize`.try_into() into the
 		// `u32` needed by `get_apt_progress_string`, as usize ints only take
 		// up 8 bytes on a 64-bit processor.
-		print!(
-			"{}",
-			get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())
-		);
+		if let Ok(progress_width) = u32::try_from(term_width.saturating_sub(PROGRESS_STR_LEN)) {
+			if progress_width > 0 {
+				print!("{}", get_apt_progress_string(percent, progress_width));
+			}
+		}
 		std::io::stdout().flush().unwrap();
 
 		// If this is the last change, remove the progress reporting bar.
@@ -752,7 +763,7 @@ pub(crate) mod raw {
 
 #[cfg(test)]
 mod tests {
-	use super::{DynAcquireProgress, ReleaseInfoChange, ReleaseInfoChanges};
+	use super::{DynAcquireProgress, ReleaseInfoChange, ReleaseInfoChanges, progress_fraction};
 	use crate::raw::{AcqTextStatus, ItemDesc, PkgAcquire};
 
 	struct Progress;
@@ -799,5 +810,13 @@ mod tests {
 
 		assert!(progress.release_info_changes(info(vec![change(true)])));
 		assert!(!progress.release_info_changes(info(vec![change(true), change(false)])));
+	}
+
+	#[test]
+	fn progress_fractions_are_bounded() {
+		assert_eq!(progress_fraction(1, 0), 0.0);
+		assert_eq!(progress_fraction(50, 100), 0.5);
+		assert_eq!(progress_fraction(200, 100), 1.0);
+		assert_eq!(progress_fraction(u64::MAX, u64::MAX), 1.0);
 	}
 }
