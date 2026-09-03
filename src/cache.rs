@@ -32,6 +32,19 @@ impl Drop for AptLockGuard {
 	fn drop(&mut self) { apt_unlock() }
 }
 
+fn handle_install_result(result: OrderResult) -> Result<(), AptErrors> {
+	let message = match result {
+		OrderResult::Completed => return Ok(()),
+		OrderResult::Failed => "Package installation failed without an error from libapt",
+		OrderResult::Incomplete => {
+			"Package installation is incomplete because media swapping is not supported"
+		},
+		_ => "Package installation returned an unknown result from libapt",
+	};
+
+	Err(AptErrors::from(message.to_string()))
+}
+
 /// Selection of Upgrade type
 #[repr(i32)]
 #[derive(Clone, Debug)]
@@ -579,18 +592,7 @@ impl Cache {
 			return Err(AptErrors::new());
 		}
 
-		match res {
-			OrderResult::Completed => {},
-			OrderResult::Failed => panic!(
-				"DoInstall failed with no error from libapt. Please report this as an issue."
-			),
-			OrderResult::Incomplete => {
-				panic!("Result is 'Incomplete', please request media swapping as a feature.")
-			},
-			_ => unreachable!(),
-		}
-
-		Ok(())
+		handle_install_result(res)
 	}
 
 	/// Handle get_archives and do_install in an easy wrapper.
@@ -694,6 +696,18 @@ impl Cache {
 		changed
 			.into_iter()
 			.map(|pkg_ptr| Package::new(self, pkg_ptr))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{OrderResult, handle_install_result};
+
+	#[test]
+	fn install_outcomes_return_results() {
+		assert!(handle_install_result(OrderResult::Completed).is_ok());
+		assert!(handle_install_result(OrderResult::Failed).is_err());
+		assert!(handle_install_result(OrderResult::Incomplete).is_err());
 	}
 }
 
