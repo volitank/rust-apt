@@ -19,6 +19,19 @@ use crate::records::{PackageRecords, SourceRecords};
 use crate::util::{apt_lock, apt_unlock, apt_unlock_inner};
 use crate::{Package, PackageFile};
 
+struct AptLockGuard;
+
+impl AptLockGuard {
+	fn acquire() -> Result<Self, AptErrors> {
+		apt_lock()?;
+		Ok(Self)
+	}
+}
+
+impl Drop for AptLockGuard {
+	fn drop(&mut self) { apt_unlock() }
+}
+
 /// Selection of Upgrade type
 #[repr(i32)]
 #[derive(Clone, Debug)]
@@ -608,7 +621,7 @@ impl Cache {
 		install_progress: &mut InstallProgress,
 	) -> Result<(), AptErrors> {
 		// Lock the whole thing so as to prevent tamper
-		apt_lock()?;
+		let _lock = AptLockGuard::acquire()?;
 
 		let config = Config::new();
 		let archive_dir = config.dir("Dir::Cache::Archives", "/var/cache/apt/archives/");
@@ -637,8 +650,6 @@ impl Cache {
 		// Perform the operation.
 		self.do_install(install_progress)?;
 
-		// Finally Unlock the whole thing.
-		apt_unlock();
 		Ok(())
 	}
 

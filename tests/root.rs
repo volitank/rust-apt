@@ -19,6 +19,33 @@ mod root {
 	}
 
 	#[test]
+	fn commit_unlocks_after_copy_error() {
+		struct ResetConfig;
+
+		impl Drop for ResetConfig {
+			fn drop(&mut self) { Config::new().reset() }
+		}
+
+		let _reset = ResetConfig;
+		let cache = new_cache!(&["tests/files/cache/dep-pkg1_0.0.1.deb"]).unwrap();
+		Config::new().set("Dir::Cache::Archives", "/nonexistent/rust-apt-test/");
+
+		let mut acquire_progress = AcquireProgress::quiet();
+		let mut install_progress = InstallProgress::apt();
+		assert!(
+			cache
+				.commit(&mut acquire_progress, &mut install_progress)
+				.is_err()
+		);
+
+		let remained_locked = apt_is_locked();
+		if remained_locked {
+			apt_unlock();
+		}
+		assert!(!remained_locked);
+	}
+
+	#[test]
 	fn update() {
 		struct Progress {}
 
