@@ -371,8 +371,7 @@ pub(crate) mod raw {
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn translated_desc(self: &VerIterator) -> UniquePtr<DescIterator>;
 
-		#[cxx_name = "Index"]
-		pub fn index(self: &VerIterator) -> u64;
+		pub fn index(self: &VerIterator) -> usize;
 		/// Clone the pointer.
 		///
 		/// # Safety

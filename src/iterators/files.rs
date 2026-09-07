@@ -123,8 +123,7 @@ pub(crate) mod raw {
 		pub fn is_downloadable(self: &PkgFileIterator) -> bool;
 
 		/// The Index number of the PackageFile
-		#[cxx_name = "Index"]
-		pub fn index(self: &PkgFileIterator) -> u64;
+		pub fn index(self: &PkgFileIterator) -> usize;
 		/// Clone the pointer.
 		///
 		/// # Safety
@@ -151,8 +150,7 @@ pub(crate) mod raw {
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn package_file(self: &VerFileIterator) -> UniquePtr<PkgFileIterator>;
 
-		#[cxx_name = "Index"]
-		pub fn index(self: &VerFileIterator) -> u64;
+		pub fn index(self: &VerFileIterator) -> usize;
 		/// Clone the pointer.
 		///
 		/// # Safety
@@ -167,8 +165,7 @@ pub(crate) mod raw {
 		pub fn raw_next(self: Pin<&mut VerFileIterator>);
 		pub fn end(self: &VerFileIterator) -> bool;
 
-		#[cxx_name = "Index"]
-		pub fn index(self: &DescIterator) -> u64;
+		pub fn index(self: &DescIterator) -> usize;
 		/// Clone the pointer.
 		///
 		/// # Safety

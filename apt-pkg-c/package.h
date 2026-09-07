@@ -1,6 +1,7 @@
 #pragma once
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/policy.h>
+#include <cstddef>
 #include <memory>
 #include "util.h"
 
@@ -11,6 +12,7 @@ struct PkgIterator;
 
 struct DepIterator : public pkgCache::DepIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	UniquePtr<DepIterator> unique() const { return std::make_unique<DepIterator>(*this); }
 
@@ -32,6 +34,7 @@ struct DepIterator : public pkgCache::DepIterator {
 
 struct PrvIterator : public pkgCache::PrvIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	str name() const { return this->Name(); }
 	str version_str() const { return handle_str(this->ProvideVersion()); }
@@ -46,6 +49,7 @@ struct PrvIterator : public pkgCache::PrvIterator {
 
 struct PkgFileIterator : public pkgCache::PkgFileIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	str filename() const { return handle_str(this->FileName()); }
 	str archive() const { return handle_str(this->Archive()); }
@@ -66,6 +70,7 @@ struct PkgFileIterator : public pkgCache::PkgFileIterator {
 
 struct VerFileIterator : public pkgCache::VerFileIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	UniquePtr<VerFileIterator> unique() const { return std::make_unique<VerFileIterator>(*this); }
 
@@ -78,6 +83,7 @@ struct VerFileIterator : public pkgCache::VerFileIterator {
 
 struct DescIterator : public pkgCache::DescIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	UniquePtr<DescIterator> unique() const { return std::make_unique<DescIterator>(*this); }
 
@@ -86,6 +92,7 @@ struct DescIterator : public pkgCache::DescIterator {
 
 struct VerIterator : public pkgCache::VerIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	str version() const { return this->VerStr(); }
 	str arch() const { return this->Arch(); }
@@ -128,6 +135,7 @@ struct VerIterator : public pkgCache::VerIterator {
 
 struct PkgIterator : public pkgCache::PkgIterator {
 	void raw_next() { (*this)++; }
+	std::size_t index() const { return this->Index(); }
 
 	str name() const { return this->Name(); }
 	str arch() const { return this->Arch(); }

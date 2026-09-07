@@ -135,7 +135,7 @@ pub mod RecordField {
 pub struct PackageRecords {
 	pub(crate) ptr: UniquePtr<raw::PkgRecords>,
 	parser: RefCell<UniquePtr<raw::Parser>>,
-	index: RefCell<u64>,
+	index: RefCell<usize>,
 }
 
 impl PackageRecords {
@@ -147,7 +147,7 @@ impl PackageRecords {
 		}
 	}
 
-	fn replace_index(&self, index: u64) -> bool {
+	fn replace_index(&self, index: usize) -> bool {
 		if self.index.borrow().eq(&index) {
 			return false;
 		}

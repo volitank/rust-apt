@@ -566,8 +566,7 @@ pub(crate) mod raw {
 		/// The returned UniquePtr cannot outlive the cache.
 		unsafe fn rdepends(self: &PkgIterator) -> UniquePtr<DepIterator>;
 
-		#[cxx_name = "Index"]
-		pub fn index(self: &PkgIterator) -> u64;
+		pub fn index(self: &PkgIterator) -> usize;
 		/// Clone the pointer.
 		///
 		/// # Safety
