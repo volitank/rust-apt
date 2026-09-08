@@ -135,7 +135,6 @@ pub mod RecordField {
 pub struct PackageRecords {
 	pub(crate) ptr: UniquePtr<raw::PkgRecords>,
 	parser: RefCell<UniquePtr<raw::Parser>>,
-	index: RefCell<usize>,
 }
 
 impl PackageRecords {
@@ -143,16 +142,7 @@ impl PackageRecords {
 		PackageRecords {
 			ptr,
 			parser: RefCell::new(UniquePtr::null()),
-			index: RefCell::new(0),
 		}
-	}
-
-	fn replace_index(&self, index: usize) -> bool {
-		if self.index.borrow().eq(&index) {
-			return false;
-		}
-		self.index.replace(index);
-		true
 	}
 
 	fn parser(&self) -> Ref<'_, UniquePtr<raw::Parser>> {
@@ -163,16 +153,12 @@ impl PackageRecords {
 	}
 
 	pub fn ver_lookup(&self, file: &raw::VerFileIterator) -> &PackageRecords {
-		if self.replace_index(file.index()) {
-			unsafe { self.parser.replace(self.ptr.ver_lookup(file)) };
-		}
+		unsafe { self.parser.replace(self.ptr.ver_lookup(file)) };
 		self
 	}
 
 	pub fn desc_lookup(&self, file: &raw::DescIterator) -> &PackageRecords {
-		if self.replace_index(file.index()) {
-			unsafe { self.parser.replace(self.ptr.desc_lookup(file)) };
-		}
+		unsafe { self.parser.replace(self.ptr.desc_lookup(file)) };
 		self
 	}
 
