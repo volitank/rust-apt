@@ -5,6 +5,7 @@ mod cache {
 	use cxx::{CxxVector, UniquePtr};
 	use rust_apt::cache::*;
 	use rust_apt::config::Config;
+	use rust_apt::progress::AcquireProgress;
 	use rust_apt::raw::{IntoRawIter, ItemDesc, create_acquire};
 	use rust_apt::util::*;
 	use rust_apt::{DepType, new_cache};
@@ -88,6 +89,63 @@ mod cache {
 		cache.get("no-description").unwrap();
 
 		assert!(new_cache!(&["tests/files/cache/Packages.gz"]).is_err());
+	}
+
+	#[test]
+	fn update_falls_back_to_release_and_detached_signature() {
+		struct Cleanup(std::path::PathBuf);
+
+		impl Drop for Cleanup {
+			fn drop(&mut self) {
+				Config::new().reset();
+				std::fs::remove_dir_all(&self.0).ok();
+			}
+		}
+
+		let temp_dir = std::env::temp_dir().join(format!(
+			"rust-apt-release-fallback-{}-{}",
+			std::process::id(),
+			std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_nanos()
+		));
+		let _cleanup = Cleanup(temp_dir.clone());
+		let fixture_dir = std::path::Path::new("tests/files/release-fallback");
+		let repo = fixture_dir.join("repo").canonicalize().unwrap();
+		let lists_dir = temp_dir.join("lists");
+		let config = Config::new_clear();
+		assert!(!repo.join("dists/test/InRelease").exists());
+
+		std::fs::create_dir_all(lists_dir.join("partial")).unwrap();
+
+		let sources = temp_dir.join("sources.list");
+		std::fs::write(
+			&sources,
+			format!(
+				"deb [arch=amd64 signed-by={}] file:{} test main\n",
+				fixture_dir
+					.join("test-key.asc")
+					.canonicalize()
+					.unwrap()
+					.display(),
+				repo.display()
+			),
+		)
+		.unwrap();
+
+		config.set("Dir::Etc::sourcelist", sources.to_str().unwrap());
+		config.set("Dir::Etc::sourceparts", "-");
+		config.set("Dir::State::lists", lists_dir.to_str().unwrap());
+		config.set("Dir::Cache::pkgcache", "");
+		config.set("Dir::Cache::srcpkgcache", "");
+		config.set("Acquire::Languages", "none");
+
+		let cache = new_cache!().unwrap();
+		cache.update(&mut AcquireProgress::quiet()).unwrap();
+
+		let cache = new_cache!().unwrap();
+		assert!(cache.get("rust-apt-release-fallback-canary").is_some());
 	}
 
 	#[test]

@@ -1,0 +1,8 @@
+Package: rust-apt-release-fallback-canary
+Version: 1.0
+Architecture: all
+Maintainer: rust-apt tests <tests@rust-apt.invalid>
+Filename: pool/r/rust-apt-release-fallback-canary_1.0_all.deb
+Size: 0
+Description: Detached Release signature fallback canary
+
