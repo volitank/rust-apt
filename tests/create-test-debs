@@ -2,7 +2,21 @@
 set -eu
 
 # Build the generated package fixtures used by the cache tests.
-cd "$(dirname "$0")/files/cache"
+source_dir=$(CDPATH= cd -- "$(dirname "$0")/files/cache" && pwd)
+if [ "$#" -eq 0 ]; then
+	output_dir=$source_dir
+else
+	output_dir=$1
+fi
+
+if [ "$output_dir" != "$source_dir" ]; then
+	mkdir -p "$output_dir"
+	for package in "$source_dir"/*/; do
+		cp -R "$package" "$output_dir/"
+	done
+fi
+
+cd "$output_dir"
 
 rm -f -- ./*.deb ./Packages*
 for package in */; do

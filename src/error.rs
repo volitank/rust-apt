@@ -27,8 +27,8 @@ pub(crate) mod raw {
 		/// Returns [`true`] if there are no Errors or Warnings.
 		pub fn empty() -> bool;
 
-		/// Returns all Apt Errors or Warnings.
-		pub fn get_all() -> Vec<AptError>;
+		/// Removes and returns the next Apt Error or Warning.
+		pub(crate) fn pop_message() -> AptError;
 	}
 }
 
@@ -56,9 +56,11 @@ pub struct AptErrors {
 
 impl AptErrors {
 	pub fn new() -> AptErrors {
-		AptErrors {
-			ptr: raw::get_all(),
+		let mut ptr = Vec::new();
+		while !raw::empty() {
+			ptr.push(raw::pop_message());
 		}
+		AptErrors { ptr }
 	}
 }
 

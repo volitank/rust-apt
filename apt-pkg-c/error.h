@@ -10,4 +10,8 @@ inline bool pending_error() { return _error->PendingError(); }
 
 inline bool empty() { return _error->empty(); }
 
-Vec<AptError> get_all() noexcept;
+inline AptError pop_message() noexcept {
+	std::string msg;
+	bool type = _error->PopMessage(msg);
+	return AptError{type, msg};
+}

@@ -1,3 +1,5 @@
+mod common;
+
 mod root {
 	use rust_apt::config::Config;
 	use rust_apt::new_cache;
@@ -5,7 +7,10 @@ mod root {
 	use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
 	use rust_apt::util::*;
 
+	use super::common;
+
 	#[test]
+	#[ignore = "requires root"]
 	fn lock() {
 		apt_lock().unwrap();
 		apt_lock().unwrap();
@@ -19,6 +24,7 @@ mod root {
 	}
 
 	#[test]
+	#[ignore = "requires root"]
 	fn commit_unlocks_after_copy_error() {
 		struct ResetConfig;
 
@@ -27,7 +33,7 @@ mod root {
 		}
 
 		let _reset = ResetConfig;
-		let cache = new_cache!(&["tests/files/cache/dep-pkg1_0.0.1.deb"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("dep-pkg1_0.0.1.deb")]).unwrap();
 		Config::new().set("Dir::Cache::Archives", "/nonexistent/rust-apt-test/");
 
 		let mut acquire_progress = AcquireProgress::quiet();
@@ -46,6 +52,7 @@ mod root {
 	}
 
 	#[test]
+	#[ignore = "requires root"]
 	fn update() {
 		struct Progress {}
 
@@ -125,10 +132,11 @@ mod root {
 	}
 
 	#[test]
+	#[ignore = "requires root"]
 	fn install_and_remove() {
 		let debs = [
-			"tests/files/cache/dep-pkg1_0.0.1.deb",
-			"tests/files/cache/dep-pkg2_0.0.1.deb",
+			common::cache_file("dep-pkg1_0.0.1.deb"),
+			common::cache_file("dep-pkg2_0.0.1.deb"),
 		];
 		let cache = new_cache!(&debs).unwrap();
 		let pkg = cache.get("dep-pkg2").unwrap();
@@ -154,10 +162,11 @@ mod root {
 	}
 
 	#[test]
+	#[ignore = "requires root"]
 	fn install_with_debs() {
 		let debs = [
-			"tests/files/cache/dep-pkg1_0.0.1.deb",
-			"tests/files/cache/dep-pkg2_0.0.1.deb",
+			common::cache_file("dep-pkg1_0.0.1.deb"),
+			common::cache_file("dep-pkg2_0.0.1.deb"),
 		];
 		let cache = new_cache!(&debs).unwrap();
 

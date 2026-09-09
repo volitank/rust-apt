@@ -16,10 +16,7 @@ fn main() {
 		"src/iterators/files.rs",
 	];
 
-	let mut cc_files = vec!["apt-pkg-c/error.cc"];
-
 	cxx_build::bridges(&source_files)
-		.files(&cc_files)
 		.flag_if_supported("-std=c++17")
 		.compile("rust-apt");
 
@@ -28,7 +25,7 @@ fn main() {
 		println!("cargo:rerun-if-changed={file}")
 	}
 
-	cc_files.extend_from_slice(&[
+	let header_files = [
 		"apt-pkg-c/cache.h",
 		"apt-pkg-c/progress.h",
 		"apt-pkg-c/configuration.h",
@@ -40,9 +37,9 @@ fn main() {
 		"apt-pkg-c/error.h",
 		"apt-pkg-c/types.h",
 		"apt-pkg-c/acquire.h",
-	]);
+	];
 
-	for file in cc_files {
+	for file in header_files {
 		println!("cargo:rerun-if-changed={file}")
 	}
 }

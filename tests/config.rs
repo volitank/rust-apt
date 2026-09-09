@@ -1,9 +1,13 @@
+mod common;
+
 mod config {
 	use std::collections::VecDeque;
 	use std::process::Command;
 
 	use rust_apt::config::Config;
 	use rust_apt::new_cache;
+
+	use super::common;
 
 	#[test]
 	fn clear() {
@@ -34,7 +38,7 @@ mod config {
 		config.clear("Dir::State");
 		config.set("Dir::State::status", "");
 
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 
 		dbg!(cache.iter().count());
 		println!("{}", config.dump())

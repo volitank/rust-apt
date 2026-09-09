@@ -1,6 +1,10 @@
+mod common;
+
 mod depcache {
 	use rust_apt::cache::Upgrade;
 	use rust_apt::new_cache;
+
+	use super::common;
 
 	#[test]
 	fn mark_reinstall() {
@@ -27,7 +31,7 @@ mod depcache {
 
 	#[test]
 	fn phasing_applied_api() {
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 		let pkg = cache.get("dep-pkg1").unwrap();
 
 		assert!(!pkg.phasing_applied());

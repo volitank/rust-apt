@@ -58,9 +58,8 @@ doc:
 
 # Run all tests except for root
 test +ARGS="":
-	@just create-test-debs
 	# libapt is not thread-safe, so its tests must run serially.
-	@cargo test --no-fail-fast -- --test-threads 1 --skip root --skip update {{ARGS}}
+	@cargo test --no-fail-fast -- --test-threads 1 {{ARGS}}
 
 # Run only the root tests. Sudo password required!
 @test-root +ARGS="":
@@ -68,19 +67,16 @@ test +ARGS="":
 
 	set -e
 
-	just create-test-debs
-
 	sudo -E /home/${USER}/.cargo/bin/cargo \
 		test \
 		--test root \
-		-- --test-threads 1 {{ARGS}}
+		-- --test-threads 1 --ignored {{ARGS}}
 
 # Run leak tests. Requires root
 @leak:
 	#!/bin/sh
 
 	set -e
-	just create-test-debs
 	cargo test --no-run
 
 	test_binaries=$( \
@@ -91,7 +87,7 @@ test +ARGS="":
 
 	for test in $test_binaries; do
 		# Sudo is needed to memleak the root tests
-		sudo valgrind --leak-check=full -- "${test}" --test-threads 1
+		sudo valgrind --leak-check=full -- "${test}" --test-threads 1 --include-ignored
 	done
 
 # Lint the codebase

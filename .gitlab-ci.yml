@@ -49,9 +49,9 @@ test:
     - cargo package --list | grep -Fx tests/create-test-debs
     # Docker has 0777 for everything. Deb packages need to be 0755
     - chmod 0755 -R tests/files/cache
-    # Create the test .debs then run the tests
-    - eatmydata just create-test-debs
+    # The harness creates fixtures in Cargo's writable target directory.
     - eatmydata cargo test --no-fail-fast -- --test-threads 1
+    - eatmydata cargo test --test root -- --test-threads 1 --ignored
 publish:
   stage: publish
   only:

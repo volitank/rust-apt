@@ -3,3 +3,8 @@ Version: 5000:1.0.0
 Description: This package would never exist in a normal APT repository
 Maintainer: Foo Bar <foobar@example.com>
 Architecture: all
+Depends: dep-pkg1 (>= 0.0.1) | dep-pkg2
+Recommends: dep-pkg2
+Suggests: dep-pkg1
+Replaces: dep-pkg1
+Breaks: dep-pkg1 (<< 0.0.1)

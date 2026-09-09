@@ -1,3 +1,5 @@
+mod common;
+
 mod cache {
 	use std::collections::HashMap;
 	use std::fmt::Write as _;
@@ -9,6 +11,8 @@ mod cache {
 	use rust_apt::raw::{IntoRawIter, ItemDesc, create_acquire};
 	use rust_apt::util::*;
 	use rust_apt::{DepType, new_cache};
+
+	use super::common;
 
 	struct AptTestConfig(std::path::PathBuf);
 
@@ -31,9 +35,7 @@ mod cache {
 		let lists_dir = temp_dir.join("lists");
 		std::fs::create_dir_all(lists_dir.join("partial")).unwrap();
 
-		let repository = std::path::Path::new("tests/files/cache")
-			.canonicalize()
-			.unwrap();
+		let repository = common::cache_dir().canonicalize().unwrap();
 		let sources = temp_dir.join("sources.list");
 		std::fs::write(
 			&sources,
@@ -107,24 +109,24 @@ mod cache {
 	#[test]
 	fn with_debs() {
 		let cache = new_cache!(&[
-			"tests/files/cache/apt.deb",
-			"tests/files/cache/dep-pkg1_0.0.1.deb",
+			common::cache_file("apt.deb"),
+			common::cache_file("dep-pkg1_0.0.1.deb"),
 		])
 		.unwrap();
 
 		cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap();
 		cache.get("dep-pkg1").unwrap();
 
-		assert!(new_cache!(&["tests/files/this-file-doesnt-exist.deb"]).is_err());
+		assert!(new_cache!(&[common::cache_file("this-file-doesnt-exist.deb")]).is_err());
 
 		// Check if it errors on a garbage empty file as well
 		// signal: 11, SIGSEGV: invalid memory reference
-		assert!(new_cache!(&["tests/files/cache/pkg.deb"]).is_err());
+		assert!(new_cache!(&[common::cache_file("pkg.deb")]).is_err());
 	}
 
 	#[test]
 	fn with_packages() {
-		let cache = new_cache!(&["tests/files/cache/Packages",]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 
 		cache.get("apt").unwrap().get_version("5000:1.0.0").unwrap();
 		cache.get("broken-or-dep").unwrap();
@@ -133,7 +135,7 @@ mod cache {
 		cache.get("dep-pkg2").unwrap();
 		cache.get("no-description").unwrap();
 
-		assert!(new_cache!(&["tests/files/cache/Packages.gz"]).is_err());
+		assert!(new_cache!(&[common::cache_file("Packages.gz")]).is_err());
 	}
 
 	#[test]
@@ -205,7 +207,7 @@ mod cache {
 
 	#[test]
 	fn version_priority_with_files_matches_default() {
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 		let pkg = cache.get("apt").unwrap();
 		let cand = pkg.candidate().unwrap();
 
@@ -293,7 +295,7 @@ mod cache {
 		config.set("Dir::Etc::preferences", prefs_path.to_str().unwrap());
 		config.set("Dir::Etc::preferencesparts", "");
 
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 		let pinned = cache
 			.pinned_packages()
 			.any(|pin| pin.name == "dep-pkg1" && pin.version == "0.0.2" && pin.priority == 1001);
@@ -356,7 +358,7 @@ mod cache {
 
 	#[test]
 	fn descriptions() {
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 
 		let pkg = cache.get("dep-pkg1").unwrap();
 		let cand = pkg.candidate().unwrap();
@@ -372,7 +374,7 @@ mod cache {
 	// See https://gitlab.com/volian/rust-apt/-/issues/28
 	#[test]
 	fn no_description() {
-		let cache = new_cache!(&["tests/files/cache/no-description_0.0.1.deb"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("no-description_0.0.1.deb")]).unwrap();
 
 		let pkg = cache.get("no-description").unwrap();
 		let cand = pkg.candidate().unwrap();
@@ -431,6 +433,7 @@ mod cache {
 
 	#[test]
 	fn depends() {
+		let _config = use_package_fixture_repository();
 		let cache = new_cache!().unwrap();
 
 		let pkg = cache.get("apt").unwrap();
@@ -641,7 +644,7 @@ mod cache {
 	/// the Ubuntu/Debian repos. Keep it fixture-based to avoid drift.
 	#[test]
 	fn rev_provides_list() {
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 		let dep_pkg = cache.get("dep-pkg1").unwrap();
 		let dep_ver = dep_pkg.candidate().unwrap();
 		let virt = cache.get("rust-apt-test-virtual").unwrap();
@@ -737,7 +740,7 @@ mod cache {
 	#[test]
 	// This test is fixture-based to avoid relying on distro packages existing.
 	fn good_resolution() {
-		let cache = new_cache!(&["tests/files/cache/Packages"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("Packages")]).unwrap();
 		let pkg = cache.get("dep-pkg2").unwrap();
 
 		pkg.mark_install(true, true);
@@ -820,8 +823,8 @@ mod cache {
 	#[test]
 	fn depcache_install_ver() {
 		let cache = new_cache!(&[
-			"tests/files/cache/dep-pkg1_0.0.1.deb",
-			"tests/files/cache/dep-pkg1_0.0.2.deb",
+			common::cache_file("dep-pkg1_0.0.1.deb"),
+			common::cache_file("dep-pkg1_0.0.2.deb"),
 		])
 		.unwrap();
 
@@ -851,7 +854,7 @@ mod cache {
 
 	#[test]
 	fn broken_pkgs() {
-		let cache = new_cache!(&["tests/files/cache/broken-or-dep_0.0.1.deb"]).unwrap();
+		let cache = new_cache!(&[common::cache_file("broken-or-dep_0.0.1.deb")]).unwrap();
 
 		let pkg = cache.get("broken-or-dep").unwrap();
 
