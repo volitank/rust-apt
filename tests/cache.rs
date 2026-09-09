@@ -10,6 +10,51 @@ mod cache {
 	use rust_apt::util::*;
 	use rust_apt::{DepType, new_cache};
 
+	struct AptTestConfig(std::path::PathBuf);
+
+	impl Drop for AptTestConfig {
+		fn drop(&mut self) {
+			Config::new().reset();
+			std::fs::remove_dir_all(&self.0).ok();
+		}
+	}
+
+	fn use_package_fixture_repository() -> AptTestConfig {
+		let temp_dir = std::env::temp_dir().join(format!(
+			"rust-apt-package-fixtures-{}-{}",
+			std::process::id(),
+			std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_nanos()
+		));
+		let lists_dir = temp_dir.join("lists");
+		std::fs::create_dir_all(lists_dir.join("partial")).unwrap();
+
+		let repository = std::path::Path::new("tests/files/cache")
+			.canonicalize()
+			.unwrap();
+		let sources = temp_dir.join("sources.list");
+		std::fs::write(
+			&sources,
+			format!("deb [trusted=yes] file:{} ./\n", repository.display()),
+		)
+		.unwrap();
+
+		let config = Config::new_clear();
+		config.set("Dir::Etc::sourcelist", sources.to_str().unwrap());
+		config.set("Dir::Etc::sourceparts", "-");
+		config.set("Dir::State::lists", lists_dir.to_str().unwrap());
+		config.set("Dir::Cache::pkgcache", "");
+		config.set("Dir::Cache::srcpkgcache", "");
+		config.set("Acquire::Languages", "none");
+
+		let cache = new_cache!().unwrap();
+		cache.update(&mut AcquireProgress::quiet()).unwrap();
+
+		AptTestConfig(temp_dir)
+	}
+
 	// This is a manual test. I don't know a good way to dynamically test this
 	// Maybe by installing a test-deb with certain depends and checking the
 	// packages?
@@ -93,15 +138,6 @@ mod cache {
 
 	#[test]
 	fn update_falls_back_to_release_and_detached_signature() {
-		struct Cleanup(std::path::PathBuf);
-
-		impl Drop for Cleanup {
-			fn drop(&mut self) {
-				Config::new().reset();
-				std::fs::remove_dir_all(&self.0).ok();
-			}
-		}
-
 		let temp_dir = std::env::temp_dir().join(format!(
 			"rust-apt-release-fallback-{}-{}",
 			std::process::id(),
@@ -110,7 +146,7 @@ mod cache {
 				.unwrap()
 				.as_nanos()
 		));
-		let _cleanup = Cleanup(temp_dir.clone());
+		let _cleanup = AptTestConfig(temp_dir.clone());
 		let fixture_dir = std::path::Path::new("tests/files/release-fallback");
 		let repo = fixture_dir.join("repo").canonicalize().unwrap();
 		let lists_dir = temp_dir.join("lists");
@@ -347,6 +383,7 @@ mod cache {
 
 	#[test]
 	fn version_uris() {
+		let _config = use_package_fixture_repository();
 		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
 		// Only test the candidate.
@@ -372,16 +409,15 @@ mod cache {
 
 	#[test]
 	fn hashes() {
+		let _config = use_package_fixture_repository();
 		let cache = new_cache!().unwrap();
 		let pkg = cache.get("apt").unwrap();
-		// Apt could be installed, and the package no longer exists
-		// In the cache. For this case we grab the candidate so it won't fail.
 		let version = pkg.candidate().unwrap();
 		assert!(version.sha256().is_some());
 		assert!(version.hash("sha256").is_some());
 		assert!(version.sha512().is_none());
 		assert!(version.hash("md5sum").is_some());
-		assert!(version.hash("sha1").is_none())
+		assert!(version.hash("sha1").is_some())
 	}
 
 	#[test]

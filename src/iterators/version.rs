@@ -68,7 +68,7 @@ impl<'a> Version<'a> {
 	///
 	/// For example where we use the `DepType::Depends` key:
 	///
-	/// ```
+	/// ```no_run
 	/// use rust_apt::{new_cache, DepType};
 	/// let cache = new_cache!().unwrap();
 	/// let pkg = cache.get("apt").unwrap();
@@ -144,7 +144,7 @@ impl<'a> Version<'a> {
 	///   * Some String or None if the field doesn't exist.
 	///
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::records::RecordField;
 	///

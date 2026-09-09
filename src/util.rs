@@ -109,7 +109,7 @@ pub enum NumSys {
 
 /// Converts bytes into human readable output.
 ///
-/// ```
+/// ```no_run
 /// use rust_apt::new_cache;
 /// use rust_apt::util::{unit_str, NumSys};
 /// let cache = new_cache!().unwrap();

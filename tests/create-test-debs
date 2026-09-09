@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+# Build the generated package fixtures used by the cache tests.
+cd "$(dirname "$0")/files/cache"
+
+rm -f -- ./*.deb ./Packages*
+for package in */; do
+	dpkg-deb --build --nocheck "${package%/}"
+done
+dpkg-scanpackages --multiversion . /dev/null > Packages
+
+# Create an invalid package to exercise the error path.
+printf '\n' > pkg.deb

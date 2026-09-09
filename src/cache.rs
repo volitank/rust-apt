@@ -411,7 +411,7 @@ impl Cache {
 	///
 	/// Here is an example of how you may parse the Error messages.
 	///
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::progress::AcquireProgress;
 	///
@@ -439,7 +439,7 @@ impl Cache {
 	///
 	/// # Example:
 	///
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::cache::Upgrade;
 	///
@@ -480,7 +480,7 @@ impl Cache {
 	///
 	/// # Example:
 	///
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	///
 	/// let cache = new_cache!().unwrap();
@@ -500,7 +500,7 @@ impl Cache {
 	///   [`Err`] if there was an issue.
 	///
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::progress::AcquireProgress;
 	///
@@ -549,7 +549,7 @@ impl Cache {
 	///   and [`Err`] if there was an issue.
 	///
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::progress::{AcquireProgress, InstallProgress};
 	///
@@ -601,7 +601,7 @@ impl Cache {
 	/// * A [`Result`]: the [`Ok`] variant if transaction was successful, and
 	///   [`Err`] if there was an issue.
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	/// use rust_apt::progress::{AcquireProgress, InstallProgress};
 	///

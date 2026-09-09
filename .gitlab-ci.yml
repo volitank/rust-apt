@@ -45,6 +45,8 @@ test:
     # Run tests
     - cargo install just
     - eatmydata just check
+    # Keep the fixture generator available to packaged-crate test runners.
+    - cargo package --list | grep -Fx tests/create-test-debs
     # Docker has 0777 for everything. Deb packages need to be 0755
     - chmod 0755 -R tests/files/cache
     # Create the test .debs then run the tests

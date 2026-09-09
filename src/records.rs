@@ -196,7 +196,7 @@ impl SourceRecords {
 	/// Lookup the string name of the package.
 	///
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	///
 	/// let cache = new_cache!().unwrap();

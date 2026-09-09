@@ -54,21 +54,19 @@ mod config {
 		// Find again and it should be there.
 		assert_eq!(config.find(key, "None"), "Exists!");
 
-		// Test other find functions on known defaults.
-		assert!(!config.bool("APT::Install-Suggests", true));
-		assert_eq!(config.int("APT::Install-Suggests", 20), 0);
+		// Test the typed and path-aware find functions with stable values.
+		config.set("rust_apt::Bool", "false");
+		config.set("rust_apt::Int", "20");
+		config.set("Dir::rust_apt", "/tmp/rust-apt");
+		config.set("Dir::rust_apt::file", "fixture");
 
-		// Directory is different in CI. Just check for the name
-		assert!(
-			config
-				.file("Dir::Cache::pkgcache", "")
-				.split('/')
-				.any(|x| x == "pkgcache.bin")
-		);
+		assert!(!config.bool("rust_apt::Bool", true));
+		assert_eq!(config.int("rust_apt::Int", 0), 20);
 		assert_eq!(
-			config.dir("Dir::Etc::sourceparts", ""),
-			"/etc/apt/sources.list.d/"
+			config.file("Dir::rust_apt::file", ""),
+			"/tmp/rust-apt/fixture"
 		);
+		assert_eq!(config.dir("Dir::rust_apt", ""), "/tmp/rust-apt/");
 
 		// Check if we can set a configuration list and retrieve it.
 		// Make sure that the target vector is empty.

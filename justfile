@@ -54,22 +54,12 @@ doc:
 # Create the debs required for tests
 [private]
 @create-test-debs:
-	#!/bin/sh
-	set -e
-
-	cd tests/files/cache
-	rm -f *.deb Packages*
-	for pkg in *; do
-		dpkg-deb --build --nocheck "${pkg}";
-	done
-	dpkg-scanpackages --multiversion . /dev/null > Packages
-
-	# Create an empty garbage package to make sure it fails
-	echo "\n" > pkg.deb
+	@tests/create-test-debs
 
 # Run all tests except for root
 test +ARGS="":
 	@just create-test-debs
+	# libapt is not thread-safe, so its tests must run serially.
 	@cargo test --no-fail-fast -- --test-threads 1 --skip root --skip update {{ARGS}}
 
 # Run only the root tests. Sudo password required!

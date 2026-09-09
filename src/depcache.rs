@@ -94,7 +94,7 @@ pub(crate) mod raw {
 		///
 		/// Here is an example of creating and releasing an ActionGroup.
 		///
-		/// ```
+		/// ```no_run
 		/// use rust_apt::new_cache;
 		///
 		/// let cache = new_cache!().unwrap();

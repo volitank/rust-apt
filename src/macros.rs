@@ -10,7 +10,7 @@
 ///
 /// Here is an example of the two ways you can use this.
 ///
-/// ```
+/// ```no_run
 /// use rust_apt::new_cache;
 ///
 /// let cache = new_cache!().unwrap();

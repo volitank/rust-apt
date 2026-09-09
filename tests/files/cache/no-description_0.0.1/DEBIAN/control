@@ -3,5 +3,4 @@ Version: 0.0.1
 Section: base
 Priority: optional
 Architecture: all
-Depends: htop, python3-rich
 Maintainer: Your Name <you@email.com>

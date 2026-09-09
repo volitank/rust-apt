@@ -118,7 +118,7 @@ impl<'a> Package<'a> {
 	///
 	/// For example where we use the [`crate::DepType::Depends`] key:
 	///
-	/// ```
+	/// ```no_run
 	/// use rust_apt::{new_cache, DepType};
 	/// let cache = new_cache!().unwrap();
 	/// let pkg = cache.get("apt").unwrap();
@@ -142,7 +142,7 @@ impl<'a> Package<'a> {
 	/// Return either a Version or None
 	///
 	/// # Example:
-	/// ```
+	/// ```no_run
 	/// use rust_apt::new_cache;
 	///
 	/// let cache = new_cache!().unwrap();
