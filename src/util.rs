@@ -83,6 +83,7 @@ pub fn terminal_width() -> usize {
 /// assert_eq!(Ordering::Less, result);
 /// ```
 pub fn cmp_versions(ver1: &str, ver2: &str) -> Ordering {
+	config::init_config_system();
 	let result = raw::cmp_versions(ver1, ver2);
 	match result {
 		_ if result < 0 => Ordering::Less,

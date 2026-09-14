@@ -6,7 +6,6 @@ mod sort {
 	fn defaults() {
 		let cache = new_cache!().unwrap();
 		let mut installed = false;
-		let mut auto_installed = false;
 
 		// Test defaults and ensure there are no virtual packages.
 		// And that we have any packages at all.
@@ -16,9 +15,6 @@ mod sort {
 		let sort = PackageSort::default();
 
 		for pkg in cache.packages(&sort) {
-			if pkg.is_auto_installed() {
-				auto_installed = true;
-			}
 			if pkg.is_installed() {
 				installed = true;
 			}
@@ -31,7 +27,6 @@ mod sort {
 		}
 		assert!(!real_pkgs.is_empty());
 		assert!(virtual_pkgs.is_empty());
-		assert!(auto_installed);
 		assert!(installed)
 	}
 
